@@ -562,11 +562,11 @@ oeffentliche `/docs`), Rate Limit je IP
 (10 req/s allgemein, 2 req/s auf dem Medienpfad), Verbindungsgrenze, `client_max_body_size`
 (die API ist read-only), Upstream-Timeouts und die erlaubten Methoden.
 
-`campus-api.conf` ist eine **Referenz**, kein ausgerolltes Artefakt: Deployment bleibt
-ausdrücklich manuell (AGENTS.md §3, kein SSH aus CI). Der Punkt ist, dass eine Änderung an der
-Kante hier sichtbar wird, statt unbeobachtet vom dokumentierten Stand wegzudriften. TLS,
-Servernamen und Domains stehen bewusst **nicht** darin — sie sind ein offenes Release-Gate
-(AGENTS.md §10).
+Für die erikspace.eu-Testumgebung liegen dort ein HTTP-only-ACME-Bootstrap und zwei direkt
+installierbare finale VHosts für API und CMS. Sie enthalten die konkreten Testdomains,
+Loopback-Ports und TLS-Pfade. Das Deployment bleibt trotzdem ausdrücklich manuell
+(AGENTS.md §3, kein SSH aus CI): Änderungen an der Kante werden versioniert und anschließend
+bewusst auf dem VPS installiert, geprüft und neu geladen.
 
 ## 8. Bewusste Nicht-Entscheidungen
 

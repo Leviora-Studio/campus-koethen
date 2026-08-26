@@ -177,7 +177,7 @@ synthetisch sein können. Der Wert bleibt so lange aktiv, wie der Deployment-Sch
 **oder** noch vom kontrollierten User-Test-Seed angelegte Mensa-/Stundenplandaten existieren. Ein
 versehentlich zu früh deaktivierter Schalter kann den Hinweis daher nicht verbergen. Details zum
 Erstellen und Entfernen stehen in
-[`infrastructure/vps/README.md`](../infrastructure/vps/README.md#controlled-user-test-dataset-dev-only).
+[`infrastructure/vps/README.md`](../infrastructure/vps/README.md#controlled-user-test-dataset-test-environment-only).
 
 ## 5. Posts (News & Events)
 

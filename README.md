@@ -23,7 +23,7 @@ Dieses Projekt verwendet **keine** Logos, Wappen, Markenassets oder Designsystem
 
 ## Status
 
-**MVP in Entwicklung.** Es gibt noch kein öffentliches Deployment. Siehe [Offene Release-Gates](#offene-release-gates).
+**MVP in Entwicklung.** Es gibt noch kein öffentliches Deployment.
 
 ## Umfang des MVP
 
@@ -221,34 +221,6 @@ automatisches Deployment statt.
 Drittanbieter-Abhängigkeiten und separat lizenzierte Assets (u. a. die gebündelte Schrift
 Albert Sans unter SIL OFL 1.1 und Tabler Icons unter MIT) sind in
 [NOTICE.md](NOTICE.md) dokumentiert.
-
-## Offene Release-Gates
-
-Diese Punkte sind bewusst **nicht** erledigt und blockieren eine Veröffentlichung. Sie dürfen
-**nicht** durch erfundene Werte ersetzt werden.
-
-**Organisatorisch und rechtlich**
-
-- [x] Backend-Betreiber bestätigt: Studierendenschaft der Hochschule Anhalt, vertreten durch den Sprecherrat des Studierendenrates
-- [x] Vollständiges bilinguales Impressum in der App
-- [x] Vollständige bilinguale Datenschutzerklärung in der App
-- [x] App-Kontakt: `erik@leviora.studio`; Backend- und Redaktionskontakt: `stura@hs-anhalt.de`
-- [ ] Freigabe realer Kontaktdaten und ggf. Personenfotos (aktuell nur als Demo markierte Seeds)
-
-**Freigabe der Datenquellen**
-
-- [ ] Nutzungsfreigabe der Mensa-Datenquelle durch den Betreiber
-- [ ] Nutzungsfreigabe der WebUntis-Stundenplanquelle: Erlaubnis zur automatisierten Nutzung der internen View-API, akzeptable Abrufrate, Stabilitätszusage bzw. offizielle API, gewünschte Quellenangabe, zulässige Speicherung von Lehrpersonennamen — bis dahin bleibt `WEBUNTIS_ENABLED=false`
-- [ ] Abstimmung mit der Hochschule Anhalt über die automatisierte Nutzung der HIS-QIS- **und** HISinOne-Prüfungsportale
-- [ ] Veröffentlichungsrechte je öffentlichem Google-Kalender: Zustimmung des Inhabers, zulässiger Quellenhinweis, ob Beschreibung und Ort gezeigt werden dürfen, Verhalten bei Entzug
-- [ ] **Reale Gebäudepläne**: Herkunft, Bearbeitungs- und Veröffentlichungsrecht, Ausschluss sicherheitsrelevanter Pläne, Personenbezug und Pflegeprozess klären — bis dahin bleibt es beim fiktiven Demo-Plan ([docs/campus-map.md](docs/campus-map.md))
-
-**Technisch und betrieblich**
-
-- [ ] SMTP für Strapi-Einladungen und Passwort-Reset
-- [ ] Offsite-Backups für beide Datenbanken und Strapi-Uploads
-- [ ] PROD-Domains
-- [ ] App-Switcher-Vorschau des Notenbildschirms: bewusst offene Datenschutzentscheidung, siehe [docs/grades.md](docs/grades.md)
 
 ## Beitragen
 

@@ -1,9 +1,15 @@
-# Campus Koethen DEV on eriklabs.eu
+# Campus Koethen test environment on erikspace.eu
 # This committed file intentionally contains all non-secret values for our VPS.
-# Copy it to `.env`, set the empty credentials locally, and never commit `.env`.
+# Copy it to `.env` on the target VPS, fill the empty credentials there, and
+# never commit `.env`.
+#
+# All server-side product features available in this stack are enabled below:
+# canteen sync, WebUntis, public calendars, API documentation and the guarded
+# user-test dataset. News, contacts and room content have no feature switch;
+# they become available through Strapi as soon as editorial content exists.
 
 # --- Compose and published images -------------------------------------------
-COMPOSE_PROJECT_NAME=campus-koethen-dev
+COMPOSE_PROJECT_NAME=campus-koethen-test
 CONTAINER_PLATFORM=linux/amd64
 RESTART_POLICY=unless-stopped
 DOCKER_LOG_MAX_SIZE=10m
@@ -17,8 +23,8 @@ BACKEND_IMAGE_REPOSITORY=ghcr.io/leviora-studio/campus-koethen/backend
 CAMPUS_IMAGE_TAG=
 
 # --- Public addresses and host bindings ------------------------------------
-CMS_PUBLIC_URL=https://strapi-dev.eriklabs.eu
-API_PUBLIC_URL=https://campus-backend-dev.eriklabs.eu
+CMS_PUBLIC_URL=https://campus-test-cms.erikspace.eu
+API_PUBLIC_URL=https://campus-test-api.erikspace.eu
 
 # Nginx runs on the host and proxies these loopback-only ports.
 CMS_BIND_ADDRESS=127.0.0.1
@@ -31,10 +37,14 @@ API_CONTAINER_PORT=3000
 # The Campus app is currently native. This explicit value satisfies the
 # production allowlist without opening the API to arbitrary browser origins.
 # Add future browser frontends here, comma-separated, using their exact origins.
-CORS_ALLOWED_ORIGINS=https://campus-backend-dev.eriklabs.eu
+CORS_ALLOWED_ORIGINS=https://campus-test-api.erikspace.eu
 
 # Swagger UI at /docs. Empty means OFF here, because NODE_ENV=production.
 DOCS_ENABLED=true
+
+# Exact browser origin for Strapi Admin. Never use `*` in a production-mode
+# container.
+CMS_CORS_ALLOWED_ORIGINS=https://campus-test-cms.erikspace.eu
 
 # --- PostgreSQL -------------------------------------------------------------
 POSTGRES_IMAGE=postgres:16-alpine
@@ -46,14 +56,14 @@ POSTGRES_ADMIN_DATABASE=postgres
 # existing value when an existing PostgreSQL volume is reused.
 POSTGRES_ADMIN_PASSWORD=
 
-CMS_DATABASE_NAME=campus_cms_dev
+CMS_DATABASE_NAME=campus_cms_test
 CMS_DATABASE_USERNAME=campus_cms
 CMS_DATABASE_SCHEMA=public
 
 # Credential: generate once with `openssl rand -hex 32`.
 CMS_DATABASE_PASSWORD=
 
-APP_DATABASE_NAME=campus_app_dev
+APP_DATABASE_NAME=campus_app_test
 APP_DATABASE_USERNAME=campus_app
 APP_DATABASE_SCHEMA=public
 
@@ -66,6 +76,10 @@ BACKEND_STRAPI_BASE_URL=http://cms:1337
 STRAPI_DEFAULT_LOCALE=de
 STRAPI_TELEMETRY_DISABLED=true
 SEED_DEMO_CONTENT=false
+
+# Maximum size of one uploaded CMS file: 25 MiB.
+UPLOAD_SIZE_LIMIT_BYTES=26214400
+
 CMS_DATABASE_POOL_MIN=2
 CMS_DATABASE_POOL_MAX=10
 CMS_DATABASE_CONNECTION_TIMEOUT=60000
@@ -97,11 +111,14 @@ STRAPI_RETRY_ATTEMPTS=2
 # daylight-saving transitions. The application fallback is UTC when omitted.
 WORKER_TIME_ZONE=Europe/Berlin
 
-# This DEV deployment is intentionally used for a controlled user test. The
+# This test deployment is intentionally used for a controlled user test. The
 # app shows one global disclosure while this is true or seeded rows remain.
 USER_TEST_DATA_ENABLED=true
 
 # --- Canteen ---------------------------------------------------------------
+# Canonical meine-mensa.de endpoint. The backend appends the two configured
+# Koethen source locations: Fasanerieallee (`location_id=7`) and Lohmannstrasse
+# (`location_id=22`).
 CANTEEN_SOURCE_URL=https://meine-mensa.de/api/food_plans
 CANTEEN_HTTP_TIMEOUT_MS=15000
 CANTEEN_RETRY_ATTEMPTS=3
@@ -114,8 +131,10 @@ CANTEEN_STALE_AFTER_MINUTES=240
 CANTEEN_SYNC_DAYS_AHEAD=14
 
 # --- WebUntis --------------------------------------------------------------
-# Enabled deliberately for the eriklabs.eu DEV deployment. The worker performs
-# an initial synchronization whenever it starts and then follows the cron jobs.
+# Anonymous Hochschule Anhalt public-view API. The backend appends `/app/data`,
+# `/timetable/filter` and `/timetable/entries` and sends `anonymous-school: hsa`.
+# The worker performs an initial synchronization whenever it starts and then
+# follows the cron jobs.
 WEBUNTIS_ENABLED=true
 WEBUNTIS_BASE_URL=https://hsa.webuntis.com/WebUntis/api/rest/view/v1
 WEBUNTIS_ANONYMOUS_SCHOOL=hsa
@@ -132,7 +151,9 @@ WEBUNTIS_STALE_AFTER_MINUTES=180
 
 # --- Public Google calendars via public ICS -------------------------------
 # No Google credential is required. Public calendar definitions are maintained
-# in Strapi; the worker synchronizes their catalogue and events when it starts.
+# in Strapi. From each public Google share URL, the backend constructs the fixed
+# `https://calendar.google.com/calendar/ical/{ID}/public/basic.ics` feed itself;
+# no configurable or user-supplied feed base URL belongs in this environment.
 PUBLIC_CALENDAR_ENABLED=true
 PUBLIC_CALENDAR_HTTP_TIMEOUT_MS=20000
 PUBLIC_CALENDAR_RETRY_ATTEMPTS=2
@@ -150,9 +171,10 @@ PUBLIC_CALENDAR_LOOKBACK_DAYS=30
 PUBLIC_CALENDAR_LOOKAHEAD_DAYS=180
 PUBLIC_CALENDAR_STALE_AFTER_MINUTES=720
 PUBLIC_CALENDAR_FALLBACK_TIME_ZONE=Europe/Berlin
-PUBLIC_CALENDAR_USER_AGENT="CampusKoethen/0.1.0 (+https://campus-backend-dev.eriklabs.eu)"
+PUBLIC_CALENDAR_USER_AGENT="CampusKoethen/0.1.0 (+https://campus-test-api.erikspace.eu)"
 PUBLIC_CALENDAR_API_MAX_CALENDARS=50
 PUBLIC_CALENDAR_API_MAX_RANGE_DAYS=120
+PUBLIC_CALENDAR_API_MAX_EVENTS=2000
 
 # --- Logging ---------------------------------------------------------------
 LOG_LEVEL=info

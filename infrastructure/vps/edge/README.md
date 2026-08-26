@@ -1,70 +1,163 @@
-## Was hier steht und warum
+# Nginx for the erikspace.eu test deployment
 
-Die Campus API ist **öffentlich und unauthentifiziert**. Ihre Eingabegrenzen
-sind eng gezogen — `pageSize` maximal 50, höchstens 25 Filterwerte, begrenzte
-Datumsbereiche, gedeckelte Ergebnismengen —, aber die _Kosten pro Anfrage_
-bleiben unbegrenzt oft abrufbar. Zwei Pfade sind dabei die teuersten:
+This directory contains the complete Nginx configuration for the two test
+domains. The final virtual hosts contain no placeholders and can be installed
+unchanged on a standard Debian/Ubuntu Nginx installation whose
+`/etc/nginx/conf.d/*.conf` files are included inside the `http` block.
 
-- `GET /v1/media/uploads/:filename` — bis 12 MB pro Anfrage, die der
-  API-Prozess aus Strapi holt und weiterreicht.
-- `GET /v1/calendars/events` — bis 2000 Termine über bis zu 50 Kalender.
+## Files
 
-Ein Rate Limit im Node-Prozess würde erst greifen, nachdem die Anfrage ihn
-bereits beschäftigt. An der Kante ist es billiger. Die Kante — Nginx auf dem
-Host, TLS-Terminierung außerhalb von Docker — lag bisher **nicht** im
-Repository: es gab keinen versionierten Vertrag darüber, welche Pfade nach außen
-dürfen, wie groß ein Request-Body sein darf, welche Timeouts gelten und ob
-überhaupt gedrosselt wird.
+- `campus-test-acme-bootstrap.conf` — temporary HTTP-only host used to obtain
+  the first Let's Encrypt certificate;
+- `campus-test-api.erikspace.eu.conf` — final public API host, including TLS,
+  redirects, rate limits and a default-deny route policy;
+- `campus-test-cms.erikspace.eu.conf` — final Strapi host, including TLS,
+  redirects and the 30 MiB edge limit for the configured 25 MiB CMS upload
+  limit.
 
-Diese Datei ist dieser Vertrag. `campus-api.conf` ist eine **Referenz**, kein
-ausgerolltes Artefakt: das Deployment ist ausdrücklich manuell
-(`../README.md`), und aus diesem Repository heraus wird nichts deployed. Wer die
-Kante ändert, ändert sie hier mit — sonst driftet der Betrieb wieder
-unbeobachtet vom dokumentierten Stand weg.
+Do not install the bootstrap and final files at the same time. They define the
+same port-80 server names.
 
-## Verbindliche Zusagen
+Remove an older installed `campus-api.conf` before enabling the final API file.
+Keeping both would define the same rate-limit zones twice and make `nginx -t`
+fail. The repository no longer contains that placeholder-based predecessor.
 
-| Zusage                 | Wert                                             | Warum                                                                                               |
-| ---------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Erreichbare Pfade      | `/v1/`, `/health/live`, `/health/ready`, `/docs` | Default-Deny. Alles andere ist von außen nicht erreichbar. `/docs` ist bewusst offen (siehe unten). |
-| Rate Limit (allgemein) | 10 req/s pro IP, Burst 20                        | Deutlich über realer App-Nutzung, weit unter dem, was eine Schleife erzeugt.                        |
-| Rate Limit (Medien)    | 2 req/s pro IP, Burst 10                         | Der teuerste Pfad: bis 12 MB je Anfrage durch den API-Prozess.                                      |
-| Rate Limit (`/docs`)   | 5 req/s pro IP, Burst 15                         | HTML plus Assets, von einem Menschen gelesen — kein Pfad, den eine App pollt.                       |
-| Gleichzeitige Verb.    | 20 pro IP                                        | Begrenzt Slow-Read-Verhalten, das ein reines Ratenlimit nicht sieht.                                |
-| `client_max_body_size` | 1 KB                                             | Die API ist **read-only**; es gibt keinen Endpunkt, der einen Body entgegennimmt.                   |
-| Upstream-Timeouts      | 10 s connect, 30 s read/send                     | Über dem Strapi-Timeout der API (10 s) plus Retries, unter einer hängenden Verbindung.              |
-| Erlaubte Methoden      | `GET`, `HEAD`, `OPTIONS`                         | Die API kennt keine anderen. Ein 405 an der Kante ist billiger als einer im Node-Prozess.           |
+## Prerequisites
 
-`/docs` (Swagger UI) und `/docs-json` sind **bewusst öffentlich** — Entscheidung
-Erik, LEVIORA-180: die API ist ein öffentlicher, read-only Vertrag, die Seite,
-die ihn dokumentiert, gehört damit ebenfalls in die Öffentlichkeit. Zwei Dinge
-müssen dafür zusammenpassen: `DOCS_ENABLED=true` im Backend (sonst existiert der
-Pfad gar nicht) **und** die Freigabe an der Kante. Der Präfix-Match ist nötig,
-weil Swagger UI Bundle und Stylesheet unterhalb von `/docs/` nachlädt.
+Before requesting the certificate:
 
-Das CMS (`:3020`) gehört **nicht** hinter dieselbe öffentliche Route. Es ist
-ein Admin-Panel; es gehört hinter eine getrennte, zugriffsbeschränkte Adresse
-oder gar nicht ins öffentliche Netz.
-
-## Was hier bewusst NICHT steht
-
-- **Keine TLS-/Zertifikatskonfiguration.** Die gehört zur Hostinstallation, ist
-  je Umgebung anders und enthält Pfade zu Schlüsseln.
-- **Keine Servernamen und keine Domains.** Die sind ein offenes Release-Gate
-  (AGENTS.md §10) und werden hier nicht erfunden.
-- **Kein Deployment.** Kein SSH, kein Automatismus, kein Server-Secret im
-  Repository (AGENTS.md §3).
-
-## Prüfen
+1. `campus-test-api.erikspace.eu` and `campus-test-cms.erikspace.eu` must resolve
+   directly to the VPS;
+2. TCP ports 80 and 443 must be reachable;
+3. ports 3020, 3021 and 5432 must remain private. Compose binds CMS and API to
+   `127.0.0.1` already;
+4. install Nginx and Certbot with the distribution packages;
+5. create the persistent ACME webroot used by initial issuance and renewal.
 
 ```bash
-# Syntax gegen die eingesetzte Nginx-Version, ohne etwas zu laden:
-nginx -t -c /etc/nginx/nginx.conf
-
-# Greift das Limit wirklich? 30 schnelle Anfragen; erwartet werden 429er:
-for i in $(seq 1 30); do curl -s -o /dev/null -w '%{http_code} ' "https://<host>/v1/canteens"; done; echo
+sudo install -d -o root -g root -m 0755 /var/www/letsencrypt
 ```
 
-Bleibt der zweite Befehl durchgehend bei `200`, ist die Konfiguration **nicht**
-aktiv — dann ist die Zusage oben nicht eingelöst, egal was in dieser Datei
-steht.
+The configuration assumes direct DNS. If another reverse proxy such as
+Cloudflare is placed in front of Nginx, configure and verify trusted real-IP
+handling before relying on the per-client rate limits.
+
+## First certificate and installation
+
+Copy all three files to a temporary directory on the VPS. Install only the
+bootstrap first:
+
+```bash
+sudo install -o root -g root -m 0644 \
+  campus-test-acme-bootstrap.conf \
+  /etc/nginx/conf.d/campus-test-acme-bootstrap.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Obtain one certificate containing both test domains under the predictable
+certificate name used by both final virtual hosts:
+
+```bash
+sudo certbot certonly \
+  --webroot \
+  --webroot-path /var/www/letsencrypt \
+  --cert-name campus-koethen-test \
+  -d campus-test-api.erikspace.eu \
+  -d campus-test-cms.erikspace.eu
+```
+
+The certificate must now exist at:
+
+```text
+/etc/letsencrypt/live/campus-koethen-test/fullchain.pem
+/etc/letsencrypt/live/campus-koethen-test/privkey.pem
+```
+
+Replace the bootstrap with the final virtual hosts:
+
+```bash
+sudo rm /etc/nginx/conf.d/campus-test-acme-bootstrap.conf
+sudo install -o root -g root -m 0644 \
+  campus-test-api.erikspace.eu.conf \
+  /etc/nginx/conf.d/campus-test-api.erikspace.eu.conf
+sudo install -o root -g root -m 0644 \
+  campus-test-cms.erikspace.eu.conf \
+  /etc/nginx/conf.d/campus-test-cms.erikspace.eu.conf
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot renew --dry-run
+```
+
+The port-80 blocks in the final files keep the ACME webroot reachable for
+automatic renewal and redirect all other requests to HTTPS.
+
+For later application deployments, copy the two final files only when their
+contents changed. A normal container rollout does not require an Nginx reload
+because ports and domains remain stable.
+
+## API edge contract
+
+The API is public and unauthenticated, so its final host applies these limits
+before a request reaches Node:
+
+| Promise                | Value                                             |
+| ---------------------- | ------------------------------------------------- |
+| Public paths           | `/v1/`, `/health/live`, `/health/ready`, `/docs*` |
+| Every other path       | `404`                                             |
+| General rate limit     | 10 requests/s per IP, burst 20                    |
+| Media rate limit       | 2 requests/s per IP, burst 10                     |
+| Documentation limit    | 5 requests/s per IP, burst 15                     |
+| Concurrent connections | 20 per IP                                         |
+| Request body           | maximum 1 KiB; the public API is read-only        |
+| Allowed methods        | `GET`, `HEAD`, `OPTIONS`                          |
+| Upstream               | `http://127.0.0.1:3021`                           |
+
+`/docs` and `/docs-json` are intentionally public because the API is a public
+read-only contract. `DOCS_ENABLED=true` in the deployment environment must
+remain aligned with that edge decision.
+
+## CMS edge contract
+
+The CMS host forwards to `http://127.0.0.1:3020`. It deliberately adds no HTTP
+Basic Auth: Strapi Admin provides its own login, and the Strapi content API has
+no anonymous public role. The backend does not use the public CMS domain; it
+connects over the internal Compose network with its server-side read-only
+token.
+
+Nginx accepts at most 30 MiB per request, leaving multipart overhead for the
+CMS limit `UPLOAD_SIZE_LIMIT_BYTES=26214400` (25 MiB). Larger uploads are
+rejected at the edge before they reach Strapi.
+
+## Verification
+
+After the containers and Nginx are running:
+
+```bash
+curl -I http://campus-test-api.erikspace.eu/health/ready
+curl -I http://campus-test-cms.erikspace.eu/_health
+curl -i https://campus-test-api.erikspace.eu/health/ready
+curl -i https://campus-test-cms.erikspace.eu/_health
+curl -i https://campus-test-api.erikspace.eu/
+```
+
+Expected results:
+
+- both HTTP requests redirect to HTTPS;
+- API readiness returns `200`;
+- CMS health returns `204`;
+- the API root returns `404` because it is not on the allowlist.
+
+Finally, verify that the API rate limit is really active:
+
+```bash
+for i in $(seq 1 40); do
+  curl -s -o /dev/null -w '%{http_code} ' \
+    https://campus-test-api.erikspace.eu/v1/canteens
+done
+echo
+```
+
+The burst must eventually contain `429` responses. A sequence containing only
+`200` responses means the edge limits are not active or the requests were too
+slow to exceed them.

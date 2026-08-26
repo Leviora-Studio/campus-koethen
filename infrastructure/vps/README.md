@@ -11,7 +11,7 @@ deployments remain manual. See `docs/architecture.md` §7.1.
 
 ## Files needed on the VPS
 
-Only two files are required at runtime:
+Only two files are required for the Compose application runtime:
 
 ```text
 compose.yaml
@@ -22,37 +22,68 @@ The database bootstrap is embedded in `compose.yaml`. PostgreSQL data and
 Strapi uploads live in named Docker volumes. Nginx and TLS termination remain
 outside Docker and forward to the loopback ports configured in `.env`.
 
-What that Nginx is expected to enforce — rate limits, body size, timeouts and
-which paths are reachable from outside at all — is written down in
-[`edge/README.md`](edge/README.md), with a reference configuration next to it.
-It is not deployed from here; it exists so a change at the edge is visible in
-the repository instead of living only on the host.
+The host additionally needs the two final, directly installable Nginx virtual
+hosts in [`edge/`](edge/README.md). They contain the concrete erikspace.eu test
+domains, loopback ports, TLS certificate path, rate limits and upload limits.
+The same directory contains a temporary HTTP-only bootstrap host and exact
+instructions for obtaining the first Let's Encrypt certificate. Nginx remains
+a manual host-level deployment; Compose does not install or reload it.
 
 `generate-env-secrets.sh` is an optional first-install helper. It fills only
 empty credential assignments in `.env`, never prints their values and never
 overwrites an existing value. The running stack does not need the script.
 
-`manage-user-test-data.sh` is an optional, guarded helper for a controlled DEV
-user test. It previews, refreshes or removes only the synthetic Mensa and
+`manage-user-test-data.sh` is an optional, guarded helper for a controlled user
+test. It previews, refreshes or removes only the synthetic Mensa and
 timetable rows owned by the `user-test` source. The app discloses the test
 environment globally; individual cards keep natural labels.
 
-Use `.env.example` for a new installation. For the existing eriklabs.eu DEV
-layout, copy `.env.eriklabs-dev.example` to `.env` and fill the empty secrets
-only on the VPS.
+Use `.env.example` for a generic new installation. For the Campus Koethen test
+environment at `erikspace.eu`, copy `campus-test-api.example` to `.env`; it
+already contains the public API and CMS domains. Fill its empty secrets only on
+the VPS.
+
+The test template deliberately enables every server-side product feature in
+this stack: canteen synchronization, WebUntis, public calendars, API
+documentation and the guarded user-test dataset. News, contacts and rooms are
+always served from Strapi and have no separate enable switch. Mail, grades,
+Moodle and requests remain direct device integrations by design and therefore
+have no VPS feature flag. `SEED_DEMO_CONTENT` stays off because sample-content
+seeding is not a product feature and is forbidden in the production-mode CMS
+container.
+
+The test template contains the concrete public source configuration used by the
+worker:
+
+- `https://meine-mensa.de/api/food_plans`, with the two versioned Koethen
+  location IDs 7 (Fasanerieallee) and 22 (Lohmannstrasse);
+- `https://hsa.webuntis.com/WebUntis/api/rest/view/v1`, with the anonymous
+  Hochschule Anhalt school identifier `hsa`;
+- public Google calendar share URLs maintained in Strapi. Their fixed public
+  ICS feed URLs are constructed server-side and are deliberately not an
+  environment variable.
+
+`WEBUNTIS_ENABLED=true` performs real automated requests to the public-view
+interface. Keep it enabled only for a test whose use of that upstream has been
+organizationally cleared.
 
 ## Download without cloning the repository
 
 Create an empty deployment directory on the VPS and download the two runtime
-files plus the optional, non-secret bootstrap helper:
+files, the optional non-secret helpers and the complete Nginx setup:
 
 ```bash
-mkdir -p /root/dev/docker/campus
-cd /root/dev/docker/campus
+mkdir -p /root/test/docker/campus
+cd /root/test/docker/campus
+mkdir -p edge
 curl -fsSLO https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/compose.yaml
-curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/.env.eriklabs-dev.example -o .env
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/campus-test-api.example -o .env
 curl -fsSLO https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/generate-env-secrets.sh
 curl -fsSLO https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/manage-user-test-data.sh
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/README.md -o edge/README.md
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-test-acme-bootstrap.conf -o edge/campus-test-acme-bootstrap.conf
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-test-api.erikspace.eu.conf -o edge/campus-test-api.erikspace.eu.conf
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-test-cms.erikspace.eu.conf -o edge/campus-test-cms.erikspace.eu.conf
 chmod 600 .env
 chmod 700 generate-env-secrets.sh
 chmod 700 manage-user-test-data.sh
@@ -61,6 +92,12 @@ chmod 700 manage-user-test-data.sh
 If the repository is private, copy the files over an authenticated channel
 instead (for example with `gh`, `scp`, or curl with a private token header). Do
 not place a GitHub token in a public URL or shell history.
+
+Before the public verification, prepare DNS, ports 80/443, Nginx and the first
+TLS certificate exactly as described in [`edge/README.md`](edge/README.md).
+That is a one-time host setup. Start with the ACME bootstrap file and replace it
+with the two final virtual hosts after Certbot has issued the shared
+certificate.
 
 Generate all first-install database and Strapi credentials locally on the VPS:
 
@@ -82,7 +119,11 @@ docker compose config --quiet
 ```
 
 If the GHCR packages are private, authenticate Docker to `ghcr.io` once on the
-VPS using a dedicated fine-grained token with read access to packages:
+VPS using a dedicated personal access token (classic) with only the
+`read:packages` scope. GitHub currently requires a classic token for GitHub
+Packages authentication; authorize it for the organization as well if SSO is
+enforced. See GitHub's
+[Container registry authentication documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic).
 
 ```bash
 echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
@@ -106,6 +147,40 @@ Create the first Strapi administrator at the configured CMS URL. Then create a
 server-side read-only API token, put it into `STRAPI_API_TOKEN` in `.env`, and
 keep Strapi content unavailable without an API token.
 
+## Room catalogue bootstrap
+
+The CMS image already contains the validated technical room catalogue from
+`packages/campus-map`. Compose does not write that catalogue into Strapi during
+startup: changing a live editorial database remains an explicit, reviewable
+operation. The secret helper and `db-init` do not perform this sync either.
+
+Once `docker compose ps --all` reports the CMS as healthy, preview the exact
+changes without writing anything:
+
+```bash
+docker compose exec cms node dist/scripts/rooms-sync.js --dry-run
+```
+
+Review the reported create, update and deactivate counts. If the plan is
+correct, apply it and immediately verify idempotency with another dry run:
+
+```bash
+docker compose exec cms node dist/scripts/rooms-sync.js
+docker compose exec cms node dist/scripts/rooms-sync.js --dry-run
+```
+
+The final dry run should report zero creates, updates and deactivations. The
+sync creates new catalogue rooms, refreshes catalogue-managed labels and
+deactivates rooms that disappeared; it never deletes rooms and never overwrites
+editorial display names, descriptions, visibility or contact relations. An
+invalid catalogue aborts before any CMS write.
+
+The map geometry remains bundled in the mobile app independently of this
+operation. Without the Strapi sync, the map can still render, but `/v1/rooms`,
+room search and room/contact links have no room rows to expose. Repeat the
+review-and-apply sequence after deploying an image whose campus-map catalogue
+changed.
+
 Apply the committed application migrations and start API and worker:
 
 ```bash
@@ -119,21 +194,21 @@ The host reverse proxy should now forward the configured public CMS URL to
 `API_BIND_ADDRESS:API_HOST_PORT`.
 
 All worker cron expressions are evaluated in `WORKER_TIME_ZONE`. The generic
-configuration uses `UTC`; the eriklabs.eu DEV configuration deliberately uses
+configuration uses `UTC`; the erikspace.eu test configuration deliberately uses
 `Europe/Berlin`, including its daylight-saving transitions. Invalid IANA zone
 names make the backend fail configuration validation instead of silently using
 the host timezone.
 
 ## Verify
 
-With the eriklabs.eu defaults:
+With the erikspace.eu test defaults:
 
 ```bash
 curl -i http://127.0.0.1:3020/_health
 curl -i http://127.0.0.1:3021/health/live
 curl -i http://127.0.0.1:3021/health/ready
-curl -i https://strapi-dev.eriklabs.eu/_health
-curl -i https://campus-backend-dev.eriklabs.eu/health/ready
+curl -i https://campus-test-cms.erikspace.eu/_health
+curl -i https://campus-test-api.erikspace.eu/health/ready
 docker compose ps --all
 docker compose logs --since=10m --tail=200 cms api worker
 ```
@@ -142,18 +217,10 @@ Expected HTTP statuses are 204 for the CMS health endpoint and 200 for both API
 health endpoints. `db-init` should be exited with status 0; it is a successful
 one-off service, not a daemon.
 
-After the campus-map image is deployed, review and apply the idempotent room
-catalogue sync:
-
-```bash
-docker compose exec cms node dist/scripts/rooms-sync.js --dry-run
-docker compose exec cms node dist/scripts/rooms-sync.js
-```
-
-## Controlled user-test dataset (DEV only)
+## Controlled user-test dataset (test environment only)
 
 Set `USER_TEST_DATA_ENABLED=true` only on the temporary deployment used for the
-user test. The eriklabs.eu DEV example already opts in. The flag both unlocks
+user test. The erikspace.eu test example already opts in. The flag both unlocks
 the write operation and makes `GET /v1/environment` advertise the deployment,
 which displays the global bilingual disclosure in the app.
 
@@ -194,6 +261,10 @@ docker compose pull cms api worker migrate
 docker compose stop api worker
 docker compose --profile migrate run --rm migrate
 docker compose up -d cms
+# Wait until the CMS is healthy, then review before applying.
+docker compose exec cms node dist/scripts/rooms-sync.js --dry-run
+docker compose exec cms node dist/scripts/rooms-sync.js
+docker compose exec cms node dist/scripts/rooms-sync.js --dry-run
 docker compose up -d api worker
 docker compose ps --all
 ```
