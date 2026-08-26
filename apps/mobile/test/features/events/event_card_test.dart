@@ -95,10 +95,10 @@ void main() {
     expect(find.text('Mehr anzeigen'), findsNothing);
   });
 
-  testWidgets('leaves a calendar-only source label unchanged', (
+  testWidgets('leaves a calendar source unchanged even when it has a channel', (
     WidgetTester tester,
   ) async {
-    await _pumpCard(tester, _calendarEvent(channelSlug: null));
+    await _pumpCard(tester, _calendarEvent());
 
     expect(find.text('StuRa-Termine'), findsOneWidget);
     expect(find.text('@StuRa-Termine'), findsNothing);

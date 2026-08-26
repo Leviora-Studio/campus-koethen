@@ -161,7 +161,7 @@ Future<ProviderContainer> _pumpOverview(
 
 void main() {
   group('overview states', () {
-    testWidgets('renders the visible events with title and source', (
+    testWidgets('renders a linked calendar event without an @ source marker', (
       WidgetTester tester,
     ) async {
       await _pumpOverview(tester, events: <UnifiedEvent>[_event()]);
@@ -169,8 +169,31 @@ void main() {
 
       expect(find.text('Events'), findsWidgets);
       expect(find.text('Sommerfest'), findsOneWidget);
-      expect(find.text('@Campus Events'), findsWidgets);
+      expect(find.text('Campus Events'), findsWidgets);
+      expect(find.text('@Campus Events'), findsNothing);
       expect(find.byType(EmptyView), findsNothing);
+    });
+
+    testWidgets('renders a post event with an @ channel source marker', (
+      WidgetTester tester,
+    ) async {
+      await _pumpOverview(
+        tester,
+        events: <UnifiedEvent>[
+          UnifiedEvent(
+            eventRef: 'post:summer-party',
+            kind: UnifiedEventKind.postEvent,
+            title: 'Sommerfest als Post',
+            start: _now.add(const Duration(days: 1)),
+            channelSlug: 'campus-events',
+            sourceLabel: 'Campus Events',
+            postSlug: 'summer-party',
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('@Campus Events'), findsOneWidget);
     });
 
     testWidgets('shows the loading view while both sources are still pending', (

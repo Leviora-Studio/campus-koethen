@@ -158,7 +158,10 @@ final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
           options.add(
             EventSourceOption(
               key: channel.slug,
-              label: eventSourceDisplayLabel(channel.name, isChannel: true),
+              label: eventSourceDisplayLabel(
+                channel.name,
+                isChannelSource: true,
+              ),
             ),
           );
         }

@@ -139,7 +139,7 @@ CalendarEntry savedEventSnapshotToCalendarEntry(SavedEventSnapshot snapshot) =>
           ? null
           : eventSourceDisplayLabel(
               snapshot.sourceLabel!,
-              isChannel: snapshot.channelSlug != null,
+              isChannelSource: snapshot.kind == UnifiedEventKind.postEvent,
             ),
     );
 

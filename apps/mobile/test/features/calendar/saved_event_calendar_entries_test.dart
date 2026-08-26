@@ -54,21 +54,42 @@ void main() {
       expect(out, isEmpty);
     });
 
-    test('a saved channel event gets an @ source label in the calendar', () {
+    test(
+      'a saved calendar event stays unprefixed despite its linked channel',
+      () {
+        final List<CalendarEntry> out = savedEventEntriesForCalendar(
+          saved: <SavedEventSnapshot>[
+            _saved(
+              eventRef: 'calendar:key1',
+              channelSlug: 'campus-events',
+              sourceLabel: 'Campus Events',
+            ),
+          ],
+          liveEntries: const <CalendarEntry>[],
+          channelSlugByCalendarSlug: const <String, String?>{},
+        );
+        expect(out, hasLength(1));
+        expect(out.single.source, CalendarSource.savedEvents);
+        expect(out.single.id, 'savedEvent:calendar:key1');
+        expect(out.single.sourceLabel, 'Campus Events');
+      },
+    );
+
+    test('a saved post event keeps the @ channel marker in the calendar', () {
       final List<CalendarEntry> out = savedEventEntriesForCalendar(
         saved: <SavedEventSnapshot>[
           _saved(
-            eventRef: 'calendar:key1',
+            eventRef: 'post:summer-party',
+            kind: UnifiedEventKind.postEvent,
             channelSlug: 'campus-events',
+            calendarSlug: null,
             sourceLabel: 'Campus Events',
           ),
         ],
         liveEntries: const <CalendarEntry>[],
         channelSlugByCalendarSlug: const <String, String?>{},
       );
-      expect(out, hasLength(1));
-      expect(out.single.source, CalendarSource.savedEvents);
-      expect(out.single.id, 'savedEvent:calendar:key1');
+
       expect(out.single.sourceLabel, '@Campus Events');
     });
 

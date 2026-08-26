@@ -260,7 +260,10 @@ class _WhenAndSource extends StatelessWidget {
     final String? source = event.sourceLabel;
     final String? displaySource = source == null
         ? null
-        : eventSourceDisplayLabel(source, isChannel: event.channelSlug != null);
+        : eventSourceDisplayLabel(
+            source,
+            isChannelSource: event.kind == UnifiedEventKind.postEvent,
+          );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
