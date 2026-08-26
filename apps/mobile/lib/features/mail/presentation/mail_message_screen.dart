@@ -16,6 +16,7 @@ import '../../../l10n/l10n.dart';
 import '../application/mail_account_controller.dart';
 import '../application/mail_folders.dart';
 import '../application/mail_inbox_controller.dart';
+import '../domain/mail_failure.dart';
 import '../domain/mail_message.dart';
 import 'compose_draft.dart';
 import 'mail_attachment_view.dart';
@@ -99,18 +100,26 @@ class MailMessageScreen extends ConsumerWidget {
             label: Text(l10n.mailRetry),
           ),
         ),
-        data: (MailMessageDetail detail) =>
-            _MessageBody(detail: detail, locale: locale),
+        data: (MailMessageDetail detail) => _MessageBody(
+          detail: detail,
+          locale: locale,
+          messageRef: messageRef,
+        ),
       ),
     );
   }
 }
 
 class _MessageBody extends StatelessWidget {
-  const _MessageBody({required this.detail, required this.locale});
+  const _MessageBody({
+    required this.detail,
+    required this.locale,
+    required this.messageRef,
+  });
 
   final MailMessageDetail detail;
   final String locale;
+  final MailMessageRef messageRef;
 
   @override
   Widget build(BuildContext context) {
@@ -152,11 +161,10 @@ class _MessageBody extends StatelessWidget {
             child: Text(l10n.mailAttachmentsTitle, style: text.titleMedium),
           ),
           const SizedBox(height: AppSpacing.sm),
-          for (final MailAttachment attachment in detail.attachments)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: MailAttachmentView(attachment: attachment),
-            ),
+          _AttachmentList(
+            messageRef: messageRef,
+            attachments: detail.attachments,
+          ),
         ],
         const SizedBox(height: AppSpacing.xl),
         _NoticeBanner(
@@ -167,6 +175,62 @@ class _MessageBody extends StatelessWidget {
       ],
     );
   }
+}
+
+class _AttachmentList extends ConsumerStatefulWidget {
+  const _AttachmentList({required this.messageRef, required this.attachments});
+
+  final MailMessageRef messageRef;
+  final List<MailAttachment> attachments;
+
+  @override
+  ConsumerState<_AttachmentList> createState() => _AttachmentListState();
+}
+
+class _AttachmentListState extends ConsumerState<_AttachmentList> {
+  late List<MailAttachment> _attachments = widget.attachments;
+  Future<MailMessageDetail>? _activeDownload;
+
+  @override
+  void didUpdateWidget(_AttachmentList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachments != widget.attachments) {
+      _attachments = widget.attachments;
+    }
+  }
+
+  Future<MailAttachment> _download(int index) async {
+    final Future<MailMessageDetail> request = _activeDownload ??= ref
+        .read(mailInboxControllerProvider.notifier)
+        .downloadAttachments(widget.messageRef);
+    try {
+      final MailMessageDetail detail = await request;
+      if (index >= detail.attachments.length) {
+        throw const MailFailure(MailFailureKind.protocol);
+      }
+      if (mounted) setState(() => _attachments = detail.attachments);
+      return detail.attachments[index];
+    } finally {
+      if (identical(_activeDownload, request)) _activeDownload = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: <Widget>[
+      for (final (int index, MailAttachment attachment) in _attachments.indexed)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: MailAttachmentView(
+            key: ValueKey<String>(
+              '${widget.messageRef.mailboxPath}/${widget.messageRef.id}/$index',
+            ),
+            attachment: attachment,
+            onDownload: () => _download(index),
+          ),
+        ),
+    ],
+  );
 }
 
 class _NoticeBanner extends StatelessWidget {

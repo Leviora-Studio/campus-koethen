@@ -25,6 +25,15 @@ final Provider<MailGateway> mailGatewayProvider = Provider<MailGateway>(
   (Ref ref) => EnoughMailGateway(ref.watch(hsaMailProfileProvider)),
 );
 
+/// Last-resort UI boundary for a sign-in verification.
+///
+/// The concrete gateway applies tighter protocol timeouts and closes its
+/// sockets. This outer limit protects the setup screen even if a future gateway
+/// implementation accidentally returns a Future that never completes.
+final Provider<Duration> mailSignInTimeoutProvider = Provider<Duration>(
+  (Ref ref) => const Duration(seconds: 30),
+);
+
 /// Offline mail cache. Overridden in `main()` with the Hive-backed store and in
 /// tests with an in-memory one; the default keeps widget tests off the disk.
 final Provider<MailCacheStore> mailCacheStoreProvider =

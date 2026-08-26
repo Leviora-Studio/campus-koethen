@@ -4,7 +4,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:campus_koethen/core/documents/document_viewer_screen.dart';
 import 'package:campus_koethen/core/links/safe_link_launcher.dart';
+import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/features/mail/application/mail_providers.dart';
 import 'package:campus_koethen/features/mail/data/mail_attachment_picker.dart';
 import 'package:campus_koethen/features/mail/data/mail_cache.dart';
@@ -192,6 +194,26 @@ void main() {
       expect(find.text('E-Mail-Adresse'), findsOneWidget);
     });
 
+    testWidgets('offers automatic attachment downloads during mail setup', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final container = await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(FakeMailGateway(), InMemoryMailCredentialStore()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Anhänge herunterladen'), findsOneWidget);
+      expect(container.read(settingsProvider).mailDownloadAttachments, isFalse);
+
+      await tester.tap(find.text('Anhänge herunterladen'));
+      await tester.pumpAndSettle();
+
+      expect(container.read(settingsProvider).mailDownloadAttachments, isTrue);
+    });
+
     testWidgets('shows the cached inbox when an account is stored', (
       WidgetTester tester,
     ) async {
@@ -298,9 +320,43 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Verbindung wird geprüft …'), findsOneWidget);
 
       gateway.verifyGate!.complete();
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('a stalled verification releases the form with a timeout', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final gateway = FakeMailGateway(verifyGate: Completer<void>());
+      final store = InMemoryMailCredentialStore();
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'stud@hs-anhalt.de',
+      );
+      await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+      await tester.tap(find.text('Verbindung prüfen und anmelden'));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 31));
+      await tester.pump();
+
+      expect(
+        find.text('Zeitüberschreitung bei der Verbindung zum Mailserver.'),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(store.writes, 0);
     });
 
     testWidgets('a distinguishable error is shown and allows a retry', (
@@ -494,6 +550,67 @@ void main() {
         // The image is shown automatically without a manual load step.
         expect(find.text('Bild laden'), findsNothing);
         expect(find.byType(Image), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'downloads a missing attachment on demand, caches it and opens it',
+      (WidgetTester tester) async {
+        final store = InMemoryMailCredentialStore()..write(_creds);
+        final cache = MemoryMailCache();
+        await cache.saveMessage(
+          const MailMessageDetail(
+            id: '1',
+            subject: 'Unterlagen',
+            from: MailAddress(email: 'alice@hs-anhalt.de', name: 'Alice'),
+            to: <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+            date: null,
+            body: 'Im Anhang.',
+            attachments: <MailAttachment>[
+              MailAttachment(
+                filename: 'hinweise.txt',
+                mediaType: 'text/plain',
+                sizeBytes: 3,
+              ),
+            ],
+          ),
+        );
+        final downloaded = Uint8List.fromList(<int>[65, 66, 67]);
+        final gateway = FakeMailGateway(
+          detail: MailMessageDetail(
+            id: '1',
+            subject: 'Unterlagen',
+            from: const MailAddress(email: 'alice@hs-anhalt.de', name: 'Alice'),
+            to: const <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+            date: null,
+            body: 'Im Anhang.',
+            attachments: <MailAttachment>[
+              MailAttachment(
+                filename: 'hinweise.txt',
+                mediaType: 'text/plain',
+                sizeBytes: downloaded.length,
+                bytes: downloaded,
+              ),
+            ],
+          ),
+        );
+
+        await pumpScreen(
+          tester,
+          const MailMessageScreen(id: '1'),
+          overrides: _mail(gateway, store, cache: cache),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('hinweise.txt'));
+        await tester.pumpAndSettle();
+
+        expect(gateway.lastIncludeAttachmentBytes, isTrue);
+        expect(find.byType(DocumentViewerScreen), findsOneWidget);
+        expect(
+          (await cache.readMessage('1'))!.attachments.single.bytes,
+          downloaded,
+        );
       },
     );
 

@@ -11,6 +11,10 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
     `25`/`465`/Klartext; Abbruch, wenn der Server STARTTLS nicht anbietet).
 - Zertifikats- **und** Hostname-Prüfung sind aktiv. `allowBadCertificates` wird
   **nirgends** verwendet. Kein Certificate-Pinning.
+- Verbindungsaufbau, Protokollkommandos und das Aufräumen der Sitzung sind zeitlich begrenzt.
+  Die kombinierte IMAP-/SMTP-Prüfung endet spätestens an ihrer Gesamtgrenze mit einem typisierten
+  Timeout; der Setup-Screen bleibt dadurch nie unbegrenzt im Ladezustand und gibt das Formular
+  für einen erneuten Versuch wieder frei.
 - Die Campus-Köthen-API, Strapi und der Worker sind **nie** an Mail beteiligt. Sie
   erhalten **weder Zugangsdaten noch E-Mails**.
 - Genau **zwei** Eingaben: E-Mail-Adresse + Passwort. Die Adresse ist zugleich
@@ -58,10 +62,11 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
 - Der Sync holt die **50 neuesten** INBOX-Header, **akkumuliert** sie in den Cache
   (nichts wird gelöscht — der Offline-Bestand wächst über 50 hinaus) und lädt die
   vollständigen Inhalte **neuer** Nachrichten im Hintergrund nach.
-- **Anhänge herunterladen** ist optional (Einstellungen → Studentische E-Mail). Nur bei
-  aktivierter Einstellung werden auch Nicht-Bild-Anhänge für die Offline-Nutzung geladen
-  und lassen sich über das OS-Teilen-Menü (`share_plus`) teilen/speichern; Bilder werden
-  ohnehin inline aus dem Speicher angezeigt.
+- **Anhänge herunterladen** ist optional und wird sowohl bei der Mail-Einrichtung als auch unter
+  Einstellungen → Studentische E-Mail angeboten. Nur bei aktivierter Einstellung werden
+  Nicht-Bild-Anhänge automatisch für die Offline-Nutzung geladen. Ist sie aus, lädt ein bewusster
+  Tipp den fehlenden Anhang live vom Mailserver, legt ihn für die INBOX im verschlüsselten Cache
+  ab und öffnet ihn anschließend. Bilder werden ohnehin inline aus dem Speicher angezeigt.
 - **Empfängervorschläge:** Beim Verfassen schlägt das An-/Cc-Feld Adressen aus der
   gecachten Mailhistorie (From/To/Cc) vor.
 
@@ -198,6 +203,9 @@ Posteingang / Detail
 - [ ] Tippen auf einen Anhang öffnet ihn **in der App**: Bilder zoombar, PDFs im
       nativen Renderer (kein WebView), Textdateien als Text; andere Typen bieten
       „Teilen/Speichern“.
+- [ ] Ist „Anhänge herunterladen“ aus und ein Nicht-Bild-Anhang noch nicht lokal vorhanden,
+      zeigt der Tipp einen Ladezustand, lädt ihn live, speichert ihn verschlüsselt für die INBOX
+      und öffnet ihn anschließend; Fehler lassen einen erneuten Versuch zu.
 - [ ] Flugmodus → Aktualisieren zeigt einen Fehler mit „Erneut versuchen“, kein Absturz.
 
 Suche

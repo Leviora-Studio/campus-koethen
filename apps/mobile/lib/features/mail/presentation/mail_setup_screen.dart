@@ -8,6 +8,7 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../core/security/screen_protection.dart';
 import '../../../core/links/safe_link_launcher.dart';
+import '../../../core/prefs/settings_controller.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../l10n/l10n.dart';
@@ -119,6 +120,7 @@ class _MailSetupScreenState extends ConsumerState<MailSetupScreen> {
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     final TextTheme text = Theme.of(context).textTheme;
+    final AppSettings settings = ref.watch(settingsProvider);
 
     // Kept out of screenshots and the app-switcher preview:
     // the university password is typed here. Selective by
@@ -226,14 +228,38 @@ class _MailSetupScreenState extends ConsumerState<MailSetupScreen> {
                         ? l10n.mailSetupPasswordRequired
                         : null,
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(AppIcons.download_outlined),
+                    title: Text(l10n.settingsMailDownloadAttachments),
+                    subtitle: Text(
+                      l10n.settingsMailDownloadAttachmentsSubtitle,
+                    ),
+                    value: settings.mailDownloadAttachments,
+                    onChanged: _busy
+                        ? null
+                        : (bool value) => ref
+                              .read(settingsProvider.notifier)
+                              .setMailDownloadAttachments(value),
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   FilledButton(
                     onPressed: _busy ? null : _submit,
                     child: _busy
-                        ? const SizedBox(
-                            height: AppSizes.icon,
-                            width: AppSizes.icon,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              const SizedBox(
+                                height: AppSizes.icon,
+                                width: AppSizes.icon,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Text(l10n.mailSetupChecking),
+                            ],
                           )
                         : Text(l10n.mailSetupSubmit),
                   ),

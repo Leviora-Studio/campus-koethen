@@ -53,6 +53,30 @@ void main() {
   });
 
   group('EnoughMailGateway.searchMessages', () {
+    test('a stalled IMAP login surfaces a typed timeout', () async {
+      server = await FakeImapServer.start((String tag, String command) {
+        if (command.startsWith('LOGIN ')) return const <String>[];
+        return <String>['$tag OK done'];
+      });
+      final EnoughMailGateway gateway = EnoughMailGateway(
+        _LoopbackMailProfile(server.port),
+        connectionTimeout: const Duration(seconds: 1),
+        commandTimeout: const Duration(milliseconds: 20),
+        cleanupTimeout: const Duration(milliseconds: 10),
+      );
+
+      await expectLater(
+        gateway.fetchMailboxes(_credentials),
+        throwsA(
+          isA<MailFailure>().having(
+            (MailFailure failure) => failure.kind,
+            'kind',
+            MailFailureKind.timeout,
+          ),
+        ),
+      );
+    });
+
     test('returns matching headers newest first', () async {
       final EnoughMailGateway gateway = await gatewayFor(
         fakeSearchHits(<int>[5, 7]),

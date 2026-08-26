@@ -1,6 +1,8 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/mail_credentials.dart';
@@ -83,7 +85,13 @@ class MailAccountController extends AsyncNotifier<MailAccountState> {
     );
 
     // Verify before persisting: a wrong password must never be written.
-    await _gateway.verifyConnection(credentials);
+    try {
+      await _gateway
+          .verifyConnection(credentials)
+          .timeout(ref.read(mailSignInTimeoutProvider));
+    } on TimeoutException {
+      throw const MailFailure(MailFailureKind.timeout);
+    }
     await ref
         .read(mailLocalDataCoordinatorProvider)
         .writeCredentials(credentials);

@@ -172,7 +172,7 @@ void main() {
       expect(find.byType(DocumentViewerScreen), findsOneWidget);
     });
 
-    testWidgets('tapping non-downloaded attachment shows snackbar notice', (
+    testWidgets('a missing download callback shows a retryable failure', (
       WidgetTester tester,
     ) async {
       const attachment = MailAttachment(
@@ -192,7 +192,7 @@ void main() {
 
       expect(
         find.text(
-          'Dieser Anhang wurde noch nicht geladen. Aktiviere „Anhänge herunterladen“ in den Einstellungen.',
+          'Der Anhang konnte nicht geladen werden. Bitte versuche es erneut.',
         ),
         findsOneWidget,
       );

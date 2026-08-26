@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/prefs/settings_controller.dart';
+import '../domain/mail_credentials.dart';
 import '../domain/mail_folder.dart';
 import '../domain/mail_failure.dart';
 import '../domain/mail_message.dart';
@@ -71,6 +72,40 @@ class MailInboxController extends AsyncNotifier<List<MailMessageHeader>> {
             limit: kInboxLimit,
           );
     });
+  }
+
+  /// Downloads the complete message again so attachment bytes that were left
+  /// out of the offline prefetch become available after an explicit tap.
+  ///
+  /// For the INBOX the enriched detail replaces the metadata-only cache entry;
+  /// other folders keep their existing online-only behaviour.
+  Future<MailMessageDetail> downloadAttachments(MailMessageRef message) async {
+    final MailCredentials credentials = await ref
+        .read(mailAccountControllerProvider.notifier)
+        .requireCredentials();
+    final MailAccountController accountController = ref.read(
+      mailAccountControllerProvider.notifier,
+    );
+    final int generation = accountController.sessionGeneration;
+    final MailMessageDetail detail = await ref
+        .read(mailGatewayProvider)
+        .fetchMessage(
+          credentials,
+          mailboxPath: message.mailboxPath,
+          id: message.id,
+          includeAttachmentBytes: true,
+        );
+    if (!accountController.isSessionCurrent(generation)) {
+      throw const MailFailure(MailFailureKind.sessionClosed);
+    }
+    if (message.mailboxPath == kInboxPath) {
+      await ref.read(mailCacheStoreProvider).saveMessage(detail);
+      if (!accountController.isSessionCurrent(generation)) {
+        throw const MailFailure(MailFailureKind.sessionClosed);
+      }
+      ref.read(mailCacheRevisionProvider.notifier).bump();
+    }
+    return detail;
   }
 }
 

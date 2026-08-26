@@ -11,7 +11,9 @@ import '../../../core/documents/document_share_service.dart';
 import '../../../core/documents/document_viewer_screen.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../l10n/l10n.dart';
+import '../domain/mail_failure.dart';
 import '../domain/mail_message.dart';
+import 'mail_error_messages.dart';
 
 const DocumentShareService _shareService = DocumentShareService();
 
@@ -26,23 +28,69 @@ AppDocument _asDocument(MailAttachment a) => AppDocument(
 ///
 /// Downloaded image attachments preview inline automatically; tapping any
 /// downloaded attachment opens it in the shared [DocumentViewerScreen].
-class MailAttachmentView extends StatelessWidget {
-  const MailAttachmentView({required this.attachment, super.key});
+class MailAttachmentView extends StatefulWidget {
+  const MailAttachmentView({
+    required this.attachment,
+    this.onDownload,
+    super.key,
+  });
 
   final MailAttachment attachment;
+  final Future<MailAttachment> Function()? onDownload;
 
-  void _open(BuildContext context) {
-    final AppLocalizations l10n = context.l10n;
-    if (attachment.bytes == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.mailAttachmentNotDownloaded)));
-      return;
+  @override
+  State<MailAttachmentView> createState() => _MailAttachmentViewState();
+}
+
+class _MailAttachmentViewState extends State<MailAttachmentView> {
+  late MailAttachment _attachment = widget.attachment;
+  bool _downloading = false;
+
+  @override
+  void didUpdateWidget(MailAttachmentView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment != widget.attachment) {
+      _attachment = widget.attachment;
     }
+  }
+
+  Future<void> _open() async {
+    final AppLocalizations l10n = context.l10n;
+    if (_attachment.bytes == null) {
+      final Future<MailAttachment> Function()? download = widget.onDownload;
+      if (download == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.mailAttachmentDownloadFailed)),
+        );
+        return;
+      }
+      if (_downloading) return;
+      setState(() => _downloading = true);
+      try {
+        final MailAttachment loaded = await download();
+        if (loaded.bytes == null) {
+          throw const MailFailure(MailFailureKind.protocol);
+        }
+        if (!mounted) return;
+        setState(() => _attachment = loaded);
+      } catch (error) {
+        if (!mounted) return;
+        final String message = error is MailFailure
+            ? mailFailureMessage(l10n, error)
+            : l10n.mailAttachmentDownloadFailed;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+        return;
+      } finally {
+        if (mounted) setState(() => _downloading = false);
+      }
+    }
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (BuildContext _) =>
-            DocumentViewerScreen(document: _asDocument(attachment)),
+            DocumentViewerScreen(document: _asDocument(_attachment)),
       ),
     );
   }
@@ -51,9 +99,9 @@ class MailAttachmentView extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     final TextTheme text = Theme.of(context).textTheme;
-    final int? size = attachment.sizeBytes;
+    final int? size = _attachment.sizeBytes;
     final String subtitle = <String>[
-      attachment.mediaType,
+      _attachment.mediaType,
       if (size != null)
         humanFileSize(
           size,
@@ -63,27 +111,39 @@ class MailAttachmentView extends StatelessWidget {
 
     final Widget tile = ListTile(
       leading: Icon(
-        attachment.isImage
+        _attachment.isImage
             ? AppIcons.image_outlined
             : AppIcons.insert_drive_file_outlined,
       ),
       title: Text(
-        attachment.filename,
+        _attachment.filename,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(subtitle, style: text.bodySmall),
-      onTap: () => _open(context),
-      trailing: attachment.bytes == null
-          ? null
+      onTap: _downloading ? null : _open,
+      trailing: _attachment.bytes == null
+          ? _downloading
+                ? const SizedBox(
+                    width: AppSizes.icon,
+                    height: AppSizes.icon,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : IconButton(
+                    onPressed: _open,
+                    tooltip: l10n.mailAttachmentDownload,
+                    icon: const Icon(AppIcons.download_outlined),
+                  )
           : IconButton(
-              onPressed: () => _shareService.share(_asDocument(attachment)),
+              onPressed: () => _shareService.share(_asDocument(_attachment)),
               tooltip: l10n.mailAttachmentShare,
               icon: const Icon(AppIcons.ios_share),
             ),
     );
 
-    final Uint8List? imageBytes = attachment.isImage ? attachment.bytes : null;
+    final Uint8List? imageBytes = _attachment.isImage
+        ? _attachment.bytes
+        : null;
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
@@ -97,7 +157,7 @@ class MailAttachmentView extends StatelessWidget {
             // in.
             ExcludeSemantics(
               child: InkWell(
-                onTap: () => _open(context),
+                onTap: _open,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 320),
                   child: Image.memory(

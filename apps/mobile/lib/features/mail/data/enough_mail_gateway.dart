@@ -30,39 +30,82 @@ import 'mail_mime_builder.dart';
 ///  - Raw exceptions are converted to a [MailFailure] classification; server
 ///    responses and credentials never escape this class.
 class EnoughMailGateway implements MailGateway {
-  EnoughMailGateway(this._profile);
+  factory EnoughMailGateway(
+    HsaMailProfile profile, {
+    Duration connectionTimeout = const Duration(seconds: 20),
+    Duration commandTimeout = const Duration(seconds: 20),
+    Duration cleanupTimeout = const Duration(seconds: 2),
+    Duration verificationTimeout = const Duration(seconds: 25),
+  }) => EnoughMailGateway._(
+    profile,
+    connectionTimeout,
+    commandTimeout,
+    cleanupTimeout,
+    verificationTimeout,
+  );
+
+  EnoughMailGateway._(
+    this._profile,
+    this._connectionTimeout,
+    this._commandTimeout,
+    this._cleanupTimeout,
+    this._verificationTimeout,
+  );
 
   final HsaMailProfile _profile;
-
-  static const Duration _timeout = Duration(seconds: 20);
+  final Duration _connectionTimeout;
+  final Duration _commandTimeout;
+  final Duration _cleanupTimeout;
+  final Duration _verificationTimeout;
 
   // --- IMAP -----------------------------------------------------------------
 
   Future<T> _withImap<T>(
     domain.MailCredentials credentials,
-    Future<T> Function(ImapClient client) body,
-  ) async {
+    Future<T> Function(ImapClient client) body, {
+    Duration? operationTimeout,
+  }) async {
     // No onBadCertificate, no isLogEnabled: defaults give full TLS validation
     // and silence.
-    final ImapClient client = ImapClient(isLogEnabled: false);
+    final ImapClient client = ImapClient(
+      isLogEnabled: false,
+      defaultWriteTimeout: _commandTimeout,
+      defaultResponseTimeout: _commandTimeout,
+    );
+    bool timedOut = false;
     try {
-      await client.connectToServer(
-        _profile.imapHost,
-        _profile.imapPort,
-        isSecure: _profile.imapImplicitTls, // implicit TLS
-        timeout: _timeout,
-      );
-      await client.login(credentials.emailAddress, credentials.password);
-      return await body(client);
-    } on ImapException {
+      final Future<T> operation = () async {
+        // The library's connection timeout covers opening the socket, but not a
+        // server that accepts it and never sends its greeting. The outer timeout
+        // bounds both parts.
+        await client
+            .connectToServer(
+              _profile.imapHost,
+              _profile.imapPort,
+              isSecure: _profile.imapImplicitTls, // implicit TLS
+              timeout: _connectionTimeout,
+            )
+            .timeout(_connectionTimeout);
+        await client.login(credentials.emailAddress, credentials.password);
+        return body(client);
+      }();
+      return await (operationTimeout == null
+          ? operation
+          : operation.timeout(operationTimeout));
+    } on TimeoutException {
+      timedOut = true;
       rethrow;
     } finally {
-      // Always close; never keep an idle connection alive.
+      // A timed-out command must not be followed by another protocol command:
+      // close the socket directly so the abandoned Future cannot keep the
+      // login alive in the background. Normal logout stays best effort only.
+      if (!timedOut) {
+        try {
+          await client.logout().timeout(_cleanupTimeout);
+        } catch (_) {}
+      }
       try {
-        await client.logout();
-      } catch (_) {}
-      try {
-        await client.disconnect();
+        await client.disconnect().timeout(_cleanupTimeout);
       } catch (_) {}
     }
   }
@@ -71,31 +114,51 @@ class EnoughMailGateway implements MailGateway {
 
   Future<T> _withSmtp<T>(
     domain.MailCredentials credentials,
-    Future<T> Function(SmtpClient client) body,
-  ) async {
+    Future<T> Function(SmtpClient client) body, {
+    Duration? operationTimeout,
+  }) async {
     final SmtpClient client = SmtpClient(_hostnameForEhlo, isLogEnabled: false);
+    bool timedOut = false;
     try {
-      await client.connectToServer(
-        _profile.smtpHost,
-        _profile.smtpPort,
-        isSecure: false, // submission port, TLS is negotiated via STARTTLS
-        timeout: _timeout,
-      );
-      await client.ehlo();
-      if (!client.serverInfo.supportsStartTls) {
-        // The contract: abort rather than continue in the clear.
-        throw const MailFailure(MailFailureKind.tls);
-      }
-      await client.startTls();
-      await client.authenticate(
-        credentials.emailAddress,
-        credentials.password,
-        AuthMechanism.login,
-      );
-      return await body(client);
+      final Future<T> operation = () async {
+        await client
+            .connectToServer(
+              _profile.smtpHost,
+              _profile.smtpPort,
+              isSecure: false, // submission port, TLS via STARTTLS
+              timeout: _connectionTimeout,
+            )
+            .timeout(_connectionTimeout);
+        await client.ehlo().timeout(_commandTimeout);
+        if (!client.serverInfo.supportsStartTls) {
+          // The contract: abort rather than continue in the clear.
+          throw const MailFailure(MailFailureKind.tls);
+        }
+        // enough_mail performs the mandatory second EHLO inside startTls().
+        await client.startTls().timeout(_commandTimeout);
+        await client
+            .authenticate(
+              credentials.emailAddress,
+              credentials.password,
+              AuthMechanism.login,
+            )
+            .timeout(_commandTimeout);
+        return body(client);
+      }();
+      return await (operationTimeout == null
+          ? operation
+          : operation.timeout(operationTimeout));
+    } on TimeoutException {
+      timedOut = true;
+      rethrow;
     } finally {
+      if (!timedOut) {
+        try {
+          await client.quit().timeout(_cleanupTimeout);
+        } catch (_) {}
+      }
       try {
-        await client.quit();
+        await client.disconnect().timeout(_cleanupTimeout);
       } catch (_) {}
     }
   }
@@ -124,13 +187,13 @@ class EnoughMailGateway implements MailGateway {
     try {
       return await client.uidSearchMessages(
         searchCriteria: 'CHARSET "UTF-8" TEXT "$safe"',
-        responseTimeout: _timeout,
+        responseTimeout: _commandTimeout,
       );
     } on ImapException catch (e) {
       if (!_isUnsupportedCharset(e)) rethrow;
       return client.uidSearchMessages(
         searchCriteria: 'TEXT "$safe"',
-        responseTimeout: _timeout,
+        responseTimeout: _commandTimeout,
       );
     }
   }
@@ -159,14 +222,25 @@ class EnoughMailGateway implements MailGateway {
   @override
   Future<void> verifyConnection(domain.MailCredentials credentials) async {
     await _guard(() async {
+      final DateTime deadline = DateTime.now().add(_verificationTimeout);
       // IMAP: connect + login proves the mailbox credentials.
       await _withImap(credentials, (ImapClient client) async {
         await client.selectInbox();
-      });
+      }, operationTimeout: _remainingUntil(deadline));
       // SMTP: connect + STARTTLS + AUTH proves submission works, with no side
       // effect (no test mail is ever sent).
-      await _withSmtp(credentials, (SmtpClient _) async {});
+      await _withSmtp(
+        credentials,
+        (SmtpClient _) async {},
+        operationTimeout: _remainingUntil(deadline),
+      );
     });
+  }
+
+  Duration _remainingUntil(DateTime deadline) {
+    final Duration remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) throw TimeoutException('mail verification');
+    return remaining;
   }
 
   @override
@@ -191,7 +265,7 @@ class EnoughMailGateway implements MailGateway {
           // Headers + flags only. BODY.PEEK avoids marking anything \Seen; no
           // full body and no attachment is downloaded.
           '(UID FLAGS ENVELOPE BODYSTRUCTURE)',
-          responseTimeout: _timeout,
+          responseTimeout: _commandTimeout,
         );
         return result.messages.map(_toHeader).toList()..sort(_newestFirst);
       });
@@ -228,7 +302,7 @@ class EnoughMailGateway implements MailGateway {
         final FetchImapResult fetched = await client.uidFetchMessages(
           MessageSequence.fromIds(newest, isUid: true),
           '(UID FLAGS ENVELOPE BODYSTRUCTURE)',
-          responseTimeout: _timeout,
+          responseTimeout: _commandTimeout,
         );
         return fetched.messages.map(_toHeader).toList()..sort(_newestFirst);
       });
@@ -251,7 +325,7 @@ class EnoughMailGateway implements MailGateway {
         final FetchImapResult result = await client.uidFetchMessages(
           MessageSequence.fromRange(uid, uid, isUidSequence: true),
           '(UID FLAGS ENVELOPE BODY.PEEK[])',
-          responseTimeout: _timeout,
+          responseTimeout: _commandTimeout,
         );
         if (result.messages.isEmpty) {
           throw const MailFailure(MailFailureKind.protocol);
@@ -286,7 +360,7 @@ class EnoughMailGateway implements MailGateway {
           final FetchImapResult result = await client.uidFetchMessages(
             MessageSequence.fromRange(uid, uid, isUidSequence: true),
             '(UID FLAGS ENVELOPE BODY.PEEK[])',
-            responseTimeout: _timeout,
+            responseTimeout: _commandTimeout,
           );
           if (result.messages.isNotEmpty) {
             details.add(
@@ -531,6 +605,9 @@ class EnoughMailGateway implements MailGateway {
 
   MailFailureKind _classifyImap(ImapException e) {
     final String detail = e.message ?? '';
+    if (detail.toLowerCase().contains('timeout')) {
+      return MailFailureKind.timeout;
+    }
     if (_imapAuthRejected.hasMatch(detail)) {
       return MailFailureKind.invalidCredentials;
     }
