@@ -49,6 +49,31 @@ void main() {
     expect(await store.readAll(), hasLength(1));
   });
 
+  testWidgets('renames a task without failing while the dialog closes', (
+    WidgetTester tester,
+  ) async {
+    final InMemoryTodoStore store = InMemoryTodoStore();
+    await store.writeAll(<Todo>[
+      Todo(id: '1', title: 'Alter Name', createdAt: DateTime(2026)),
+    ]);
+    await pumpScreen(
+      tester,
+      const TodosScreen(),
+      overrides: <Override>[todoStoreProvider.overrideWithValue(store)],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Aufgabe umbenennen'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Neuer Name');
+    await tester.tap(find.widgetWithText(FilledButton, 'Umbenennen'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Neuer Name'), findsOneWidget);
+    expect((await store.readAll()).single.title, 'Neuer Name');
+  });
+
   testWidgets('add icon follows the light and dark brand colour', (
     WidgetTester tester,
   ) async {

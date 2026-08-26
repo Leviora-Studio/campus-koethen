@@ -193,7 +193,15 @@ class _LanguageTile extends ConsumerWidget {
           groupValue: settings.localeMode,
           onChanged: (LocaleMode? value) {
             if (value == null) return;
-            ref.read(settingsProvider.notifier).setLocaleMode(value);
+            // Changing the locale rebuilds MaterialApp and every inherited
+            // localisation dependency below it. Doing that synchronously
+            // inside RadioGroup's own notification can leave the group
+            // iterating dependents that have already moved during the root
+            // rebuild. Finish the interaction frame before changing the root.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) return;
+              ref.read(settingsProvider.notifier).setLocaleMode(value);
+            });
           },
           child: Column(
             children: <Widget>[

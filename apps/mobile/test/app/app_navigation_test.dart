@@ -2,18 +2,22 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:campus_koethen/app/app_router.dart';
+import 'package:campus_koethen/app/campus_app.dart';
 import 'package:campus_koethen/app/takt_navigation_bar.dart';
 import 'package:campus_koethen/core/cache/cache_providers.dart';
 import 'package:campus_koethen/core/cache/content_cache.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/theme/app_icons.dart';
 import 'package:campus_koethen/core/theme/app_motion.dart';
 import 'package:campus_koethen/core/theme/app_theme.dart';
 import 'package:campus_koethen/features/more/presentation/more_screen.dart';
 import 'package:campus_koethen/features/news/presentation/news_list_screen.dart';
+import 'package:campus_koethen/features/notifications/application/notification_providers.dart';
+import 'package:campus_koethen/features/notifications/data/device_time_zone.dart';
 import 'package:campus_koethen/features/settings/presentation/settings_screen.dart';
 import 'package:campus_koethen/l10n/l10n.dart';
 import 'package:dio/dio.dart';
@@ -23,11 +27,13 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fake_http_adapter.dart';
+import '../support/fake_notification_gateway.dart';
 
 /// Pumps the full app including the router and the bottom navigation.
 Future<ProviderContainer> pumpApp(
   WidgetTester tester, {
   Locale locale = AppLocales.german,
+  bool useCampusApp = false,
   KeyValueStore? store,
   bool userTestData = false,
   AppMotion motion = AppMotion.enabled,
@@ -55,9 +61,25 @@ Future<ProviderContainer> pumpApp(
           ),
         ),
       ),
+      if (useCampusApp) ...<Override>[
+        notificationGatewayProvider.overrideWithValue(
+          FakeNotificationGateway(),
+        ),
+        timeZoneResolverProvider.overrideWithValue(
+          FixedTimeZoneResolver('Europe/Berlin'),
+        ),
+      ],
     ],
   );
   addTearDown(container.dispose);
+
+  if (useCampusApp) {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const CampusApp()),
+    );
+    await tester.pumpAndSettle();
+    return container;
+  }
 
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -181,6 +203,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('List'), findsOneWidget);
+  });
+
+  testWidgets('switches language without invalid inherited dependencies', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = await pumpApp(
+      tester,
+      useCampusApp: true,
+      store: InMemoryKeyValueStore(<String, Object>{
+        PreferenceKeys.onboardingCompleted: 1,
+      }),
+    );
+
+    await tester.tap(find.text('Mehr'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(AppIcons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Englisch'));
+
+    expect(
+      container.read(settingsProvider).localeMode,
+      LocaleMode.german,
+      reason: 'the app root must not rebuild inside the radio tap callback',
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Settings'), findsOneWidget);
   });
 
   group('iOS back swipe', () {

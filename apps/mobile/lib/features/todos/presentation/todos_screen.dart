@@ -472,14 +472,46 @@ Future<void> _renameTodo(
   TodosController controller,
   Todo todo,
 ) async {
-  final AppLocalizations l10n = context.l10n;
-  final TextEditingController field = TextEditingController(text: todo.title);
   final String? next = await showDialog<String>(
     context: context,
-    builder: (BuildContext context) => AlertDialog(
+    builder: (BuildContext context) => _TodoRenameDialog(todo.title),
+  );
+  if (next == null || next.trim().isEmpty) return;
+  await controller.rename(todo.id, next);
+}
+
+/// Owns the text controller for exactly as long as the dialog is mounted.
+///
+/// A dialog route completes its future before its closing transition has
+/// finished. Disposing a controller immediately after [showDialog] therefore
+/// leaves the still-mounted [TextField] with an invalid controller.
+class _TodoRenameDialog extends StatefulWidget {
+  const _TodoRenameDialog(this.initialTitle);
+
+  final String initialTitle;
+
+  @override
+  State<_TodoRenameDialog> createState() => _TodoRenameDialogState();
+}
+
+class _TodoRenameDialogState extends State<_TodoRenameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialTitle,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return AlertDialog(
       title: Text(l10n.todoRenameTitle),
       content: TextField(
-        controller: field,
+        controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
         onSubmitted: (String value) => Navigator.of(context).pop(value),
@@ -487,18 +519,13 @@ Future<void> _renameTodo(
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          // Generic dialog buttons come from MaterialLocalizations here, as
-          // in the folder sheets next door.
           child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(field.text),
+          onPressed: () => Navigator.of(context).pop(_controller.text),
           child: Text(l10n.todoFolderRenameAction),
         ),
       ],
-    ),
-  );
-  field.dispose();
-  if (next == null || next.trim().isEmpty) return;
-  await controller.rename(todo.id, next);
+    );
+  }
 }
