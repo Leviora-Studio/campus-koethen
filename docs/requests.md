@@ -111,8 +111,13 @@ wiederherstellen. Deshalb wird er
 - **nie** geloggt, an Crash-Reporting oder Analytics gegeben oder in Ausnahmetexte aufgenommen,
 - **nie** als Route, Query-Parameter oder Deep Link verwendet — Routen tragen ausschließlich die
   lokale Vorgangs-ID (`/more/requests/submission/:id`),
-- **nie** vollständig angezeigt, in die Zwischenablage kopiert oder geteilt,
-- **nur** an den Status-Endpunkt derselben Instanz gesendet.
+- **nie** vollständig angezeigt, in die Zwischenablage kopiert oder allgemein geteilt,
+- **nur** an den Status-Endpunkt derselben Instanz gesendet oder nach der ausdrücklichen Aktion
+  „Zum Antrag“ an den externen Browser übergeben. Auch dafür wird vorher die exakte Origin gegen
+  `REQUESTS_BASE_URL` geprüft; fremde Origins werden abgewiesen.
+
+Die Browserübergabe ist der einzige bewusste Export des Statuslinks. Der Browser kann den Link in
+seinem Verlauf behalten; die App übergibt ihn weder an andere Apps noch an eine Share-Funktion.
 
 `receiptPdfUrl` und jede `downloadUrl` enthalten denselben Token und werden genauso behandelt. Für die
 Eingangsbestätigung ist das Teilen im Dokumentbetrachter deshalb **abgeschaltet**.

@@ -14,6 +14,7 @@ import '../data/requests_api_config.dart';
 import '../data/attachment_picker.dart';
 import '../domain/application_location.dart';
 import '../domain/feedback_area.dart';
+import '../domain/gremio_origin.dart';
 import '../domain/request_gateway.dart';
 import '../domain/request_store.dart';
 import '../domain/status_gateway.dart';
@@ -87,6 +88,14 @@ final Provider<CaseDocumentDownloader> caseDocumentDownloaderProvider =
 /// screens can be tested in both states.
 final Provider<bool> requestsEndpointConfiguredProvider = Provider<bool>(
   (Ref ref) => RequestsApiConfig.isConfigured,
+);
+
+/// The one origin a secret case link may be handed to.
+///
+/// Kept injectable so UI tests can use a fake HTTPS origin without weakening
+/// the production allowlist derived exclusively from `REQUESTS_BASE_URL`.
+final Provider<GremioOrigin?> requestsOriginProvider = Provider<GremioOrigin?>(
+  (Ref ref) => RequestsApiConfig.origin,
 );
 
 final Provider<LocationsRepository> locationsRepositoryProvider =

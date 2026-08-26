@@ -55,10 +55,13 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
      eine Quellcode-Konstante, sondern kommt als `REQUESTS_BASE_URL` aus dem Build-Environment
      und muss **HTTPS** sein; daraus entsteht eine exakte Origin-Allowlist. Der zurückgegebene
      **Statuslink ist ein Geheimnis** — er ist der einzige Zugang zum Vorgang, wird verschlüsselt
-     lokal gespeichert und **niemals** geloggt, gemeldet, geteilt oder in eine Route
-     aufgenommen; dasselbe gilt für die Quittungs- und Dokument-Links, die denselben Token
-     tragen. Der Status wird **ausschließlich** per `POST` mit dem Link im JSON-Body abgefragt,
-     nie über einen Query-Parameter. Entwürfe, Anhänge und Ergebnis bleiben auf dem Gerät.
+     lokal gespeichert und **niemals** geloggt, gemeldet, kopiert, allgemein geteilt oder in eine
+     App-Route aufgenommen. Ausschließlich nach der bewussten Aktion „Zum Antrag“ darf der zuvor
+     gegen die exakte `REQUESTS_BASE_URL`-Origin validierte Statuslink an den externen Browser
+     übergeben werden; fremde Origins werden abgewiesen. Dasselbe Geheimhaltungsniveau gilt für
+     die Quittungs- und Dokument-Links, die denselben Token tragen. Der native Statusabruf erfolgt
+     **ausschließlich** per `POST` mit dem Link im JSON-Body, nie über einen Query-Parameter.
+     Entwürfe, Anhänge und Ergebnis bleiben auf dem Gerät.
      Details: [`docs/requests.md`](docs/requests.md).
 
    Für diese Ausnahmen gilt: **kein** Backend-Proxy, **keine** serverseitige Speicherung, **kein**

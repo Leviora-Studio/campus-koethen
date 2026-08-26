@@ -4,6 +4,7 @@
 /// What the two forms and the detail view actually put on screen.
 library;
 
+import 'package:campus_koethen/core/links/safe_link_launcher.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/theme/app_colors.dart';
 import 'package:campus_koethen/core/theme/app_icons.dart';
@@ -12,6 +13,7 @@ import 'package:campus_koethen/features/requests/data/attachment_picker.dart';
 import 'package:campus_koethen/features/requests/domain/application_location.dart';
 import 'package:campus_koethen/features/requests/domain/case_status.dart';
 import 'package:campus_koethen/features/requests/domain/feedback_area.dart';
+import 'package:campus_koethen/features/requests/domain/gremio_origin.dart';
 import 'package:campus_koethen/features/requests/domain/request_drafts.dart';
 import 'package:campus_koethen/features/requests/domain/request_gateway.dart';
 import 'package:campus_koethen/features/requests/domain/request_validation.dart';
@@ -41,12 +43,26 @@ const List<FeedbackArea> _areas = <FeedbackArea>[
   FeedbackArea(id: 2, name: 'Mensa'),
 ];
 
+class _RecordingLinkLauncher implements SafeLinkLauncher {
+  _RecordingLinkLauncher({this.result = LinkLaunchResult.opened});
+
+  final LinkLaunchResult result;
+  final List<String> opened = <String>[];
+
+  @override
+  Future<LinkLaunchResult> open(String? rawUrl) async {
+    if (rawUrl != null) opened.add(rawUrl);
+    return result;
+  }
+}
+
 List<Override> _overrides({
   FlakyRequestStore? store,
   ScriptedRequestGateway? gateway,
   ScriptedStatusGateway? status,
   AsyncValue<List<ApplicationLocation>>? locations,
   AsyncValue<List<FeedbackArea>>? areas,
+  SafeLinkLauncher? linkLauncher,
 }) => <Override>[
   requestStoreProvider.overrideWithValue(store ?? FlakyRequestStore()),
   requestGatewayProvider.overrideWithValue(
@@ -57,6 +73,9 @@ List<Override> _overrides({
   ),
   attachmentStoreProvider.overrideWithValue(FakeAttachmentStore()),
   requestsEndpointConfiguredProvider.overrideWithValue(true),
+  requestsOriginProvider.overrideWithValue(GremioOrigin.parse(kFakeBaseUrl)),
+  if (linkLauncher != null)
+    linkLauncherProvider.overrideWithValue(linkLauncher),
   applicationLocationsProvider.overrideWith(
     (Ref ref) async => switch (locations) {
       AsyncData<List<ApplicationLocation>>(
@@ -522,6 +541,7 @@ void main() {
       required Map<String, dynamic> body,
       RequestKind kind = RequestKind.financeApplication,
       Locale locale = AppLocales.german,
+      SafeLinkLauncher? linkLauncher,
     }) async {
       tester.view.physicalSize = const Size(430, 3000);
       tester.view.devicePixelRatio = 1;
@@ -549,6 +569,7 @@ void main() {
           status: ScriptedStatusGateway(
             StatusLoaded(CaseStatus.fromJson(body)!),
           ),
+          linkLauncher: linkLauncher,
         ),
       );
       await tester.pumpAndSettle();
@@ -617,6 +638,75 @@ void main() {
       );
     });
 
+    testWidgets('offers the browser link for applications and feedback', (
+      WidgetTester tester,
+    ) async {
+      await pumpDetail(tester, body: applicationStatusBody());
+      expect(find.text('Zum Antrag'), findsOneWidget);
+
+      await pumpDetail(
+        tester,
+        kind: RequestKind.feedback,
+        body: feedbackStatusBody(),
+      );
+      expect(find.text('Zum Antrag'), findsOneWidget);
+    });
+
+    testWidgets('opens the canonical case link through the safe launcher', (
+      WidgetTester tester,
+    ) async {
+      final _RecordingLinkLauncher launcher = _RecordingLinkLauncher();
+      await pumpDetail(
+        tester,
+        body: applicationStatusBody(),
+        linkLauncher: launcher,
+      );
+
+      await tester.tap(find.text('Zum Antrag'));
+      await tester.pumpAndSettle();
+
+      expect(launcher.opened, <String>[kFakeStatusUrl]);
+    });
+
+    testWidgets('never hands a foreign case link to the browser', (
+      WidgetTester tester,
+    ) async {
+      final _RecordingLinkLauncher launcher = _RecordingLinkLauncher();
+      final Map<String, dynamic> body = applicationStatusBody()
+        ..['statusUrl'] = 'https://attacker.example/status/testtoken';
+      await pumpDetail(tester, body: body, linkLauncher: launcher);
+
+      await tester.tap(find.text('Zum Antrag'));
+      await tester.pumpAndSettle();
+
+      expect(launcher.opened, isEmpty);
+      expect(
+        find.textContaining('passt nicht zu dieser Empfangsstelle'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reports when the browser cannot open the case link', (
+      WidgetTester tester,
+    ) async {
+      final _RecordingLinkLauncher launcher = _RecordingLinkLauncher(
+        result: LinkLaunchResult.failed,
+      );
+      await pumpDetail(
+        tester,
+        body: applicationStatusBody(),
+        linkLauncher: launcher,
+      );
+
+      await tester.tap(find.text('Zum Antrag'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Der Vorgang konnte nicht im Browser geöffnet werden.'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('never shows the student card or the secret link', (
       WidgetTester tester,
     ) async {
@@ -658,6 +748,7 @@ void main() {
       expect(find.text('Documents'), findsOneWidget);
       expect(find.text('Confirmation of receipt (PDF)'), findsOneWidget);
       expect(find.text('Available actions'), findsOneWidget);
+      expect(find.text('Open submission'), findsOneWidget);
     });
 
     testWidgets('survives a small screen with doubled text', (

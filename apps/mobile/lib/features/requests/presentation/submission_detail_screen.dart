@@ -5,13 +5,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../core/documents/app_document.dart';
 import '../../../core/documents/document_viewer_screen.dart';
+import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/locale/formatters.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/status_banner.dart';
@@ -31,8 +32,10 @@ import '../../../core/widgets/screen_scaffold.dart';
 ///
 /// The route carries the **local** id and nothing else. The status link, the
 /// receipt link and every document link are bearer credentials: they stay in
-/// encrypted storage and never appear in a path, a query parameter, a deep
-/// link or on screen.
+/// encrypted storage and never appear in an app route, a query parameter, a
+/// deep link or on screen. The status link is handed to the external browser
+/// only after the reader selects "Zum Antrag" and only after an exact-origin
+/// check against `REQUESTS_BASE_URL`.
 ///
 /// While this screen is open and the app is in the foreground it refreshes
 /// about once a minute. It stops the moment the screen goes away or the app is
@@ -188,6 +191,7 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
   ) {
     final String locale = Localizations.localeOf(context).languageCode;
     final CaseStatus? status = state.status;
+    final String caseUrl = status?.statusUrl ?? item.statusUrl;
 
     return <Widget>[
       if (widget.justSubmitted) ...<Widget>[
@@ -218,6 +222,18 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
       const SizedBox(height: AppSpacing.md),
 
       _StatusCard(state: state, onRetry: _refresh),
+      const SizedBox(height: AppSpacing.md),
+
+      Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          leading: const Icon(AppIcons.link_outlined),
+          title: Text(l10n.requestsOpenCase),
+          subtitle: Text(l10n.requestsOpenCaseHint),
+          trailing: const Icon(AppIcons.open_in_new),
+          onTap: () => _openCase(caseUrl),
+        ),
+      ),
       const SizedBox(height: AppSpacing.md),
 
       // Times: what the device recorded, and what the server last changed.
@@ -350,6 +366,24 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
         label: Text(l10n.requestsForgetCase),
       ),
     ];
+  }
+
+  Future<void> _openCase(String url) async {
+    final AppLocalizations l10n = context.l10n;
+    // The link is a bearer credential. HTTPS alone is not enough: it may only
+    // leave the app for the exact origin configured for this build.
+    if (ref.read(requestsOriginProvider)?.allows(url) != true) {
+      _message(l10n.requestsStatusLinkInvalid);
+      return;
+    }
+
+    final LinkLaunchResult result = await ref
+        .read(linkLauncherProvider)
+        .open(url);
+    if (!mounted) return;
+    if (result != LinkLaunchResult.opened) {
+      _message(l10n.requestsOpenCaseUnavailable);
+    }
   }
 
   /// Downloads one document and shows it in the shared in-app viewer.
