@@ -17,6 +17,7 @@ import '../../news/data/news_models.dart';
 import '../data/event_posts_repository.dart';
 import '../domain/event_dedup.dart';
 import '../domain/event_sort.dart';
+import '../domain/event_source_label.dart';
 import '../domain/event_visibility.dart';
 import '../domain/saved_event_snapshot.dart';
 import '../domain/unified_event.dart';
@@ -155,7 +156,10 @@ final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
       for (final NewsChannel channel in channels) {
         if (seenKeys.add(channel.slug)) {
           options.add(
-            EventSourceOption(key: channel.slug, label: channel.name),
+            EventSourceOption(
+              key: channel.slug,
+              label: eventSourceDisplayLabel(channel.name, isChannel: true),
+            ),
           );
         }
       }

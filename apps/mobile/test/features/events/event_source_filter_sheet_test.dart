@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/pump_app.dart';
 
 const List<EventSourceOption> _options = <EventSourceOption>[
-  EventSourceOption(key: 'campus-events', label: 'Campus Events'),
+  EventSourceOption(key: 'campus-events', label: '@Campus Events'),
   EventSourceOption(key: 'stura-termine', label: 'StuRa Termine'),
 ];
 
@@ -58,10 +58,10 @@ void main() {
   ) async {
     await _pumpSheet(tester, selected: <String>{'campus-events'});
 
-    expect(find.text('Campus Events'), findsOneWidget);
+    expect(find.text('@Campus Events'), findsOneWidget);
     expect(find.text('StuRa Termine'), findsOneWidget);
     final CheckboxListTile campus = tester.widget(
-      find.widgetWithText(CheckboxListTile, 'Campus Events'),
+      find.widgetWithText(CheckboxListTile, '@Campus Events'),
     );
     final CheckboxListTile stura = tester.widget(
       find.widgetWithText(CheckboxListTile, 'StuRa Termine'),

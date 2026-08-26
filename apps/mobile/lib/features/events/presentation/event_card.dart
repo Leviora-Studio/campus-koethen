@@ -22,6 +22,7 @@ import '../../../l10n/l10n.dart';
 import '../../notifications/presentation/pre_permission_sheet.dart';
 import '../application/event_ui_providers.dart';
 import '../application/saved_events_controller.dart';
+import '../domain/event_source_label.dart';
 import '../domain/saved_event_snapshot.dart';
 import '../domain/unified_event.dart';
 
@@ -257,6 +258,9 @@ class _WhenAndSource extends StatelessWidget {
                 : '$startText – ${AppDateFormats.time(end, locale)}');
     }
     final String? source = event.sourceLabel;
+    final String? displaySource = source == null
+        ? null
+        : eventSourceDisplayLabel(source, isChannel: event.channelSlug != null);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,7 +273,7 @@ class _WhenAndSource extends StatelessWidget {
               label: l10n.eventSourceSemanticLabel(source),
               excludeSemantics: true,
               child: Text(
-                source,
+                displaySource!,
                 textAlign: TextAlign.end,
                 style: type.dataSmall,
               ),

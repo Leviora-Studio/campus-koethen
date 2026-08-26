@@ -3,6 +3,7 @@
 
 import '../../../core/theme/hex_color.dart';
 import '../../events/domain/event_dedup.dart';
+import '../../events/domain/event_source_label.dart';
 import '../../events/domain/saved_event_snapshot.dart';
 import '../../events/domain/unified_event.dart';
 import '../../moodle/domain/moodle_deadline.dart';
@@ -134,7 +135,12 @@ CalendarEntry savedEventSnapshotToCalendarEntry(SavedEventSnapshot snapshot) =>
       end: snapshot.end,
       allDay: snapshot.allDay,
       calendarSlug: snapshot.calendarSlug,
-      sourceLabel: snapshot.sourceLabel,
+      sourceLabel: snapshot.sourceLabel == null
+          ? null
+          : eventSourceDisplayLabel(
+              snapshot.sourceLabel!,
+              isChannel: snapshot.channelSlug != null,
+            ),
     );
 
 /// The live public-calendar entry's own `eventRef`, in the same

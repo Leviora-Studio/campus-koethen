@@ -169,7 +169,7 @@ void main() {
 
       expect(find.text('Events'), findsWidgets);
       expect(find.text('Sommerfest'), findsOneWidget);
-      expect(find.text('Campus Events'), findsWidgets);
+      expect(find.text('@Campus Events'), findsWidgets);
       expect(find.byType(EmptyView), findsNothing);
     });
 

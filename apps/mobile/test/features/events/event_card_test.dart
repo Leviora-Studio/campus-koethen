@@ -36,13 +36,14 @@ UnifiedEvent _calendarEvent({
   String? description,
   String? location,
   bool isCancelled = false,
+  String? channelSlug = 'campus-events',
 }) => UnifiedEvent(
   eventRef: 'calendar:abc',
   kind: UnifiedEventKind.calendarEvent,
   title: 'StuRa-Sitzung',
   start: DateTime.utc(2026, 9, 1, 16),
   end: DateTime.utc(2026, 9, 1, 18),
-  channelSlug: 'campus-events',
+  channelSlug: channelSlug,
   calendarSlug: 'stura-termine',
   sourceLabel: 'StuRa-Termine',
   description: description,
@@ -90,8 +91,17 @@ void main() {
     await _pumpCard(tester, _postEvent());
 
     expect(find.text('Sommerfest'), findsOneWidget);
-    expect(find.text('Campus Events'), findsOneWidget);
+    expect(find.text('@Campus Events'), findsOneWidget);
     expect(find.text('Mehr anzeigen'), findsNothing);
+  });
+
+  testWidgets('leaves a calendar-only source label unchanged', (
+    WidgetTester tester,
+  ) async {
+    await _pumpCard(tester, _calendarEvent(channelSlug: null));
+
+    expect(find.text('StuRa-Termine'), findsOneWidget);
+    expect(find.text('@StuRa-Termine'), findsNothing);
   });
 
   testWidgets('a description offers Mehr/Weniger anzeigen and toggles', (

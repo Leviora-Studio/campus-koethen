@@ -14,6 +14,7 @@ SavedEventSnapshot _saved({
   bool allDay = false,
   String? channelSlug,
   String? calendarSlug = 'stura-termine',
+  String? sourceLabel,
   String title = 'Gemerktes Event',
 }) => SavedEventSnapshot(
   eventRef: eventRef,
@@ -24,6 +25,7 @@ SavedEventSnapshot _saved({
   allDay: allDay,
   channelSlug: channelSlug,
   calendarSlug: calendarSlug,
+  sourceLabel: sourceLabel,
 );
 
 CalendarEntry _livePublicEntry({
@@ -52,15 +54,33 @@ void main() {
       expect(out, isEmpty);
     });
 
-    test('a saved calendar snapshot no longer live gets its own entry', () {
+    test('a saved channel event gets an @ source label in the calendar', () {
       final List<CalendarEntry> out = savedEventEntriesForCalendar(
-        saved: <SavedEventSnapshot>[_saved(eventRef: 'calendar:key1')],
+        saved: <SavedEventSnapshot>[
+          _saved(
+            eventRef: 'calendar:key1',
+            channelSlug: 'campus-events',
+            sourceLabel: 'Campus Events',
+          ),
+        ],
         liveEntries: const <CalendarEntry>[],
         channelSlugByCalendarSlug: const <String, String?>{},
       );
       expect(out, hasLength(1));
       expect(out.single.source, CalendarSource.savedEvents);
       expect(out.single.id, 'savedEvent:calendar:key1');
+      expect(out.single.sourceLabel, '@Campus Events');
+    });
+
+    test('a saved calendar-only source label stays unchanged', () {
+      final List<CalendarEntry> out = savedEventEntriesForCalendar(
+        saved: <SavedEventSnapshot>[
+          _saved(eventRef: 'calendar:key2', sourceLabel: 'StuRa-Termine'),
+        ],
+        liveEntries: const <CalendarEntry>[],
+        channelSlugByCalendarSlug: const <String, String?>{},
+      );
+      expect(out.single.sourceLabel, 'StuRa-Termine');
     });
 
     test('a saved post event duplicating a live calendar entry by channel and '
