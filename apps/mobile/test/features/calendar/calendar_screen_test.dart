@@ -2,6 +2,7 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:campus_koethen/core/locale/locale_mode.dart';
+import 'package:campus_koethen/core/locale/formatters.dart';
 import 'package:campus_koethen/core/network/api_client.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
@@ -731,6 +732,51 @@ void _weekViewTests() {
     expect(labels, contains('Montag bis Freitag'));
     expect(labels, contains('Montag bis Sonntag'));
   });
+
+  testWidgets(
+    'month, today action and week arrows stay in one row on a narrow phone',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(320, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final ProviderContainer container = await pumpScreen(
+        tester,
+        const CalendarScreen(),
+        textScaler: const TextScaler.linear(2),
+        overrides: <Override>[apiClientProvider.overrideWithValue(_emptyApi())],
+      );
+      await tester.pumpAndSettle();
+      container
+          .read(calendarViewModeProvider.notifier)
+          .set(CalendarViewMode.week);
+      await tester.pumpAndSettle();
+
+      final String month = AppDateFormats.monthAndYear(
+        container.read(calendarFocusedDayProvider),
+        'de',
+      );
+      final Finder monthFinder = find.text(month);
+      final Finder today = find.byTooltip('Heute');
+      final Finder previous = find.byTooltip('Vorherige Woche');
+      final Finder next = find.byTooltip('Nächste Woche');
+
+      expect(monthFinder, findsOneWidget);
+      expect(today, findsOneWidget);
+      expect(previous, findsOneWidget);
+      expect(next, findsOneWidget);
+      expect(find.text('Heute'), findsNothing);
+
+      final double rowCenter = tester.getCenter(monthFinder).dy;
+      expect(tester.getCenter(today).dy, closeTo(rowCenter, 1));
+      expect(tester.getCenter(previous).dy, closeTo(rowCenter, 1));
+      expect(tester.getCenter(next).dy, closeTo(rowCenter, 1));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   group('opening an entry from the agenda', () {
     CalendarEntry demoEntry(DateTime day) => CalendarEntry(

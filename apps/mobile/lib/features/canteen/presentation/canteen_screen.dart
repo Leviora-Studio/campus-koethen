@@ -234,7 +234,7 @@ class _MenuContent extends ConsumerWidget {
     final DateTime? lastSync = loaded.meta.lastSuccessfulSyncAt;
     final bool stale = loaded.meta.dataStale;
 
-    return ListView(
+    final Widget content = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         metrics.screenPadding,
@@ -368,6 +368,21 @@ class _MenuContent extends ConsumerWidget {
             ),
           ),
       ],
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Match the calendar's day view: left advances one day, right goes back.
+      // Both gestures feed the same controller as the visible arrow buttons,
+      // so every navigation path has identical date and DST behaviour.
+      onHorizontalDragEnd: (DragEndDetails details) {
+        final double velocity = details.primaryVelocity ?? 0;
+        if (velocity == 0) return;
+        ref
+            .read(selectedMenuDayProvider.notifier)
+            .shiftBy(velocity < 0 ? 1 : -1);
+      },
+      child: content,
     );
   }
 }

@@ -601,57 +601,50 @@ class _WeekView extends ConsumerWidget {
             metrics.screenPadding,
             AppSpacing.sm,
           ),
-          // A Wrap, not a Row: at a large text size the month and the range
-          // picker do not share a line on a narrow phone, and the picker
-          // dropping onto its own line beats either of them being cut off.
-          child: Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                AppDateFormats.monthAndYear(focused, locale),
-                style: Theme.of(context).textTheme.titleSmall,
+              // Navigation always stays with the month. The week-range picker
+              // has its own line below, so neither large text nor a narrow
+              // phone can push one of the arrows away from its context.
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      AppDateFormats.monthAndYear(focused, locale),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: l10n.calendarToday,
+                    onPressed: () =>
+                        ref.read(calendarFocusedDayProvider.notifier).today(),
+                    icon: const Icon(AppIcons.today_outlined),
+                  ),
+                  IconButton(
+                    tooltip: l10n.calendarPreviousWeek,
+                    onPressed: () => ref
+                        .read(calendarFocusedDayProvider.notifier)
+                        .shiftWeeks(-1),
+                    icon: const Icon(AppIcons.chevron_left),
+                  ),
+                  IconButton(
+                    tooltip: l10n.calendarNextWeek,
+                    onPressed: () => ref
+                        .read(calendarFocusedDayProvider.notifier)
+                        .shiftWeeks(1),
+                    icon: const Icon(AppIcons.chevron_right),
+                  ),
+                ],
               ),
+              const SizedBox(height: AppSpacing.xs),
               // Both ranges on screen, the current one picked. A single chip
               // reading "Wochenende" left the reader to work out whether it
               // was showing the weekend or hiding it — naming the two weeks
               // outright answers that before it is asked.
               _WeekRangePicker(showWeekend: showWeekend),
-              // The arrows the code comment below already promised. Until
-              // now the ONLY way to change week here was a horizontal drag,
-              // which is not exposed as an action at all — so TalkBack,
-              // VoiceOver and switch control simply could not move the week.
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                  ),
-                ),
-                onPressed: () =>
-                    ref.read(calendarFocusedDayProvider.notifier).today(),
-                icon: const Icon(
-                  AppIcons.today_outlined,
-                  size: AppSizes.iconSmall,
-                ),
-                label: Text(l10n.calendarToday),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                tooltip: l10n.calendarPreviousWeek,
-                onPressed: () => ref
-                    .read(calendarFocusedDayProvider.notifier)
-                    .shiftWeeks(-1),
-                icon: const Icon(AppIcons.chevron_left),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                tooltip: l10n.calendarNextWeek,
-                onPressed: () =>
-                    ref.read(calendarFocusedDayProvider.notifier).shiftWeeks(1),
-                icon: const Icon(AppIcons.chevron_right),
-              ),
             ],
           ),
         ),

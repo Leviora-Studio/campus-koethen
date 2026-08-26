@@ -111,6 +111,7 @@ Future<ProviderContainer> _pumpFeed(
   required FakeHttpAdapter adapter,
   KeyValueStore? store,
   Size size = const Size(390, 1200),
+  Locale locale = AppLocales.german,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -122,6 +123,7 @@ Future<ProviderContainer> _pumpFeed(
   final ProviderContainer container = await pumpScreen(
     tester,
     const NewsListScreen(),
+    locale: locale,
     keyValueStore: store ?? InMemoryKeyValueStore(<String, Object>{}),
     overrides: <Override>[
       frozenNewsClock(),
@@ -377,6 +379,36 @@ void main() {
       findsOneWidget,
       reason: 'the hint belongs to the response, not to a card',
     );
+  });
+
+  testWidgets('describes mixed-language content naturally in English', (
+    WidgetTester tester,
+  ) async {
+    final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+      if (options.path.endsWith('/posts/channels')) {
+        return FakeHttpResponse(envelope(channelsFixture));
+      }
+      if (options.path.endsWith('/posts/tags')) {
+        return FakeHttpResponse(envelope(tagsFixture));
+      }
+      return FakeHttpResponse(
+        envelope(
+          articlesFixture,
+          meta: <String, dynamic>{'translationFallback': true},
+        ),
+      );
+    });
+
+    await _pumpFeed(tester, adapter: adapter, locale: AppLocales.english);
+
+    expect(
+      find.text(
+        'Some content is not available in English yet. '
+        'The original German text is shown.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('No English version'), findsNothing);
   });
 
   group('infinite scrolling', () {

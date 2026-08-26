@@ -80,7 +80,7 @@
       }
     }
   },
-  "newsTranslationFallbackHint": "No English version of this content is available yet. The original German text is shown.",
+  "newsTranslationFallbackHint": "Some content is not available in English yet. The original German text is shown.",
   "translationFallbackHint": "Some content is not available in English yet. The original German text is shown.",
   "newsChannelLinkSemanticLabel": "Open channel {name}",
   "@newsChannelLinkSemanticLabel": {

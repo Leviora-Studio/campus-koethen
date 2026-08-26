@@ -8,6 +8,7 @@ import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/widgets/sheet_body.dart';
 import 'package:campus_koethen/features/canteen/application/canteen_filter_controller.dart';
+import 'package:campus_koethen/features/canteen/application/canteen_providers.dart';
 import 'package:campus_koethen/features/canteen/presentation/canteen_screen.dart';
 import 'package:campus_koethen/features/canteen/presentation/meal_card.dart';
 import 'package:dio/dio.dart';
@@ -21,10 +22,15 @@ import '../../support/fake_http_adapter.dart';
 import '../../support/pump_app.dart';
 
 String _today() {
+  return _dayFromToday(0);
+}
+
+String _dayFromToday(int offset) {
   final DateTime now = DateTime.now();
-  return '${now.year.toString().padLeft(4, '0')}-'
-      '${now.month.toString().padLeft(2, '0')}-'
-      '${now.day.toString().padLeft(2, '0')}';
+  final DateTime date = DateTime(now.year, now.month, now.day + offset);
+  return '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
 }
 
 Map<String, dynamic> _meal(
@@ -61,7 +67,11 @@ const List<Map<String, dynamic>> _bothPrices = <Map<String, dynamic>>[
   },
 ];
 
-ApiClient _api(List<Map<String, dynamic>> meals) => fakeApiClient(
+ApiClient _api(
+  List<Map<String, dynamic>> meals, {
+  Map<int, List<Map<String, dynamic>>> additionalDays =
+      const <int, List<Map<String, dynamic>>>{},
+}) => fakeApiClient(
   FakeHttpAdapter((RequestOptions options) {
     if (options.path.contains('/canteens/')) {
       return FakeHttpResponse(
@@ -74,6 +84,12 @@ ApiClient _api(List<Map<String, dynamic>> meals) => fakeApiClient(
             },
             'days': <Map<String, dynamic>>[
               <String, dynamic>{'date': _today(), 'meals': meals},
+              for (final MapEntry<int, List<Map<String, dynamic>>> entry
+                  in additionalDays.entries)
+                <String, dynamic>{
+                  'date': _dayFromToday(entry.key),
+                  'meals': entry.value,
+                },
             ],
           },
           meta: <String, dynamic>{'dataStale': false},
@@ -100,6 +116,8 @@ Future<ProviderContainer> pumpCanteen(
   List<Map<String, dynamic>>? meals,
   KeyValueStore? store,
   Locale locale = AppLocales.german,
+  Map<int, List<Map<String, dynamic>>> additionalDays =
+      const <int, List<Map<String, dynamic>>>{},
 }) async {
   tester.view.physicalSize = const Size(390, 1800);
   tester.view.devicePixelRatio = 1;
@@ -121,6 +139,7 @@ Future<ProviderContainer> pumpCanteen(
                 _meal('1', 'Gemüsepfanne', traits: <String>['vegan']),
                 _meal('2', 'Schnitzel'),
               ],
+          additionalDays: additionalDays,
         ),
       ),
     ],
@@ -144,6 +163,37 @@ void main() {
     expect(find.byTooltip('Mensa wählen'), findsOneWidget);
     expect(find.text('Gemüsepfanne'), findsOneWidget);
     expect(find.text('Schnitzel'), findsOneWidget);
+  });
+
+  testWidgets('swiping the menu changes the day in both directions', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = await pumpCanteen(
+      tester,
+      meals: <Map<String, dynamic>>[_meal('today', 'Gericht heute')],
+      additionalDays: <int, List<Map<String, dynamic>>>{
+        1: <Map<String, dynamic>>[_meal('tomorrow', 'Gericht morgen')],
+      },
+    );
+    final DateTime before = container.read(selectedMenuDayProvider);
+
+    await tester.fling(
+      find.byType(ListView).first,
+      const Offset(-250, 0),
+      1000,
+    );
+    await tester.pumpAndSettle();
+
+    final DateTime tomorrow = container.read(selectedMenuDayProvider);
+    expect(DateTime(tomorrow.year, tomorrow.month, tomorrow.day - 1), before);
+    expect(find.text('Gericht morgen'), findsOneWidget);
+    expect(find.text('Gericht heute'), findsNothing);
+
+    await tester.fling(find.byType(ListView).first, const Offset(250, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(container.read(selectedMenuDayProvider), before);
+    expect(find.text('Gericht heute'), findsOneWidget);
   });
 
   group('the fixed taxonomy', () {
