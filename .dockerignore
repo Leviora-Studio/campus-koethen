@@ -1,0 +1,33 @@
+# Keep build context small and make sure nothing secret or host-specific can
+# ever be copied into an image layer.
+
+**/node_modules
+**/dist
+**/build
+**/.strapi
+**/.tmp
+**/coverage
+**/src/generated
+
+# Secrets — only *.example files may exist in the repository anyway.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# The Flutter app is never part of a server image.
+apps/mobile
+
+# VCS, docs and CI
+.git
+.github
+docs
+infrastructure
+*.md
+!apps/*/README.md
+
+# Editors / OS
+.idea
+.vscode
+**/.DS_Store

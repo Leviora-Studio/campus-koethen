@@ -1,0 +1,36 @@
+{
+  "name": "campus-koethen-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Campus K\u00f6then App \u2014 an independent, unofficial campus app monorepo (Strapi CMS, NestJS Campus API + worker, Flutter mobile client).",
+  "license": "AGPL-3.0-only",
+  "author": "Leviora Studio and Jona Loreen Sommer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Leviora-Studio/campus-koethen.git"
+  },
+  "engines": {
+    "node": ">=22.0.0 <23.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@11.15.1",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md,yaml,yml}\"",
+    "backend:dev": "pnpm --filter @campus/backend start:dev",
+    "backend:test": "pnpm --filter @campus/backend test",
+    "cms:dev": "pnpm --filter @campus/cms develop",
+    "cms:build": "pnpm --filter @campus/cms build",
+    "compose:local:up": "docker compose -f infrastructure/local/compose.yaml up -d",
+    "compose:local:down": "docker compose -f infrastructure/local/compose.yaml down",
+    "compose:local:config": "docker compose -f infrastructure/local/compose.yaml config -q",
+    "openapi:generate": "pnpm --filter @campus/backend openapi:generate"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

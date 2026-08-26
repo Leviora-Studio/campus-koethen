@@ -1,0 +1,203 @@
+# Campus Köthen — local development stack
+#
+# Mirrors the server topology: ONE PostgreSQL 16 instance holding TWO separate
+# databases with TWO separate roles. Neither role can read the other database.
+#
+#   campus_cms_local  owned by  campus_cms   <- Strapi only
+#   campus_app_local  owned by  campus_app   <- Campus API + worker only
+#
+# PostgreSQL is bound to 127.0.0.1 ONLY. It is never exposed publicly.
+#
+# Default profile  : databases only (apps run on the host via pnpm)
+# Profile `full`   : additionally builds and runs cms, api and worker containers
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose -f infrastructure/local/compose.yaml up -d
+#   docker compose -f infrastructure/local/compose.yaml --profile full up -d --build
+
+name: campus-koethen-local
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      # Bootstrap superuser — used ONLY by the init scripts. The application
+      # roles below are deliberately NOT superusers, so privilege checks apply.
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?POSTGRES_SUPERUSER_PASSWORD is required}
+      APP_DB_NAME: campus_app_local
+      APP_DB_USER: campus_app
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      CMS_DB_NAME: campus_cms_local
+      CMS_DB_USER: campus_cms
+      CMS_DB_PASSWORD: ${CMS_DB_PASSWORD:?CMS_DB_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    ports:
+      # Bound to loopback only — never 0.0.0.0.
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  cms:
+    profiles: ['full']
+    build:
+      context: ../..
+      dockerfile: apps/cms/Dockerfile
+    image: campus-app-cms:local
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 1337
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: campus_cms_local
+      DATABASE_USERNAME: campus_cms
+      DATABASE_PASSWORD: ${CMS_DB_PASSWORD:?CMS_DB_PASSWORD is required}
+      DATABASE_SSL: 'false'
+      # Explicit browser origin allowlist for the CMS. Strapi's own default is a
+      # REFLECTED wildcard with credentials enabled; this stack sets NODE_ENV to
+      # production, where a wildcard is refused outright.
+      CORS_ALLOWED_ORIGINS: ${CMS_CORS_ALLOWED_ORIGINS:-http://localhost:${CMS_PORT:-1337}}
+      APP_KEYS: ${APP_KEYS:?APP_KEYS is required}
+      API_TOKEN_SALT: ${API_TOKEN_SALT:?API_TOKEN_SALT is required}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET is required}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT:?TRANSFER_TOKEN_SALT is required}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      # Idempotent de/en demo seed, run from the bootstrap hook. Off by default;
+      # never enable this on a production instance.
+      SEED_DEMO_CONTENT: ${SEED_DEMO_CONTENT:-false}
+    ports:
+      - '127.0.0.1:${CMS_PORT:-1337}:1337'
+    volumes:
+      - cms-uploads:/opt/app/public/uploads
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:1337/_health').then(r=>process.exit(r.status<400?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  api:
+    profiles: ['full']
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    image: campus-app-backend:local
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://campus_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}@postgres:5432/campus_app_local?schema=public
+      STRAPI_BASE_URL: ${STRAPI_BASE_URL:-http://cms:1337}
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
+      WEBUNTIS_ENABLED: ${WEBUNTIS_ENABLED:-false}
+      USER_TEST_DATA_ENABLED: ${USER_TEST_DATA_ENABLED:-false}
+      WEBUNTIS_STALE_AFTER_MINUTES: ${WEBUNTIS_STALE_AFTER_MINUTES:-180}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      PUBLIC_CALENDAR_ENABLED: ${PUBLIC_CALENDAR_ENABLED:-false}
+      PUBLIC_CALENDAR_LOOKAHEAD_DAYS: ${PUBLIC_CALENDAR_LOOKAHEAD_DAYS:-}
+      PUBLIC_CALENDAR_API_MAX_RANGE_DAYS: ${PUBLIC_CALENDAR_API_MAX_RANGE_DAYS:-}
+      PUBLIC_CALENDAR_API_MAX_EVENTS: ${PUBLIC_CALENDAR_API_MAX_EVENTS:-}
+      PUBLIC_CALENDAR_API_MAX_CALENDARS: ${PUBLIC_CALENDAR_API_MAX_CALENDARS:-}
+      PUBLIC_CALENDAR_STALE_AFTER_MINUTES: ${PUBLIC_CALENDAR_STALE_AFTER_MINUTES:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '127.0.0.1:${API_PORT:-3000}:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.status<400?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  worker:
+    profiles: ['full']
+    # Same image as the API, different entrypoint — as documented in the deployment contract.
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    image: campus-app-backend:local
+    restart: unless-stopped
+    logging: *default-logging
+    command: ['node', 'dist/worker.js']
+    # The worker shares the API image but serves no HTTP, so the image's
+    # liveness probe would always fail. Disable it rather than report a
+    # permanently unhealthy container; the worker's own state is visible in its
+    # structured logs and in the sync_runs table.
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://campus_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}@postgres:5432/campus_app_local?schema=public
+      WORKER_TIME_ZONE: ${WORKER_TIME_ZONE:-UTC}
+      USER_TEST_DATA_ENABLED: ${USER_TEST_DATA_ENABLED:-false}
+      PUBLIC_CALENDAR_ENABLED: ${PUBLIC_CALENDAR_ENABLED:-false}
+      PUBLIC_CALENDAR_CATALOG_SYNC_CRON: ${PUBLIC_CALENDAR_CATALOG_SYNC_CRON:-}
+      PUBLIC_CALENDAR_EVENT_SYNC_CRON: ${PUBLIC_CALENDAR_EVENT_SYNC_CRON:-}
+      PUBLIC_CALENDAR_SYNC_ON_BOOT: ${PUBLIC_CALENDAR_SYNC_ON_BOOT:-true}
+      PUBLIC_CALENDAR_LOOKBACK_DAYS: ${PUBLIC_CALENDAR_LOOKBACK_DAYS:-}
+      PUBLIC_CALENDAR_LOOKAHEAD_DAYS: ${PUBLIC_CALENDAR_LOOKAHEAD_DAYS:-}
+      PUBLIC_CALENDAR_STALE_AFTER_MINUTES: ${PUBLIC_CALENDAR_STALE_AFTER_MINUTES:-}
+      PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT: ${PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT:-}
+      PUBLIC_CALENDAR_MAX_OCCURRENCES: ${PUBLIC_CALENDAR_MAX_OCCURRENCES:-}
+      CANTEEN_SYNC_CRON: ${CANTEEN_SYNC_CRON:-0 */2 * * *}
+      # Timetable jobs. Disabled by default: the source is a third party's
+      # internal interface and automated use is not cleared yet.
+      WEBUNTIS_ENABLED: ${WEBUNTIS_ENABLED:-false}
+      WEBUNTIS_BASE_URL: ${WEBUNTIS_BASE_URL:-https://hsa.webuntis.com/WebUntis/api/rest/view/v1}
+      WEBUNTIS_ANONYMOUS_SCHOOL: ${WEBUNTIS_ANONYMOUS_SCHOOL:-hsa}
+      WEBUNTIS_GROUP_SYNC_CRON: ${WEBUNTIS_GROUP_SYNC_CRON:-0 * * * *}
+      WEBUNTIS_ENTRY_SYNC_CRON: ${WEBUNTIS_ENTRY_SYNC_CRON:-0 * * * *}
+      WEBUNTIS_SYNC_ON_BOOT: ${WEBUNTIS_SYNC_ON_BOOT:-true}
+      WEBUNTIS_LOOKBACK_DAYS: ${WEBUNTIS_LOOKBACK_DAYS:-7}
+      WEBUNTIS_LOOKAHEAD_DAYS: ${WEBUNTIS_LOOKAHEAD_DAYS:-28}
+      WEBUNTIS_STALE_AFTER_MINUTES: ${WEBUNTIS_STALE_AFTER_MINUTES:-180}
+      CANTEEN_SYNC_ON_BOOT: ${CANTEEN_SYNC_ON_BOOT:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+volumes:
+  postgres-data:
+  cms-uploads:

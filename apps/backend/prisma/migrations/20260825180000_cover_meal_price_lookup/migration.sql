@@ -1,0 +1,18 @@
+-- Menu reads fetch the prices of a whole date range by dish id. Every column
+-- that read needs is now IN the index, so PostgreSQL answers it with an
+-- index-only scan instead of a sequential scan over the entire table: the
+-- existing unique index stops at (mealId, group) and does not carry `amount`,
+-- which forced a heap visit per row and made the sequential scan the cheaper
+-- plan for a range of any realistic length.
+--
+-- Rollout: `meal_prices` holds three rows per dish (order 10^4) and its only
+-- writer is the canteen sync worker, which runs every couple of hours and
+-- rewrites prices only for dishes whose prices actually changed. Building this
+-- index takes well under a second and the brief SHARE lock cannot collide with
+-- a request — the API never writes here. No CONCURRENTLY: `prisma migrate
+-- deploy` runs each migration inside a transaction, which forbids it, and at
+-- this table size it buys nothing.
+--
+-- Rollback: DROP INDEX "meal_prices_mealId_group_amount_idx"; the read path
+-- stays correct without it and only becomes slow again.
+CREATE INDEX "meal_prices_mealId_group_amount_idx" ON "meal_prices"("mealId", "group", "amount");

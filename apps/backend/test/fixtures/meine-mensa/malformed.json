@@ -1,0 +1,22 @@
+{
+  "data": {
+    "unexpected": "shape"
+  },
+  "meta": {
+    "ingredients": {
+      "2": "Konservierungsstoffe",
+      "51": "vegetarisch",
+      "52": "vegan",
+      "A1": "enthält Weizengluten",
+      "A3": "enthält Hafergluten",
+      "G2": "enthält Mandeln",
+      "F": "enthält Milch (einschließlich Laktose)"
+    },
+    "markers": {
+      "53": "Sprint-Menü",
+      "54": "Mensa Vital",
+      "55": "Bio",
+      "9901": "Klima-Teller"
+    }
+  }
+}

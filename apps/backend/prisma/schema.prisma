@@ -1,0 +1,448 @@
+// Campus Köthen — operational database (campus_app_<env>)
+//
+// This database holds ONLY imported canteen data and synchronisation state.
+// Editorial content lives in Strapi and is never mirrored here.
+//
+// Money is Decimal, never Float.
+// The source image URL (food.image_url) is deliberately NOT modelled: canteen
+// images are not used anywhere in this project.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 no longer accepts `url` here. The migration connection string lives
+// in prisma.config.ts; the runtime client uses the @prisma/adapter-pg driver
+// adapter (see src/prisma/prisma.service.ts).
+datasource db {
+  provider = "postgresql"
+}
+
+/// A canteen. Seeded idempotently from canteens.config.ts so that adding a
+/// canteen needs a backend config change and a deployment — never an app release.
+model Canteen {
+  id               String  @id @default(uuid())
+  /// Stable public identifier used by the API and the app.
+  slug             String  @unique
+  /// location_id of the upstream source. Never exposed through the API.
+  sourceLocationId Int     @unique
+  displayNameDe    String
+  displayNameEn    String
+  campusLabelDe    String
+  campusLabelEn    String
+  active           Boolean @default(true)
+  sortOrder        Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meals    Meal[]
+  syncRuns SyncRun[]
+
+  @@index([active, sortOrder])
+  @@map("canteens")
+}
+
+/// A single dish on a single day at a single canteen.
+model Meal {
+  id String @id @default(uuid())
+
+  /// Owner of this operational row. Real imports and the controlled user-test
+  /// seed must never delete one another's data.
+  source String @default("meine-mensa")
+
+  /// Stable upsert key: `data[].id` from the source. Guarantees that repeating
+  /// an import updates rather than duplicates.
+  sourcePlanId Int  @unique
+  sourceFoodId Int?
+
+  canteenId String
+  canteen   Canteen @relation(fields: [canteenId], references: [id], onDelete: Cascade)
+
+  /// Calendar date, no time component.
+  date      DateTime @db.Date
+  counterId Int?
+  isSprint  Boolean  @default(false)
+
+  /// Text exactly as provided by the German-language source. Never translated.
+  name     String
+  subtitle String?
+
+  /// Non-empty extra_1..extra_4 values.
+  extras String[] @default([])
+
+  /// Raw codes from `food.ingredients`. NOTE: the source mixes ingredient codes
+  /// and marker codes in this one array, so resolution must consult both
+  /// dictionaries — see IngredientDefinition.kind.
+  ingredientCodes String[] @default([])
+
+  prices MealPrice[]
+
+  sourceUpdatedAt DateTime?
+  importedAt      DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([canteenId, date])
+  @@index([source, canteenId, date])
+  @@index([date])
+  @@map("meals")
+}
+
+/// One price group of one meal. Modelled relationally so that ALL price groups
+/// the source offers are stored, and a missing group is simply an absent row —
+/// no price is ever estimated or defaulted.
+model MealPrice {
+  id     String @id @default(uuid())
+  mealId String
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  /// Stable technical key: "student" | "employee" | "guest".
+  group  String
+  /// Money as Decimal — never Float.
+  amount Decimal @db.Decimal(6, 2)
+
+  @@unique([mealId, group])
+  /// Read path of /v1/canteens/{slug}/menu: the prices of a whole date range are
+  /// fetched by dish id. `amount` is a key column rather than a payload column
+  /// only because Prisma cannot model an INCLUDE clause — what matters is that
+  /// every column the menu reads is IN the index, so PostgreSQL answers the
+  /// lookup as an index-only scan instead of scanning the table.
+  @@index([mealId, group, amount])
+  @@map("meal_prices")
+}
+
+/// Label dictionary for ingredient and marker codes, imported from `meta`.
+/// The source publishes German labels only; labelEn stays null unless a
+/// human-maintained translation exists. Nothing is machine-translated.
+model IngredientDefinition {
+  code    String  @id
+  labelDe String
+  labelEn String?
+  /// "ingredient" | "marker"
+  kind    String
+
+  updatedAt DateTime @updatedAt
+
+  @@map("ingredient_definitions")
+}
+
+/// Audit trail of every synchronisation attempt. `lastSuccessfulSyncAt` is
+/// derived from the most recent run with status = "success".
+model SyncRun {
+  id     String @id @default(uuid())
+  source String @default("meine-mensa")
+
+  canteenId String?
+  canteen   Canteen? @relation(fields: [canteenId], references: [id], onDelete: SetNull)
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  /// "running" | "success" | "empty" | "failed"
+  status String
+
+  recordsReceived Int @default(0)
+  recordsUpserted Int @default(0)
+  recordsRejected Int @default(0)
+
+  /// Short, non-sensitive error summary. Never contains tokens or URLs with credentials.
+  errorMessage String?
+
+  @@index([canteenId, status, startedAt])
+  @@index([status, startedAt])
+  @@index([canteenId, status, finishedAt])
+  @@map("sync_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Timetable (WebUntis public view)
+//
+// Imported operational data, exactly like the canteen models: the source is a
+// third party, so nothing here is authored by us and everything is replaceable
+// by a re-import. External identifiers are stored so upserts stay stable, but
+// they are NEVER exposed through the API — clients only ever see Campus UUIDs.
+// ---------------------------------------------------------------------------
+
+/// The current school year as reported by the source. Its id is dynamic and
+/// changes every term, so it is resolved at runtime and never hardcoded.
+model TimetableContext {
+  id String @id @default(uuid())
+
+  source     String @default("webuntis")
+  /// External school year id. Server-side only.
+  externalId String
+  name       String
+
+  validFrom DateTime @db.Date
+  validTo   DateTime @db.Date
+
+  active     Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([source, externalId])
+  @@index([source, active])
+  @@map("timetable_contexts")
+}
+
+/// A class group offered by the public view. The UUID is the stable public
+/// identifier; `externalId` never leaves the server.
+model TimetableGroup {
+  id String @id @default(uuid())
+
+  source     String @default("webuntis")
+  externalId String
+
+  shortName  String
+  longName   String
+  department String?
+
+  active     Boolean  @default(true)
+  /// Last successful catalogue run that still contained this group. A group is
+  /// only deactivated after a COMPLETE successful catalogue import.
+  lastSeenAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries TimetableEntryGroup[]
+
+  @@unique([source, externalId])
+  @@index([active, shortName])
+  @@index([department])
+  @@map("timetable_groups")
+}
+
+/// One scheduled lesson. Shared by however many groups attend it.
+model TimetableEntry {
+  id String @id @default(uuid())
+
+  source      String @default("webuntis")
+  /// Stable upsert key derived from the source's `ids[]`. Repeating an import
+  /// therefore updates rather than duplicates.
+  externalKey String
+
+  /// Absolute instants. The source sends zone-less Europe/Berlin wall clock,
+  /// which is converted on import — storing it raw would shift every lesson.
+  startsAt DateTime
+  endsAt   DateTime
+  /// Calendar date in the source's zone, kept for cheap per-day queries.
+  date     DateTime @db.Date
+
+  title       String
+  subjectCode String?
+
+  /// Normalised: regular_teaching | additional | unknown
+  type         String
+  /// Normalised: regular | changed | cancelled | unknown
+  status       String
+  /// The untouched upstream value, so a new vocabulary can be diagnosed later
+  /// without re-reading the source.
+  sourceStatus String?
+
+  /// Denormalised on purpose: teachers and rooms are display-only strings from
+  /// the source, never entities we own or reconcile.
+  teachers Json @default("[]")
+  rooms    Json @default("[]")
+
+  note String?
+
+  importedAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  groups TimetableEntryGroup[]
+
+  @@unique([source, externalKey])
+  @@index([date])
+  @@index([startsAt])
+  @@map("timetable_entries")
+}
+
+/// Explicit many-to-many. Without it, syncing one group could delete a lesson
+/// that other groups still attend.
+model TimetableEntryGroup {
+  entryId String
+  groupId String
+
+  entry TimetableEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  group TimetableGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([entryId, groupId])
+  @@index([groupId, entryId])
+  @@map("timetable_entry_groups")
+}
+
+/// Audit trail. `lastSuccessfulSyncAt` and staleness are derived from this.
+model TimetableSyncRun {
+  id String @id @default(uuid())
+
+  source String @default("webuntis")
+  /// context | groups | entries
+  kind   String
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  /// running | success | empty | partial | failed | disabled
+  status String
+
+  /// Confirmed window, for entry runs.
+  rangeFrom DateTime? @db.Date
+  rangeTo   DateTime? @db.Date
+
+  groupsRequested Int @default(0)
+  recordsReceived Int @default(0)
+  recordsAccepted Int @default(0)
+  recordsRejected Int @default(0)
+  recordsWritten  Int @default(0)
+  recordsRemoved  Int @default(0)
+
+  /// Classification only. Never a header, URL, raw payload or person's name.
+  errorCode    String?
+  errorMessage String?
+
+  @@index([kind, status, startedAt])
+  @@index([status, startedAt])
+  @@index([kind, status, finishedAt])
+  @@map("timetable_sync_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Public calendars (public Google calendars, synced via their public ICS feed)
+//
+// Strapi remains the canonical editorial source of the calendar DEFINITIONS.
+// This is a minimal OPERATIONAL read-model: it exists so a calendar appears
+// only after validation AND a first successful ICS sync, so a Strapi outage
+// cannot take the public calendar API down, and so events have stable local ids.
+//
+// The server-internal Google calendar id and the feed URL are NEVER exposed
+// through the API. Raw ICS is never stored. No attendee/organiser data exists.
+// ---------------------------------------------------------------------------
+
+/// The validated, operational mirror of one published Strapi public-calendar.
+model PublicCalendar {
+  id String @id @default(uuid())
+
+  /// Stable public identifier used by the API and the app.
+  slug             String @unique
+  /// Decoded from the editor's public share link. Server-side ONLY; never a DTO
+  /// field and never logged.
+  googleCalendarId String
+
+  /// Associated news/post channel slug, if any. One-to-one relationship.
+  channelSlug String? @unique
+
+  nameDe String
+  nameEn String?
+
+  colorHex          String
+  sortOrder         Int     @default(0)
+  isActive          Boolean @default(true)
+  defaultSubscribed Boolean @default(false)
+  includeEventDescription Boolean @default(false)
+  includeEventLocation    Boolean @default(false)
+
+  /// pending | ready | stale | revoked | unavailable | invalid
+  operationalStatus String @default("pending")
+
+  /// Conditional-request validators from the last successful download.
+  lastEtag        String?
+  lastModified    String?
+  /// SHA-256 of the last successfully processed feed body — never the body.
+  lastContentHash String?
+
+  lastCatalogSyncAt    DateTime?
+  lastSuccessfulSyncAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events PublicCalendarEvent[]
+
+  @@index([isActive, sortOrder])
+  @@index([operationalStatus])
+  @@map("public_calendars")
+}
+
+/// A single normalised occurrence. Recurrences are expanded into rows within a
+/// bounded window; `occurrenceKey` (uid + recurrence slot) keeps them unique.
+model PublicCalendarEvent {
+  id String @id @default(uuid())
+
+  calendarId String
+  calendar   PublicCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  /// Stable identity of this occurrence within the calendar.
+  occurrenceKey String
+  uid           String
+  recurrenceId  String?
+  sequence      Int?
+
+  title       String
+  /// Only present when the calendar's includeEventDescription flag is set. Plain text.
+  description String?
+  /// Only present when the calendar's includeEventLocation flag is set. Plain text.
+  location    String?
+
+  /// Absolute instants. All-day events store UTC-midnight of the local date and
+  /// an EXCLUSIVE end.
+  startsAt DateTime
+  endsAt   DateTime
+  allDay   Boolean  @default(false)
+
+  /// confirmed | tentative | cancelled
+  status String @default("confirmed")
+
+  sourceUpdatedAt DateTime?
+  importedAt      DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([calendarId, occurrenceKey])
+  @@index([calendarId, startsAt, id])
+  @@index([startsAt, calendarId, id])
+  @@map("public_calendar_events")
+}
+
+/// Audit trail. Never stores the feed URL, the raw calendar id, raw ICS or any
+/// VEVENT component — only counts and a classified, redacted error.
+model PublicCalendarSyncRun {
+  id String @id @default(uuid())
+
+  /// Slug of the calendar this run covered (null for a catalogue run).
+  calendarSlug String?
+  /// catalog | events
+  kind         String
+
+  /// running | success | empty | notModified | stale | revoked | failed | disabled
+  status String
+
+  rangeFrom DateTime? @db.Date
+  rangeTo   DateTime? @db.Date
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  feedBytes                  Int @default(0)
+  calendarComponentsReceived Int @default(0)
+  eventsReceived             Int @default(0)
+  eventsExpanded             Int @default(0)
+  recordsAccepted            Int @default(0)
+  recordsRejected            Int @default(0)
+  recordsWritten             Int @default(0)
+  recordsRemoved             Int @default(0)
+
+  /// Classification only. Never a header, URL, raw payload or person's name.
+  errorCode    String?
+  errorMessage String?
+
+  @@index([kind, status, startedAt])
+  @@index([status, startedAt])
+  @@index([kind, status, finishedAt])
+  @@map("public_calendar_sync_runs")
+}

@@ -1,0 +1,74 @@
+{
+  "currentSchoolYear": {
+    "dateRange": {
+      "start": "2026-04-07",
+      "end": "2026-09-30"
+    },
+    "id": 49,
+    "name": "2026/2026",
+    "timeGrid": {
+      "schoolyearId": 49,
+      "units": [
+        {
+          "endTime": 930,
+          "startTime": 800,
+          "unitOfDay": 1
+        },
+        {
+          "endTime": 1130,
+          "startTime": 1000,
+          "unitOfDay": 2
+        },
+        {
+          "endTime": 1400,
+          "startTime": 1230,
+          "unitOfDay": 3
+        },
+        {
+          "endTime": 1600,
+          "startTime": 1430,
+          "unitOfDay": 4
+        },
+        {
+          "endTime": 1800,
+          "startTime": 1630,
+          "unitOfDay": 5
+        },
+        {
+          "endTime": 2000,
+          "startTime": 1830,
+          "unitOfDay": 6
+        }
+      ]
+    }
+  },
+  "departments": [],
+  "isPlayground": null,
+  "oneDriveData": null,
+  "tenant": {
+    "displayName": "Hochschule Anhalt",
+    "id": "6806000",
+    "wuHostName": null,
+    "name": "hsa"
+  },
+  "ui2020": null,
+  "user": {
+    "id": null,
+    "locale": "deHS",
+    "name": null,
+    "email": null,
+    "permissions": {
+      "views": ["TIMETABLE_NEW_CLASSES"]
+    },
+    "person": null,
+    "roles": [],
+    "students": [],
+    "lastLogin": null
+  },
+  "permissions": [],
+  "settings": [],
+  "pollingJobs": [],
+  "isSupportAccessOpen": null,
+  "licenceExpiresAt": null,
+  "holidays": []
+}

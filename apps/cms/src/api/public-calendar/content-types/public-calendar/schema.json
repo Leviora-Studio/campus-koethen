@@ -1,0 +1,129 @@
+{
+  "kind": "collectionType",
+  "collectionName": "public_calendars",
+  "info": {
+    "singularName": "public-calendar",
+    "pluralName": "public-calendars",
+    "displayName": "Public Calendar",
+    "description": "A public Google calendar, synced read-only via its PUBLIC ICS feed. Fully dynamic: publishing one here makes it appear in the app after the first successful backend sync — no app or backend code change."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 80,
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "slug": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 80,
+      "regex": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "googleShareUrl": {
+      "type": "string",
+      "required": true,
+      "maxLength": 2048,
+      "regex": "^https://calendar\\.google\\.com/calendar/(render|u/[0-9]+(/r)?)\\?.*cid=.+$",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "colorHex": {
+      "type": "string",
+      "required": true,
+      "default": "#5B3FD0",
+      "minLength": 7,
+      "maxLength": 7,
+      "regex": "^#[0-9A-Fa-f]{6}$",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "sortOrder": {
+      "type": "integer",
+      "default": 0,
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true,
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "defaultSubscribed": {
+      "type": "boolean",
+      "default": false,
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "includeEventDescription": {
+      "type": "boolean",
+      "default": false,
+      "required": true,
+      "description": "Include each imported event's description in the public API and app.",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "includeEventLocation": {
+      "type": "boolean",
+      "default": false,
+      "required": true,
+      "description": "Include each imported event's location in the public API and app.",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
+    "channel": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::channel.channel",
+      "mappedBy": "publicCalendar",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    }
+  }
+}

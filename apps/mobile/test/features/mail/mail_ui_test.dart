@@ -1,0 +1,1156 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:campus_koethen/core/links/safe_link_launcher.dart';
+import 'package:campus_koethen/features/mail/application/mail_providers.dart';
+import 'package:campus_koethen/features/mail/data/mail_attachment_picker.dart';
+import 'package:campus_koethen/features/mail/data/mail_cache.dart';
+import 'package:campus_koethen/features/mail/data/mail_local_data_coordinator.dart';
+import 'package:campus_koethen/features/mail/domain/mail_cache_store.dart';
+import 'package:campus_koethen/features/mail/domain/mail_credentials.dart';
+import 'package:campus_koethen/features/mail/domain/mail_failure.dart';
+import 'package:campus_koethen/features/mail/domain/mail_folder.dart';
+import 'package:campus_koethen/features/mail/domain/mail_message.dart';
+import 'package:campus_koethen/features/mail/presentation/compose_draft.dart';
+import 'package:campus_koethen/features/mail/presentation/mail_compose_screen.dart';
+import 'package:campus_koethen/features/mail/presentation/mail_message_screen.dart';
+import 'package:campus_koethen/features/mail/presentation/mail_screen.dart';
+import 'package:campus_koethen/features/mail/presentation/mail_search_screen.dart';
+import 'package:campus_koethen/features/mail/presentation/mail_setup_screen.dart';
+import 'package:campus_koethen/features/more/presentation/more_screen.dart';
+import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
+import "package:campus_koethen/core/theme/app_icons.dart";
+
+import '../../support/fake_mail.dart';
+import '../../support/pump_app.dart';
+
+const MailCredentials _creds = MailCredentials(
+  emailAddress: 'stud@hs-anhalt.de',
+  password: 'pw',
+);
+
+List<Override> _mail(
+  FakeMailGateway gateway,
+  InMemoryMailCredentialStore store, {
+  MailCacheStore? cache,
+}) {
+  final MailCacheStore resolvedCache = cache ?? MemoryMailCache();
+  return <Override>[
+    mailGatewayProvider.overrideWithValue(gateway),
+    mailCredentialStoreProvider.overrideWithValue(store),
+    mailCacheStoreProvider.overrideWithValue(resolvedCache),
+    mailLocalDataCoordinatorProvider.overrideWithValue(
+      MailLocalDataCoordinator(
+        credentials: store,
+        cache: resolvedCache,
+        wipeIntent: MemoryMailWipeIntentStore(),
+      ),
+    ),
+  ];
+}
+
+/// The sign-in form is a tall, scrolling [ListView]. A tall surface keeps every
+/// field and button laid out and hittable, so tests need no manual scrolling.
+void _tallSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1200, 2400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
+/// A valid 1×1 transparent PNG, so Image.memory decodes without error.
+const List<int> _pngBytes = <int>[
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0A,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
+  0x42,
+  0x60,
+  0x82,
+];
+
+class _FakeLauncher implements SafeLinkLauncher {
+  final List<String> opened = <String>[];
+
+  @override
+  Future<LinkLaunchResult> open(String? rawUrl) async {
+    if (rawUrl != null) opened.add(rawUrl);
+    return LinkLaunchResult.opened;
+  }
+}
+
+MailMessageHeader _header({String id = '1'}) => MailMessageHeader(
+  id: id,
+  subject: 'Hallo Welt',
+  from: const MailAddress(email: 'alice@hs-anhalt.de', name: 'Alice'),
+  date: DateTime.utc(2026, 7, 20, 9, 30),
+  isSeen: false,
+  hasAttachments: false,
+);
+
+void main() {
+  group('MoreScreen', () {
+    testWidgets('does not repeat mail, which is a default tab', (
+      WidgetTester tester,
+    ) async {
+      // Mail moved into the bottom bar, so the hub must not list it a second
+      // time. Settings can never be pinned and is therefore always here.
+      await pumpScreen(tester, const MoreScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Studentische E-Mail'), findsNothing);
+      // "App" is the last category of the hub and sits below the fold on a
+      // test viewport, so the row has to be scrolled to before it exists.
+      await tester.scrollUntilVisible(
+        find.text('Einstellungen'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Einstellungen'), findsOneWidget);
+    });
+  });
+
+  group('mail gate', () {
+    testWidgets('shows the sign-in screen when signed out', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(FakeMailGateway(), InMemoryMailCredentialStore()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verbindung prüfen und anmelden'), findsOneWidget);
+      expect(find.text('E-Mail-Adresse'), findsOneWidget);
+    });
+
+    testWidgets('shows the cached inbox when an account is stored', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      // The INBOX is served from the offline cache — pre-populate it.
+      final MemoryMailCache cache = MemoryMailCache();
+      await cache.saveHeaders(<MailMessageHeader>[_header()]);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(FakeMailGateway(), store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Posteingang'), findsOneWidget);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Hallo Welt'), findsOneWidget);
+    });
+  });
+
+  group('sign in flow', () {
+    testWidgets('rejects an invalid address without calling the server', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, InMemoryMailCredentialStore()),
+      );
+      await tester.pumpAndSettle();
+
+      // Field order: Name, Email, Password.
+      await tester.enterText(find.byType(TextFormField).at(1), 'not-an-email');
+      await tester.tap(find.text('Verbindung prüfen und anmelden'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Bitte gib eine gültige E-Mail-Adresse ein.'),
+        findsOneWidget,
+      );
+      expect(gateway.verifyCalls, 0);
+    });
+
+    testWidgets('signs in and reveals the inbox', (WidgetTester tester) async {
+      _tallSurface(tester);
+      final store = InMemoryMailCredentialStore();
+      final gateway = FakeMailGateway(inbox: <MailMessageHeader>[_header()]);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      // Field order: Name, Email, Password.
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'Max Mustermensch',
+      );
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'stud@hs-anhalt.de',
+      );
+      await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+      await tester.tap(find.text('Verbindung prüfen und anmelden'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.verifyCalls, 1);
+      expect(store.writes, 1);
+      expect(store.lastWritten?.displayName, 'Max Mustermensch');
+      // The gate switched to the inbox (its masthead names the folder).
+      expect(
+        find.descendant(
+          of: find.byType(ScreenHeader),
+          matching: find.text('Posteingang'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows a loading state while verifying', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final gateway = FakeMailGateway(
+        verifyGate: Completer<void>(),
+        verifyStarted: Completer<void>(),
+      );
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, InMemoryMailCredentialStore()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'stud@hs-anhalt.de',
+      );
+      await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+      await tester.tap(find.text('Verbindung prüfen und anmelden'));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      gateway.verifyGate!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a distinguishable error is shown and allows a retry', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final gateway = FakeMailGateway(
+        verifyError: const MailFailure(MailFailureKind.serverUnreachable),
+      );
+      final store = InMemoryMailCredentialStore();
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'stud@hs-anhalt.de',
+      );
+      await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+      await tester.tap(find.text('Verbindung prüfen und anmelden'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Der Mailserver ist derzeit nicht erreichbar.'),
+        findsOneWidget,
+      );
+      expect(store.writes, 0);
+      // No stuck spinner and the form stays interactive for a retry.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      gateway.verifyError = null;
+      await tester.tap(find.text('Verbindung prüfen und anmelden'));
+      await tester.pumpAndSettle();
+
+      expect(store.writes, 1);
+    });
+
+    testWidgets(
+      'leaving the screen mid sign-in keeps a late failure off the next screen',
+      (WidgetTester tester) async {
+        _tallSurface(tester);
+        final gateway = FakeMailGateway(
+          verifyGate: Completer<void>(),
+          verifyStarted: Completer<void>(),
+          verifyError: const MailFailure(MailFailureKind.timeout),
+        );
+        final store = InMemoryMailCredentialStore();
+        final ValueNotifier<bool> showSetup = ValueNotifier<bool>(true);
+        final container = await pumpScreen(
+          tester,
+          ValueListenableBuilder<bool>(
+            valueListenable: showSetup,
+            builder: (BuildContext context, bool show, _) => show
+                ? const MailSetupScreen()
+                : const Scaffold(body: Text('Woanders im Campus')),
+          ),
+          overrides: _mail(gateway, store),
+        );
+        await tester.pumpAndSettle();
+        addTearDown(container.dispose);
+
+        await tester.enterText(
+          find.byType(TextFormField).at(1),
+          'stud@hs-anhalt.de',
+        );
+        await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+        await tester.tap(find.text('Verbindung prüfen und anmelden'));
+        await tester.pump();
+
+        // The user leaves the sign-in screen while verification is still
+        // hanging on the server.
+        showSetup.value = false;
+        await tester.pumpAndSettle();
+        expect(find.text('Woanders im Campus'), findsOneWidget);
+
+        // The verification now fails, long after the screen was abandoned.
+        gateway.verifyGate!.complete();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SnackBar), findsNothing);
+        expect(find.text('Woanders im Campus'), findsOneWidget);
+        expect(store.writes, 0);
+      },
+    );
+  });
+
+  group('inbox actions', () {
+    testWidgets('removing the account returns to the sign-in screen', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(
+          FakeMailGateway(inbox: <MailMessageHeader>[_header()]),
+          store,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Account entfernen'));
+      await tester.pumpAndSettle();
+      // Confirm in the dialog.
+      await tester.tap(find.text('Entfernen'));
+      await tester.pumpAndSettle();
+
+      expect(store.clears, greaterThanOrEqualTo(1));
+      expect(find.text('Verbindung prüfen und anmelden'), findsOneWidget);
+    });
+  });
+
+  group('message detail', () {
+    testWidgets('renders the plain-text body and marks it seen', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        detail: MailMessageDetail(
+          id: '1',
+          subject: 'Betreff',
+          from: const MailAddress(email: 'alice@hs-anhalt.de', name: 'Alice'),
+          to: const <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+          date: null,
+          body: 'Dies ist der Nachrichtentext.',
+          attachments: <MailAttachment>[
+            MailAttachment(
+              filename: 'bericht.pdf',
+              mediaType: 'application/pdf',
+              sizeBytes: 2048,
+            ),
+            MailAttachment(
+              filename: 'bild.png',
+              mediaType: 'image/png',
+              bytes: Uint8List.fromList(_pngBytes),
+            ),
+          ],
+        ),
+      );
+      await pumpScreen(
+        tester,
+        const MailMessageScreen(id: '1'),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Betreff'), findsOneWidget);
+      expect(find.text('Dies ist der Nachrichtentext.'), findsOneWidget);
+      expect(gateway.markedSeen, contains('1'));
+      // Attachments are listed; the image previews inline automatically.
+      expect(find.text('Anhänge'), findsOneWidget);
+      expect(find.text('bericht.pdf'), findsOneWidget);
+      expect(find.text('bild.png'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets(
+      'renders image attachments inline automatically for external senders',
+      (WidgetTester tester) async {
+        final store = InMemoryMailCredentialStore()..write(_creds);
+        final gateway = FakeMailGateway(
+          detail: MailMessageDetail(
+            id: '1',
+            subject: 'Werbung',
+            from: const MailAddress(email: 'promo@example.com'),
+            to: const <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+            date: null,
+            body: 'Body',
+            attachments: <MailAttachment>[
+              MailAttachment(
+                filename: 'bild.png',
+                mediaType: 'image/png',
+                bytes: Uint8List.fromList(_pngBytes),
+              ),
+            ],
+          ),
+        );
+        await pumpScreen(
+          tester,
+          const MailMessageScreen(id: '1'),
+          overrides: _mail(gateway, store),
+        );
+        await tester.pumpAndSettle();
+
+        // The image is shown automatically without a manual load step.
+        expect(find.text('Bild laden'), findsNothing);
+        expect(find.byType(Image), findsOneWidget);
+      },
+    );
+
+    testWidgets('an https link in the body opens via the safe launcher', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        detail: MailMessageDetail(
+          id: '1',
+          subject: 'Betreff',
+          from: const MailAddress(email: 'alice@hs-anhalt.de', name: 'Alice'),
+          to: const <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+          date: null,
+          body: 'Siehe https://hs-anhalt.de/mensa für Details.',
+        ),
+      );
+      final _FakeLauncher launcher = _FakeLauncher();
+      await pumpScreen(
+        tester,
+        const MailMessageScreen(id: '1'),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          linkLauncherProvider.overrideWithValue(launcher),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      final SelectableText body = tester.widget<SelectableText>(
+        find.byType(SelectableText),
+      );
+      TapGestureRecognizer? recognizer;
+      void visit(InlineSpan span) {
+        if (span is TextSpan) {
+          if (span.text == 'https://hs-anhalt.de/mensa' &&
+              span.recognizer is TapGestureRecognizer) {
+            recognizer = span.recognizer as TapGestureRecognizer;
+          }
+          span.children?.forEach(visit);
+        }
+      }
+
+      visit(body.textSpan!);
+      expect(recognizer, isNotNull);
+      recognizer!.onTap!();
+      await tester.pumpAndSettle();
+
+      expect(launcher.opened, <String>['https://hs-anhalt.de/mensa']);
+    });
+  });
+
+  group('folders', () {
+    testWidgets('folder picker lists mailboxes and switches the selection', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        inbox: <MailMessageHeader>[_header()],
+        folders: const <MailFolder>[
+          MailFolder.inbox(),
+          MailFolder(path: 'Sent', name: 'Sent', role: MailFolderRole.sent),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      // Open the folder picker and choose "Sent" (localised to "Gesendet").
+      await tester.tap(find.byIcon(AppIcons.folder_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('Gesendet'), findsOneWidget);
+      await tester.tap(find.text('Gesendet'));
+      await tester.pumpAndSettle();
+
+      // The list was re-fetched for the Sent mailbox and the title updated.
+      expect(gateway.fetchedMailboxes, contains('Sent'));
+      expect(
+        find.descendant(
+          of: find.byType(ScreenHeader),
+          matching: find.text('Gesendet'),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('search', () {
+    MailMessageHeader hdr(String id, String subject, {String? name}) =>
+        MailMessageHeader(
+          id: id,
+          subject: subject,
+          from: MailAddress(email: 'buchhaltung@hs-anhalt.de', name: name),
+          date: DateTime.utc(2026, 3, 1, 8),
+          isSeen: true,
+          hasAttachments: false,
+        );
+
+    MailMessageDetail dtl(String id, String subject, String body) =>
+        MailMessageDetail(
+          id: id,
+          subject: subject,
+          from: const MailAddress(
+            email: 'buchhaltung@hs-anhalt.de',
+            name: 'Buchhaltung',
+          ),
+          to: const <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+          date: DateTime.utc(2026, 3, 1, 8),
+          body: body,
+        );
+
+    Future<MemoryMailCache> cachedInbox() async {
+      final MemoryMailCache cache = MemoryMailCache();
+      await cache.saveHeaders(<MailMessageHeader>[
+        hdr('1', 'Rechnung 2026', name: 'Buchhaltung'),
+      ]);
+      await cache.saveMessage(dtl('1', 'Rechnung 2026', 'Anbei die Rechnung.'));
+      return cache;
+    }
+
+    Future<void> search(WidgetTester tester, String term) async {
+      await tester.enterText(find.byType(TextField), term);
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('shows a cached hit without contacting the server', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailSearchScreen(),
+        overrides: _mail(gateway, store, cache: await cachedInbox()),
+      );
+      await tester.pumpAndSettle();
+
+      await search(tester, 'rechnung');
+
+      expect(find.text('Rechnung 2026'), findsOneWidget);
+      expect(gateway.lastSearchQuery, isNull, reason: 'offline-capable');
+      expect(find.text('Zusätzlich auf dem Server suchen'), findsOneWidget);
+    });
+
+    testWidgets('builds long cached search results lazily', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final cache = MemoryMailCache();
+      await cache.saveHeaders(<MailMessageHeader>[
+        for (int index = 0; index < 80; index++)
+          hdr('$index', 'Rechnung $index'),
+      ]);
+
+      await pumpScreen(
+        tester,
+        const MailSearchScreen(),
+        overrides: _mail(FakeMailGateway(), store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+      await search(tester, 'rechnung');
+
+      expect(find.text('Rechnung 0'), findsOneWidget);
+      expect(
+        find.text('Rechnung 79'),
+        findsNothing,
+        reason: 'off-screen mail tiles must not be built eagerly',
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('Rechnung 79'),
+        500,
+        scrollable: find.descendant(
+          of: find.byType(CustomScrollView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(find.text('Rechnung 79'), findsOneWidget);
+    });
+
+    testWidgets('adds server hits on request, without duplicates', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        searchResults: <MailMessageHeader>[
+          hdr('1', 'Rechnung 2026', name: 'Buchhaltung'),
+          hdr('9', 'Rechnung 2025', name: 'Archiv'),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailSearchScreen(),
+        overrides: _mail(gateway, store, cache: await cachedInbox()),
+      );
+      await tester.pumpAndSettle();
+      await search(tester, 'rechnung');
+
+      await tester.tap(find.text('Zusätzlich auf dem Server suchen'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.lastSearchQuery, 'rechnung');
+      expect(find.text('Rechnung 2025'), findsOneWidget);
+      expect(
+        find.text('Rechnung 2026'),
+        findsOneWidget,
+        reason: 'the cached hit is not repeated as a server hit',
+      );
+      // The section eyebrow renders in capitals but keeps its accessible name.
+      expect(
+        find.bySemanticsLabel('Weitere Treffer vom Server'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Auf dem Gerät gefunden'), findsOneWidget);
+    });
+
+    testWidgets('keeps local hits when the server search fails, and retries', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        searchError: const MailFailure(MailFailureKind.serverUnreachable),
+      );
+      await pumpScreen(
+        tester,
+        const MailSearchScreen(),
+        overrides: _mail(gateway, store, cache: await cachedInbox()),
+      );
+      await tester.pumpAndSettle();
+      await search(tester, 'rechnung');
+
+      await tester.tap(find.text('Zusätzlich auf dem Server suchen'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Der Mailserver ist derzeit nicht erreichbar.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Rechnung 2026'),
+        findsOneWidget,
+        reason: 'an IMAP failure never clears what the device already found',
+      );
+
+      gateway.searchError = null;
+      gateway.searchResults = <MailMessageHeader>[
+        hdr('9', 'Rechnung 2025', name: 'Archiv'),
+      ];
+      await tester.tap(find.text('Erneut versuchen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rechnung 2025'), findsOneWidget);
+      expect(find.text('Rechnung 2026'), findsOneWidget);
+    });
+
+    testWidgets('shows a clear state for zero hits', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        searchResults: const <MailMessageHeader>[],
+      );
+      await pumpScreen(
+        tester,
+        const MailSearchScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      await search(tester, 'nichts-passt');
+
+      expect(find.text('Keine Treffer'), findsOneWidget);
+      expect(
+        find.text(
+          'Auf dem Gerät wurde nichts gefunden. Du kannst zusätzlich auf dem '
+          'Server suchen.',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Zusätzlich auf dem Server suchen'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Zu dieser Suche wurden keine Nachrichten gefunden.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'opening a hit not present in the local cache loads it from the server',
+      (WidgetTester tester) async {
+        // Regression for the search "open the correct, possibly non-cached
+        // hit" requirement: MailMessageScreen must resolve a message that is
+        // NOT pre-seeded in the offline cache by falling back to the gateway.
+        final store = InMemoryMailCredentialStore()..write(_creds);
+        final gateway = FakeMailGateway(
+          detailsById: <String, MailMessageDetail>{
+            '9': MailMessageDetail(
+              id: '9',
+              subject: 'Rechnung 2026',
+              from: const MailAddress(email: 'buchhaltung@hs-anhalt.de'),
+              to: const <MailAddress>[],
+              cc: const <MailAddress>[],
+              date: DateTime.utc(2026, 3, 1, 8),
+              body: 'Anbei die Rechnung.',
+            ),
+          },
+        );
+        final MemoryMailCache cache = MemoryMailCache();
+        await pumpScreen(
+          tester,
+          const MailMessageScreen(id: '9'),
+          overrides: _mail(gateway, store, cache: cache),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Anbei die Rechnung.'), findsOneWidget);
+        expect(gateway.markedSeen, contains('9'));
+        expect(
+          await cache.readMessage('9'),
+          isNotNull,
+          reason: 'a server-only hit is cached once opened',
+        );
+      },
+    );
+  });
+
+  group('compose', () {
+    testWidgets('rejects an invalid recipient without sending', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'nonsense');
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Bitte gib eine gültige Empfängeradresse ein.'),
+        findsOneWidget,
+      );
+      expect(gateway.sendCalls, 0);
+    });
+
+    testWidgets('sends a message and confirms', (WidgetTester tester) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      // Field order: To, Cc, Subject, Body.
+      await tester.enterText(find.byType(TextFormField).at(0), 'x@y.de');
+      await tester.enterText(find.byType(TextFormField).at(2), 'Betreff');
+      await tester.enterText(find.byType(TextFormField).at(3), 'Text');
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await tester.pumpAndSettle();
+
+      expect(gateway.sendCalls, 1);
+      expect(gateway.sent.single.to, <String>['x@y.de']);
+      expect(find.text('Nachricht gesendet.'), findsOneWidget);
+    });
+
+    testWidgets('prefills recipients and subject from a reply draft', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(
+          draft: ComposeDraft(
+            to: <String>['alice@hs-anhalt.de'],
+            cc: <String>['bob@hs-anhalt.de'],
+            subject: 'Re: Hallo',
+          ),
+        ),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('alice@hs-anhalt.de'), findsOneWidget);
+      expect(find.text('bob@hs-anhalt.de'), findsOneWidget);
+      expect(find.text('Re: Hallo'), findsOneWidget);
+
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await tester.pumpAndSettle();
+
+      expect(gateway.sent.single.to, <String>['alice@hs-anhalt.de']);
+      expect(gateway.sent.single.cc, <String>['bob@hs-anhalt.de']);
+    });
+  });
+
+  group('compose attachments', () {
+    Future<void> fillRecipientAndSubject(WidgetTester tester) async {
+      await tester.enterText(find.byType(TextFormField).at(0), 'x@y.de');
+      await tester.enterText(find.byType(TextFormField).at(2), 'Anhang-Test');
+      await tester.enterText(find.byType(TextFormField).at(3), 'Text');
+    }
+
+    testWidgets('picks a file and lists it with name and size', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[
+            FakePickedMailFile(
+              filename: 'foto.png',
+              mediaType: 'image/png',
+              bytes: Uint8List.fromList(_pngBytes),
+            ),
+          ]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      expect(find.text('foto.png'), findsOneWidget);
+      expect(picker.calls, 1);
+    });
+
+    testWidgets('removes a picked attachment before sending', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[
+            FakePickedMailFile(
+              filename: 'foto.png',
+              mediaType: 'image/png',
+              bytes: Uint8List.fromList(_pngBytes),
+            ),
+          ]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+      expect(find.text('foto.png'), findsOneWidget);
+
+      final Finder removeButton = find.widgetWithIcon(
+        IconButton,
+        AppIcons.close,
+      );
+      await tester.ensureVisible(removeButton);
+      await tester.drag(find.byType(ListView).last, const Offset(0, -80));
+      await tester.pumpAndSettle();
+      await tester.tap(removeButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('foto.png'), findsNothing);
+    });
+
+    testWidgets('a cancelled pick leaves the draft unchanged', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      final picker = FakeMailAttachmentPicker(
+        results: const <MailFilePickResult>[MailFilePickCancelled()],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+      await fillRecipientAndSubject(tester);
+
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(AppIcons.close), findsNothing);
+      expect(find.text('x@y.de'), findsOneWidget);
+      expect(find.text('Anhang-Test'), findsOneWidget);
+    });
+
+    testWidgets('a sent message includes the picked attachment', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      final Uint8List bytes = Uint8List.fromList(_pngBytes);
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[
+            FakePickedMailFile(
+              filename: 'foto.png',
+              mediaType: 'image/png',
+              bytes: bytes,
+            ),
+          ]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+      await fillRecipientAndSubject(tester);
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await tester.pumpAndSettle();
+
+      expect(gateway.sent.single.attachments, hasLength(1));
+      expect(gateway.sent.single.attachments.single.filename, 'foto.png');
+      expect(gateway.sent.single.attachments.single.mediaType, 'image/png');
+      expect(gateway.sent.single.attachments.single.bytes, bytes);
+    });
+
+    testWidgets('a read failure at send time keeps the screen and draft intact', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[
+            FakePickedMailFile(
+              filename: 'foto.png',
+              mediaType: 'image/png',
+              bytes: Uint8List.fromList(_pngBytes),
+              readError: Exception('vanished'),
+            ),
+          ]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+      await fillRecipientAndSubject(tester);
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Eine ausgewählte Datei konnte nicht gelesen werden. Bitte prüfe sie und versuche es erneut.',
+        ),
+        findsOneWidget,
+      );
+      expect(gateway.sendCalls, 0, reason: 'no automatic retry, no send');
+      expect(find.byType(MailComposeScreen), findsOneWidget);
+      expect(
+        find.text('foto.png'),
+        findsOneWidget,
+        reason: 'attachment stays listed',
+      );
+      expect(
+        find.text('x@y.de'),
+        findsOneWidget,
+        reason: 'recipient stays intact',
+      );
+    });
+
+    testWidgets('sending disables attach and remove controls', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        sendGate: Completer<void>(),
+        sendStarted: Completer<void>(),
+      );
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[
+            FakePickedMailFile(
+              filename: 'foto.png',
+              mediaType: 'image/png',
+              bytes: Uint8List.fromList(_pngBytes),
+            ),
+          ]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+      await fillRecipientAndSubject(tester);
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await gateway.sendStarted!.future;
+      await tester.pump();
+
+      final IconButton attachButton = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, AppIcons.attach_file),
+      );
+      expect(attachButton.onPressed, isNull);
+      final IconButton removeButton = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, AppIcons.close),
+      );
+      expect(removeButton.onPressed, isNull);
+
+      gateway.sendGate!.complete();
+      await tester.pumpAndSettle();
+    });
+  });
+}

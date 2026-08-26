@@ -1,0 +1,19 @@
+{
+  "extends": "../../apps/backend/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "../../apps/backend/dist-perf",
+    "baseUrl": "../../apps/backend",
+    "typeRoots": ["../../apps/backend/node_modules/@types", "../../node_modules/@types"],
+    "types": ["node"],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noEmit": true,
+    "paths": {
+      "@prisma/*": ["node_modules/@prisma/*"],
+      "src/*": ["src/*"],
+      "test/*": ["test/*"]
+    }
+  },
+  "include": ["./**/*.ts"]
+}

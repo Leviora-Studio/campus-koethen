@@ -1,0 +1,300 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import "package:campus_koethen/core/theme/app_icons.dart";
+
+import '../../../core/locale/formatters.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimensions.dart';
+import '../../../l10n/l10n.dart';
+import '../../campusmap/application/campus_map_providers.dart';
+import '../../campusmap/domain/room.dart';
+import '../../campusmap/presentation/room_link.dart';
+import '../../timetable/presentation/timetable_entry_card.dart';
+import '../domain/calendar_entry.dart';
+import '../domain/calendar_entry_details.dart';
+import '../domain/entry_rooms.dart';
+
+/// Opens the detail view of one calendar entry.
+///
+/// A sheet rather than a screen: the entry is a detail *of* the day being
+/// looked at, and coming back to the same day, the same week and the same
+/// scroll position is the whole point.
+Future<void> showCalendarEntrySheet(
+  BuildContext context,
+  CalendarEntry entry,
+) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  showDragHandle: true,
+  builder: (BuildContext context) => CalendarEntrySheet(entry: entry),
+);
+
+/// Everything one calendar entry knows, including a way to its room.
+///
+/// The agenda shows a line per entry; this is where the rest of it lives —
+/// teachers, groups, the note, the calendar it came from, and the room. Which
+/// text may become a room link is decided by [CalendarEntryDetails], not here:
+/// a timetable's room field is a room, an event description is prose.
+class CalendarEntrySheet extends ConsumerWidget {
+  const CalendarEntrySheet({required this.entry, super.key});
+
+  final CalendarEntry entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final AppColors colors = context.colors;
+    final TextTheme text = Theme.of(context).textTheme;
+    final String locale = Localizations.localeOf(context).languageCode;
+
+    final String sourceLabel = switch (entry.source) {
+      CalendarSource.moodle => l10n.calendarSourceMoodle,
+      CalendarSource.timetable => l10n.calendarSourceTimetable,
+      CalendarSource.publicCalendar ||
+      CalendarSource.postEvent ||
+      CalendarSource.savedEvents =>
+        entry.sourceLabel ?? l10n.calendarSourcePublic,
+    };
+    final IconData sourceIcon = switch (entry.source) {
+      CalendarSource.moodle => AppIcons.assignment_outlined,
+      CalendarSource.timetable => AppIcons.schedule_outlined,
+      CalendarSource.publicCalendar ||
+      CalendarSource.postEvent ||
+      CalendarSource.savedEvents => AppIcons.public_outlined,
+    };
+
+    final List<Room> rooms = entryMayNameRoom(entry)
+        ? roomsForEntry(ref.watch(roomResolverProvider), entry)
+        : const <Room>[];
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.lg,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Semantics(
+                header: true,
+                child: Text(
+                  entry.title.isEmpty ? sourceLabel : entry.title,
+                  style: text.titleLarge?.copyWith(
+                    decoration: entry.isCancelled
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
+                ),
+              ),
+              if (entry.isCancelled) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                // Icon and words, never the strikethrough alone.
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      AppIcons.event_busy_outlined,
+                      size: AppSizes.icon,
+                      color: colors.error,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      l10n.timetableStatusCancelled,
+                      style: text.titleSmall?.copyWith(color: colors.error),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+
+              _DetailRow(
+                icon: AppIcons.event_outlined,
+                label: l10n.calendarDetailWhen,
+                values: <String>[
+                  // `entry.day`, not `start.toLocal()`. An all-day entry is a
+                  // calendar DATE encoded as UTC midnight so no device zone
+                  // can shift it; converting it to local time moves it a day
+                  // in every zone behind UTC, and the sheet then contradicted
+                  // the grid that placed the entry.
+                  AppDateFormats.weekdayDate(entry.day, locale),
+                  _timeLabel(l10n, locale),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _DetailRow(
+                icon: sourceIcon,
+                label: l10n.calendarDetailSource,
+                values: <String>[sourceLabel],
+              ),
+
+              ..._sourceRows(context, l10n),
+
+              if (rooms.isNotEmpty) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                Text(l10n.contactRoomsLabel, style: text.titleSmall),
+                const SizedBox(height: AppSpacing.xs),
+                for (final Room room in rooms)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: RoomLinkButton(room: RoomLinkTarget.fromRoom(room)),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _timeLabel(AppLocalizations l10n, String locale) {
+    if (entry.allDay) return l10n.calendarWeekAllDay;
+    final String start = AppDateFormats.time(entry.start.toLocal(), locale);
+    if (entry.end == null) return start;
+    return l10n.timetableTimeRange(
+      start,
+      AppDateFormats.time(entry.end!.toLocal(), locale),
+    );
+  }
+
+  /// The rows only one kind of entry has.
+  List<Widget> _sourceRows(BuildContext context, AppLocalizations l10n) {
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return switch (entry.details) {
+      TimetableCalendarDetails(
+        :final List<String> teachers,
+        :final List<String> rooms,
+        :final List<String> groups,
+        :final String? note,
+        :final type,
+      ) =>
+        <Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          _DetailRow(
+            icon: AppIcons.category_outlined,
+            label: l10n.timetableTypeLabel,
+            values: <String>[timetableTypeLabel(l10n, type)],
+          ),
+          if (teachers.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            _DetailRow(
+              icon: AppIcons.person_outline,
+              label: l10n.timetableTeachersLabel,
+              values: teachers,
+            ),
+          ],
+          if (rooms.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            _DetailRow(
+              icon: AppIcons.meeting_room_outlined,
+              label: l10n.timetableRoomsLabel,
+              values: rooms,
+            ),
+          ],
+          if (groups.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            _DetailRow(
+              icon: AppIcons.groups_outlined,
+              label: l10n.timetableGroupsLabel,
+              values: groups,
+            ),
+          ],
+          if (note != null && note.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            Text(note, style: text.bodyMedium),
+          ],
+        ],
+      MoodleCalendarDetails(:final String? courseName) => <Widget>[
+        if (courseName != null && courseName.isNotEmpty) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          _DetailRow(
+            icon: AppIcons.menu_book_outlined,
+            label: l10n.moodleCourseLabel,
+            values: <String>[courseName],
+          ),
+        ],
+      ],
+      PublicCalendarDetails(
+        :final String? location,
+        :final String? description,
+      ) =>
+        <Widget>[
+          if (location != null && location.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            _DetailRow(
+              icon: AppIcons.place_outlined,
+              label: l10n.calendarDetailLocation,
+              values: <String>[location],
+            ),
+          ],
+          if (description != null && description.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            Text(description, style: text.bodyMedium),
+          ],
+        ],
+      // An entry built before the details existed, or from a source that has
+      // none: the flattened fields still say everything the agenda showed.
+      null => <Widget>[
+        if (entry.subtitle != null && entry.subtitle!.isNotEmpty) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          Text(entry.subtitle!, style: text.bodyMedium),
+        ],
+        if (entry.location != null && entry.location!.isNotEmpty) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          _DetailRow(
+            icon: AppIcons.place_outlined,
+            label: l10n.calendarDetailLocation,
+            values: <String>[entry.location!],
+          ),
+        ],
+      ],
+    };
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.values,
+  });
+
+  final IconData icon;
+  final String label;
+  final List<String> values;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, size: AppSizes.icon, color: colors.textSecondary),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                label,
+                style: text.labelMedium?.copyWith(color: colors.textSecondary),
+              ),
+              for (final String value in values)
+                Text(value, style: text.bodyMedium),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

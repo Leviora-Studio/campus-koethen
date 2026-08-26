@@ -1,0 +1,26 @@
+node_modules
+dist
+build
+coverage
+apps/cms/.strapi
+apps/cms/types/generated
+
+# Prisma-Client, bei jedem `prisma:generate` neu geschrieben und per
+# apps/backend/.gitignore nicht versioniert.
+apps/backend/src/generated
+# Written by the Strapi CLI on every local run; ignored by git, so Prettier
+# must ignore it too or a local `format:check` fails for no reason.
+apps/cms/.strapi-updater.json
+apps/mobile
+pnpm-lock.yaml
+LICENSE
+packages/openapi/openapi.json
+
+# Recorded third-party fixtures: kept byte-for-byte as observed, and
+# malformed.json is deliberately unparseable, which Prettier cannot format.
+apps/backend/test/fixtures/webuntis
+
+# Git-Worktrees und Sitzungsdaten von Claude Code. Sie enthalten vollständige
+# Arbeitskopien samt Build-Artefakten — Prettier würde dieselben Dateien
+# mehrfach prüfen und an bewusst kaputten Fixtures scheitern.
+.claude

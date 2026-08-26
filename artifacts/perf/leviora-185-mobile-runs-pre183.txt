@@ -1,0 +1,90 @@
+### run 1
+canteen-menu-14d-parse                 n=200  p50=0.931ms  p95=2.826ms  max=6.932ms
+news-page-20-parse                     n=200  p50=0.796ms  p95=2.712ms  max=4.557ms
+calendar-merge-2000                    n=200  p50=0.287ms  p95=1.353ms  max=5.587ms
+calendar-entriesForDay-linear          n=500  p50=0.080ms  p95=0.123ms  max=5.000ms
+calendar-dayIndex-build-2000           n=200  p50=0.133ms  p95=0.227ms  max=4.279ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.007ms  max=0.017ms
+week-layout-placeDay-x7                n=500  p50=3.165ms  p95=3.903ms  max=9.404ms
+week-layout-precomputed-probe-x7       n=500  p50=1.052ms  p95=1.399ms  max=3.235ms
+### run 2
+canteen-menu-14d-parse                 n=200  p50=0.916ms  p95=2.670ms  max=5.543ms
+news-page-20-parse                     n=200  p50=0.827ms  p95=2.115ms  max=4.193ms
+calendar-merge-2000                    n=200  p50=0.230ms  p95=0.618ms  max=2.932ms
+calendar-entriesForDay-linear          n=500  p50=0.064ms  p95=0.109ms  max=2.187ms
+calendar-dayIndex-build-2000           n=200  p50=0.133ms  p95=0.197ms  max=0.573ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.007ms  max=4.586ms
+week-layout-placeDay-x7                n=500  p50=3.178ms  p95=3.889ms  max=6.850ms
+week-layout-precomputed-probe-x7       n=500  p50=1.054ms  p95=1.331ms  max=3.891ms
+### run 3
+canteen-menu-14d-parse                 n=200  p50=0.938ms  p95=4.330ms  max=7.612ms
+news-page-20-parse                     n=200  p50=0.806ms  p95=2.197ms  max=4.362ms
+calendar-merge-2000                    n=200  p50=0.291ms  p95=0.413ms  max=1.469ms
+calendar-entriesForDay-linear          n=500  p50=0.097ms  p95=0.152ms  max=0.939ms
+calendar-dayIndex-build-2000           n=200  p50=0.219ms  p95=0.304ms  max=3.949ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.007ms  max=0.022ms
+week-layout-placeDay-x7                n=500  p50=3.176ms  p95=4.408ms  max=9.598ms
+week-layout-precomputed-probe-x7       n=500  p50=1.034ms  p95=1.311ms  max=3.279ms
+### run 4
+canteen-menu-14d-parse                 n=200  p50=1.142ms  p95=2.628ms  max=5.588ms
+news-page-20-parse                     n=200  p50=0.860ms  p95=2.310ms  max=4.146ms
+calendar-merge-2000                    n=200  p50=0.243ms  p95=0.488ms  max=3.660ms
+calendar-entriesForDay-linear          n=500  p50=0.072ms  p95=0.148ms  max=0.963ms
+calendar-dayIndex-build-2000           n=200  p50=0.133ms  p95=0.212ms  max=1.982ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.005ms  max=0.017ms
+week-layout-placeDay-x7                n=500  p50=3.178ms  p95=4.097ms  max=11.063ms
+week-layout-precomputed-probe-x7       n=500  p50=1.038ms  p95=1.289ms  max=1.642ms
+### run 5
+canteen-menu-14d-parse                 n=200  p50=0.821ms  p95=2.667ms  max=6.574ms
+news-page-20-parse                     n=200  p50=0.817ms  p95=1.620ms  max=3.311ms
+calendar-merge-2000                    n=200  p50=0.340ms  p95=0.719ms  max=2.363ms
+calendar-entriesForDay-linear          n=500  p50=0.067ms  p95=0.100ms  max=0.349ms
+calendar-dayIndex-build-2000           n=200  p50=0.137ms  p95=0.200ms  max=2.750ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.006ms  max=0.034ms
+week-layout-placeDay-x7                n=500  p50=3.132ms  p95=3.312ms  max=5.561ms
+week-layout-precomputed-probe-x7       n=500  p50=1.043ms  p95=1.274ms  max=1.567ms
+### run 6
+canteen-menu-14d-parse                 n=200  p50=0.869ms  p95=2.345ms  max=5.949ms
+news-page-20-parse                     n=200  p50=0.727ms  p95=1.276ms  max=3.254ms
+calendar-merge-2000                    n=200  p50=0.259ms  p95=0.596ms  max=2.424ms
+calendar-entriesForDay-linear          n=500  p50=0.079ms  p95=0.121ms  max=0.358ms
+calendar-dayIndex-build-2000           n=200  p50=0.147ms  p95=0.214ms  max=1.485ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.007ms  max=0.018ms
+week-layout-placeDay-x7                n=500  p50=3.166ms  p95=3.771ms  max=7.903ms
+week-layout-precomputed-probe-x7       n=500  p50=1.053ms  p95=1.248ms  max=1.694ms
+### run 7
+canteen-menu-14d-parse                 n=200  p50=0.873ms  p95=1.993ms  max=4.225ms
+news-page-20-parse                     n=200  p50=0.780ms  p95=1.498ms  max=2.518ms
+calendar-merge-2000                    n=200  p50=0.297ms  p95=0.431ms  max=1.979ms
+calendar-entriesForDay-linear          n=500  p50=0.069ms  p95=0.102ms  max=0.371ms
+calendar-dayIndex-build-2000           n=200  p50=0.169ms  p95=0.219ms  max=0.249ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.006ms  max=0.023ms
+week-layout-placeDay-x7                n=500  p50=3.123ms  p95=3.693ms  max=4.441ms
+week-layout-precomputed-probe-x7       n=500  p50=1.050ms  p95=1.346ms  max=1.888ms
+### run 8
+canteen-menu-14d-parse                 n=200  p50=0.860ms  p95=1.784ms  max=3.220ms
+news-page-20-parse                     n=200  p50=0.742ms  p95=1.118ms  max=1.960ms
+calendar-merge-2000                    n=200  p50=0.234ms  p95=0.359ms  max=2.021ms
+calendar-entriesForDay-linear          n=500  p50=0.070ms  p95=0.103ms  max=0.366ms
+calendar-dayIndex-build-2000           n=200  p50=0.141ms  p95=0.195ms  max=0.215ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.005ms  max=0.016ms
+week-layout-placeDay-x7                n=500  p50=3.145ms  p95=3.595ms  max=4.866ms
+week-layout-precomputed-probe-x7       n=500  p50=1.031ms  p95=1.201ms  max=1.480ms
+### run 9
+canteen-menu-14d-parse                 n=200  p50=0.874ms  p95=1.865ms  max=2.977ms
+news-page-20-parse                     n=200  p50=0.718ms  p95=1.496ms  max=2.344ms
+calendar-merge-2000                    n=200  p50=0.251ms  p95=0.627ms  max=1.979ms
+calendar-entriesForDay-linear          n=500  p50=0.068ms  p95=0.116ms  max=0.389ms
+calendar-dayIndex-build-2000           n=200  p50=0.143ms  p95=0.177ms  max=0.432ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.005ms  max=0.016ms
+week-layout-placeDay-x7                n=500  p50=3.164ms  p95=3.422ms  max=4.918ms
+week-layout-precomputed-probe-x7       n=500  p50=1.042ms  p95=1.283ms  max=1.628ms
+### run 10
+canteen-menu-14d-parse                 n=200  p50=0.869ms  p95=2.365ms  max=3.442ms
+news-page-20-parse                     n=200  p50=0.750ms  p95=1.209ms  max=3.933ms
+calendar-merge-2000                    n=200  p50=0.236ms  p95=0.401ms  max=1.421ms
+calendar-entriesForDay-linear          n=500  p50=0.069ms  p95=0.118ms  max=0.468ms
+calendar-dayIndex-build-2000           n=200  p50=0.196ms  p95=0.298ms  max=0.381ms
+calendar-dayIndex-forDay               n=500  p50=0.005ms  p95=0.005ms  max=0.020ms
+week-layout-placeDay-x7                n=500  p50=3.104ms  p95=3.604ms  max=5.115ms
+week-layout-precomputed-probe-x7       n=500  p50=1.049ms  p95=1.327ms  max=1.886ms

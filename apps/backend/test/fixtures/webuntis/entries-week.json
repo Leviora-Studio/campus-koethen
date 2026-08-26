@@ -1,0 +1,1224 @@
+{
+  "format": 2,
+  "days": [
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 15027,
+        "shortName": "AR2Ü1",
+        "longName": "2.  AR Gr. 1",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2686630],
+          "duration": {
+            "start": "2026-07-20T10:00",
+            "end": "2026-07-20T11:30"
+          },
+          "type": "ADDITIONAL_PERIOD",
+          "status": "ADDITIONAL",
+          "statusDetail": "CONFIRMED",
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 333,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo01",
+                "longName": "Demoperson01",
+                "displayName": "Demo Demoperson01",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "Englisch als Fremdsp",
+                "longName": "Englisch als Fremdsp",
+                "displayName": "Englisch als Fremdsp",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "D-04/201",
+                "longName": "Seminarraum VM/GIN",
+                "displayName": "D-04/201",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        },
+        {
+          "ids": [2686628],
+          "duration": {
+            "start": "2026-07-20T10:00",
+            "end": "2026-07-20T11:30"
+          },
+          "type": "ADDITIONAL_PERIOD",
+          "status": "ADDITIONAL",
+          "statusDetail": "CONFIRMED",
+          "name": null,
+          "layoutStartPosition": 333,
+          "layoutWidth": 333,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo02",
+                "longName": "Demoperson02",
+                "displayName": "Demo Demoperson02",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "Englisch als Fremdsp",
+                "longName": "Englisch als Fremdsp",
+                "displayName": "Englisch als Fremdsp",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "D-04/106",
+                "longName": "Seminarraum",
+                "displayName": "D-04/106",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "AR2Ü2",
+                "longName": "2. AR Gr. 2",
+                "displayName": "AR2Ü2",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            },
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "AR2Ü3",
+                "longName": "2.ARGr.3",
+                "displayName": "AR2Ü3",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        },
+        {
+          "ids": [2686631],
+          "duration": {
+            "start": "2026-07-20T10:00",
+            "end": "2026-07-20T11:30"
+          },
+          "type": "ADDITIONAL_PERIOD",
+          "status": "ADDITIONAL",
+          "statusDetail": "CONFIRMED",
+          "name": null,
+          "layoutStartPosition": 667,
+          "layoutWidth": 333,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo03",
+                "longName": "Demoperson03",
+                "displayName": "Demo Demoperson03",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "Deutsch als Fachfrem",
+                "longName": "Deutsch als Fachfremdsprache",
+                "displayName": "Deutsch als Fachfremdsprache",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "D-16/101",
+                "longName": "Seminarraum Denkmalpflege",
+                "displayName": "D-16/101",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "AR2Ü2",
+                "longName": "2. AR Gr. 2",
+                "displayName": "AR2Ü2",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            },
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "AR2Ü3",
+                "longName": "2.ARGr.3",
+                "displayName": "AR2Ü3",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14964,
+        "shortName": "FNK6 (2022)",
+        "longName": "6. Sem. Naturheilkunde Bachelor",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2614062],
+          "duration": {
+            "start": "2026-07-20T17:30",
+            "end": "2026-07-20T19:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CHANGED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": ["NOTES"],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo04",
+                "longName": "Demoperson04",
+                "displayName": "Demo Demoperson04",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "V Notfall",
+                "longName": "V Notfallmedizin",
+                "displayName": "V Notfallmedizin",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": null,
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [
+            {
+              "type": "SUBSTITUTION_TEXT",
+              "text": "18.00 - 20.00 Uhr"
+            },
+            {
+              "type": "LESSON_INFO",
+              "text": "online"
+            }
+          ],
+          "lessonText": null,
+          "lessonInfo": "online",
+          "substitutionText": "18.00 - 20.00 Uhr",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14763,
+        "shortName": "IBS2 (Englisch 2025)",
+        "longName": "2.Sem.International Business (Englisch)",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2639364],
+          "duration": {
+            "start": "2026-07-20T11:30",
+            "end": "2026-07-20T13:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CANCELLED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo05",
+                "longName": "Demoperson05",
+                "displayName": "Demo Demoperson05",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "S ChinesSecond",
+                "longName": "S Chinesisch-Second foreign language",
+                "displayName": "S Chinesisch-Second foreign language",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "B014-103",
+                "longName": "RH Seminarraum 4",
+                "displayName": "B014-103",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "IBS3 (Englisch)",
+                "longName": "3.Sem.International Business (Englisch)",
+                "displayName": "IBS3 (Englisch)",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14766,
+        "shortName": "IBS3 (Englisch)",
+        "longName": "3.Sem.International Business (Englisch)",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2639364],
+          "duration": {
+            "start": "2026-07-20T11:30",
+            "end": "2026-07-20T13:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CANCELLED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo05",
+                "longName": "Demoperson05",
+                "displayName": "Demo Demoperson05",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "S ChinesSecond",
+                "longName": "S Chinesisch-Second foreign language",
+                "displayName": "S Chinesisch-Second foreign language",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "B014-103",
+                "longName": "RH Seminarraum 4",
+                "displayName": "B014-103",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "IBS2 (Englisch 2025)",
+                "longName": "2.Sem.International Business (Englisch)",
+                "displayName": "IBS2 (Englisch 2025)",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14775,
+        "shortName": "IWI2Ü1 (SPO 2021)",
+        "longName": "2.Sem. IWI Gruppe 1 (SPO 2021)",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2617200],
+          "duration": {
+            "start": "2026-07-20T09:45",
+            "end": "2026-07-20T11:15"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CHANGED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo06",
+                "longName": "Demoperson06",
+                "displayName": "Demo Demoperson06",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "V BauKon",
+                "longName": "V/S Bautechnik-Konstruktion",
+                "displayName": "V/S Bautechnik-Konstruktion",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": null,
+              "removed": {
+                "type": "ROOM",
+                "status": "REMOVED",
+                "shortName": "B028-201",
+                "longName": "AR Hörsaal 2",
+                "displayName": "B028-201",
+                "displayNameLabel": "NAME"
+              }
+            }
+          ],
+          "position4": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "IWI2Ü2 (SPO 2021)",
+                "longName": "2.Sem. IWI Gruppe 2 (SPO 2021)",
+                "displayName": "IWI2Ü2 (SPO 2021)",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        },
+        {
+          "ids": [2617344],
+          "duration": {
+            "start": "2026-07-20T11:30",
+            "end": "2026-07-20T13:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CHANGED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 2,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo06",
+                "longName": "Demoperson06",
+                "displayName": "Demo Demoperson06",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "V BauKon",
+                "longName": "V/S Bautechnik-Konstruktion",
+                "displayName": "V/S Bautechnik-Konstruktion",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": null,
+              "removed": {
+                "type": "ROOM",
+                "status": "REMOVED",
+                "shortName": "B028-201",
+                "longName": "AR Hörsaal 2",
+                "displayName": "B028-201",
+                "displayNameLabel": "NAME"
+              }
+            }
+          ],
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14808,
+        "shortName": "MHR (SPO 2021)",
+        "longName": "1./2.Sem.Master Human Resource Management",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2620296],
+          "duration": {
+            "start": "2026-07-20T09:45",
+            "end": "2026-07-20T11:15"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CANCELLED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo07",
+                "longName": "Demoperson07",
+                "displayName": "Demo Demoperson07",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "Ü HumResMa",
+                "longName": "Ü Human Resource Management",
+                "displayName": "Ü Human Resource Management",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "B007-201",
+                "longName": "HH Hörsaal",
+                "displayName": "B007-201",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14820,
+        "shortName": "MLU1/2",
+        "longName": "1./2.Sem.Master Landschaftsarchitektur und Umweltplanung",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2650122, 2650125],
+          "duration": {
+            "start": "2026-07-20T09:45",
+            "end": "2026-07-20T13:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CANCELLED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo08",
+                "longName": "Demoperson08",
+                "displayName": "Demo Demoperson08",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "SW SpPflVerw",
+                "longName": "S WPM Spezielle Pflanzenverwendung",
+                "displayName": "S WPM Spezielle Pflanzenverwendung",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "B014-006",
+                "longName": "RH Hörsaal V",
+                "displayName": "B014-006",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-21",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14766,
+        "shortName": "IBS3 (Englisch)",
+        "longName": "3.Sem.International Business (Englisch)",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2639367],
+          "duration": {
+            "start": "2026-07-21T11:30",
+            "end": "2026-07-21T13:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "CANCELLED",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo05",
+                "longName": "Demoperson05",
+                "displayName": "Demo Demoperson05",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "S ChinesSecond",
+                "longName": "S Chinesisch-Second foreign language",
+                "displayName": "S Chinesisch-Second foreign language",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "B014-104",
+                "longName": "RH Seminarraum 5",
+                "displayName": "B014-104",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "IBS2 (Englisch 2025)",
+                "longName": "2.Sem.International Business (Englisch)",
+                "displayName": "IBS2 (Englisch 2025)",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        },
+        {
+          "ids": [2635503, 2635506],
+          "duration": {
+            "start": "2026-07-21T14:00",
+            "end": "2026-07-21T17:15"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "REGULAR",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 2,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "TEACHER",
+                "status": "REGULAR",
+                "shortName": "D-Demo09",
+                "longName": "Demoperson09",
+                "displayName": "Demo Demoperson09",
+                "displayNameLabel": "TITLE_FORENAME_LONGNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "V IntercSem",
+                "longName": "V/Ü Intercultural Seminar",
+                "displayName": "V/Ü Intercultural Seminar",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "B040-204",
+                "longName": "Indigo 204",
+                "displayName": "B040-204",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-22",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14535,
+        "shortName": "BWP2Ü1",
+        "longName": "BWP2Ü1-Angewandte Biowissenschaften und Prozesstechnik 2. Semester Ü1",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2686467],
+          "duration": {
+            "start": "2026-07-22T14:30",
+            "end": "2026-07-22T16:00"
+          },
+          "type": "ADDITIONAL_PERIOD",
+          "status": "ADDITIONAL",
+          "statusDetail": "CONFIRMED",
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": ["NOTES"],
+          "position1": [
+            {
+              "current": {
+                "type": "INFO",
+                "status": "REGULAR",
+                "shortName": "Prüfungsvorbereitung Mathe II - Differentialgleichungen",
+                "longName": "Prüfungsvorbereitung Mathe II - Differentialgleichungen",
+                "displayName": "Prüfungsvorbereitung Mathe II - Differentialgleichungen",
+                "displayNameLabel": null
+              },
+              "removed": null
+            }
+          ],
+          "position2": [
+            {
+              "current": {
+                "type": "ROOM",
+                "status": "REGULAR",
+                "shortName": "K002-112",
+                "longName": "Seminarraum Grünes Gebäude",
+                "displayName": "K002-112",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position3": [
+            {
+              "current": {
+                "type": "CLASS",
+                "status": "REGULAR",
+                "shortName": "BWP2Ü2",
+                "longName": "BWP2Ü2-Angewandte Biowissenschaften und Prozesstechnik 2. Semester Ü1",
+                "displayName": "BWP2Ü2",
+                "displayNameLabel": "NAME"
+              },
+              "removed": null
+            }
+          ],
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [
+            {
+              "type": "LESSON_INFO",
+              "text": "Prüfungsvorbereitung Mathe II - Differentialgleichungen"
+            }
+          ],
+          "lessonText": null,
+          "lessonInfo": "Prüfungsvorbereitung Mathe II - Differentialgleichungen",
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-22",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14790,
+        "shortName": "LAU6 (2023)",
+        "longName": "6.Sem.Landschaftsarchitektur und Umweltplanung",
+        "displayName": ""
+      },
+      "status": "REGULAR",
+      "dayEntries": [],
+      "gridEntries": [
+        {
+          "ids": [2614812, 2614815, 2614818],
+          "duration": {
+            "start": "2026-07-22T08:00",
+            "end": "2026-07-22T13:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "REGULAR",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 1,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "P Projekt4",
+                "longName": "P Projekttag 4.Projekt",
+                "displayName": "P Projekttag 4.Projekt",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": null,
+          "position3": null,
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        },
+        {
+          "ids": [2614821, 2614824, 2614827],
+          "duration": {
+            "start": "2026-07-22T14:00",
+            "end": "2026-07-22T19:00"
+          },
+          "type": "NORMAL_TEACHING_PERIOD",
+          "status": "REGULAR",
+          "statusDetail": null,
+          "name": null,
+          "layoutStartPosition": 0,
+          "layoutWidth": 1000,
+          "layoutGroup": 2,
+          "color": "bfc8cf",
+          "notesAll": "",
+          "icons": [],
+          "position1": [
+            {
+              "current": {
+                "type": "SUBJECT",
+                "status": "REGULAR",
+                "shortName": "P Projekt4",
+                "longName": "P Projekttag 4.Projekt",
+                "displayName": "P Projekttag 4.Projekt",
+                "displayNameLabel": "DISPLAYNAME"
+              },
+              "removed": null
+            }
+          ],
+          "position2": null,
+          "position3": null,
+          "position4": null,
+          "position5": null,
+          "position6": null,
+          "position7": null,
+          "texts": [],
+          "lessonText": null,
+          "lessonInfo": null,
+          "substitutionText": "",
+          "userName": null,
+          "moved": null,
+          "durationTotal": null,
+          "link": null
+        }
+      ],
+      "backEntries": []
+    }
+  ],
+  "errors": []
+}

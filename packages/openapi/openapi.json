@@ -1,0 +1,2840 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "ok",
+                    "uptimeSeconds": 1234
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe — process only, never a dependency.",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness probe — bounded database and CMS checks.",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/posts/channels": {
+      "get": {
+        "description": "Channels are fully dynamic. A channel added in the CMS appears here — and therefore in the app — without any code change.",
+        "operationId": "PostsController_channels_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active channels ordered by sortOrder, then name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active channels.",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/v1/posts/tags": {
+      "get": {
+        "description": "Tags are fully dynamic. A tag added in the CMS appears here — and therefore in the app — without any code change.",
+        "operationId": "PostsController_tags_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active tags ordered by sortOrder, then name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active tags.",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/v1/posts/events": {
+      "get": {
+        "description": "Filter for posts with tag \"event\". Accepts optional `from` and `to` date bounds and channel filters. Interval overlap: eventStart <= to AND (eventEnd ?? eventStart) >= from. Sorted deterministically by eventStart asc, slug asc.",
+        "operationId": "PostsController_events_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Max 50.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "channels",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated channel slugs. At most 25, each at most 100 characters.",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List event posts within a time range.",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/v1/posts/{slug}": {
+      "get": {
+        "description": "Unknown content block types are removed server-side and reported in meta.droppedBlockTypes, so a new CMS block type can never break the detail screen.",
+        "operationId": "PostsController_detail_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Fetch one post by its stable slug.",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/v1/posts": {
+      "get": {
+        "description": "An absent `channels` parameter means all active channels; a present but empty `channels=` means the user deselected everything and yields an empty list. An absent `tags` parameter applies no tag filter; a present but empty `tags=` yields an empty list. Both filters combine with AND. Each entry carries its sanitised `content`, so a feed can render posts inline without a request per card; unknown block types are removed server-side and reported once in `meta.droppedBlockTypes`.",
+        "operationId": "PostsController_list_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Max 50.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "tags",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated tag slugs. At most 25, each at most 100 characters.",
+            "schema": {}
+          },
+          {
+            "name": "channels",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated channel slugs. At most 25, each at most 100 characters.",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List published posts.",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/v1/contact-areas": {
+      "get": {
+        "description": "Areas are fully dynamic and are never hardcoded in the client. An area without any contact person is valid and fully usable — `personCount` is then 0.",
+        "operationId": "ContactsController_list_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active areas ordered by sortOrder, then name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactAreasResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active contact areas.",
+        "tags": [
+          "contacts"
+        ]
+      }
+    },
+    "/v1/contact-areas/search-index": {
+      "get": {
+        "description": "Exists so a client can search over areas, persons, descriptions and rooms without one request per area — and without a request per keystroke. Only active areas and active persons, only explicitly mapped public fields.",
+        "operationId": "ContactsController_searchIndex_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSearchIndexResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Everything the contact search can match, in one response.",
+        "tags": [
+          "contacts"
+        ]
+      }
+    },
+    "/v1/contact-areas/{slug}": {
+      "get": {
+        "operationId": "ContactsController_detail_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactAreaDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Fetch one contact area including its active persons.",
+        "tags": [
+          "contacts"
+        ]
+      }
+    },
+    "/v1/canteens": {
+      "get": {
+        "description": "The upstream location_id is backend-only and never exposed. Adding a canteen therefore needs no app release.",
+        "operationId": "CanteenController_list_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active canteens with their freshness metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active canteens.",
+        "tags": [
+          "canteens"
+        ]
+      }
+    },
+    "/v1/canteens/{slug}/menu": {
+      "get": {
+        "description": "Every day in the range is returned, so an empty day is distinguishable from a loading error. Dish text is the original German from the source and is never machine-translated.",
+        "operationId": "CanteenController_menu_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD, at most 31 days after from.",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD, defaults to today.",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteenMenuResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Fetch the menu of one canteen for a date range.",
+        "tags": [
+          "canteens"
+        ]
+      }
+    },
+    "/v1/timetable/groups": {
+      "get": {
+        "description": "Comes from the synchronised catalogue, never from a live upstream call. Identifiers are Campus UUIDs; the source system id is never exposed.",
+        "operationId": "TimetableController_groups_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "department",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "query",
+            "required": false,
+            "in": "query",
+            "description": "Searches short name, long name and department.",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableGroupsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List selectable class groups.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
+    "/v1/timetable/entries": {
+      "get": {
+        "description": "Every day of the range is returned, so a genuinely free day is distinguishable from a loading error. Range is capped at 42 days.",
+        "operationId": "TimetableController_entries_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-08-02"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-07-20"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableWeekResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Fetch one group’s timetable for a date range.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
+    "/v1/timetable/status": {
+      "get": {
+        "description": "Deliberately thin: no upstream URLs, headers, external ids or error detail.",
+        "operationId": "TimetableController_status_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableStatusResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Public health of the timetable integration.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
+    "/v1/calendars": {
+      "get": {
+        "description": "Only active, validated calendars that have synced at least once. The Google calendar id and feed URL are never exposed; each item carries a safe googleOpenUrl.",
+        "operationId": "PublicCalendarController_list_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List public calendars (read-only, synced from their public ICS feed).",
+        "tags": [
+          "public-calendars"
+        ]
+      }
+    },
+    "/v1/calendars/events": {
+      "get": {
+        "description": "Pass one `calendar` slug per selected calendar. An empty selection returns an empty list (never \"all calendars\"). Each event carries calendarId and calendarSlug. The result is capped server-side; `meta.truncated` reports a cut list rather than presenting it as complete.",
+        "operationId": "PublicCalendarController_aggregated_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          },
+          {
+            "name": "calendar",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarEventsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Aggregated events across several selected public calendars.",
+        "tags": [
+          "public-calendars"
+        ]
+      }
+    },
+    "/v1/calendars/google-view-url": {
+      "get": {
+        "description": "Server-constructed HTTPS URL (one src per calendar). This is a shared VIEW only — it never adds anything to a user's personal Google account.",
+        "operationId": "PublicCalendarController_googleViewUrl_v1",
+        "parameters": [
+          {
+            "name": "calendar",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleViewUrlResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "A combined calendar.google.com embed URL for the selected calendars.",
+        "tags": [
+          "public-calendars"
+        ]
+      }
+    },
+    "/v1/calendars/{slug}/events": {
+      "get": {
+        "description": "The result is capped server-side; `meta.truncated` reports a cut list rather than presenting it as complete.",
+        "operationId": "PublicCalendarController_single_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarEventsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Events of a single public calendar in a date range.",
+        "tags": [
+          "public-calendars"
+        ]
+      }
+    },
+    "/v1/rooms": {
+      "get": {
+        "description": "Small and complete on purpose: the client caches it and searches locally, so there is no server-side full-text search. Only catalogue-active AND editorially visible rooms are served.",
+        "operationId": "RoomsController_list_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "floorKey",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "buildingKey",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The public room catalogue for the bundled campus maps.",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/v1/rooms/{roomKey}": {
+      "get": {
+        "operationId": "RoomsController_detail_v1",
+        "parameters": [
+          {
+            "name": "roomKey",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One room of the bundled campus maps.",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/v1/media/uploads/{filename}": {
+      "get": {
+        "description": "Images only, from the CMS upload directory only. The path is validated against a strict allowlist before anything is fetched, so it cannot be pointed at another target. Cached for a day: editorial images are replaced by uploading a new file, which changes the name. Send the ETag back as `If-None-Match` to revalidate: a still-current image answers 304 without a body instead of being transferred again.",
+        "operationId": "MediaController_get_v1",
+        "parameters": [
+          {
+            "name": "filename",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "foto_5a141d3978.jpeg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Entity tag from a previous response. A match answers 304 without a body.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "W/\"1f-18c2b4d1e20\""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image bytes."
+          },
+          "304": {
+            "description": "The client copy is still current. No body."
+          }
+        },
+        "summary": "An editorial image from the CMS.",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/environment": {
+      "get": {
+        "operationId": "UserTestEnvironmentController_get_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserTestEnvironmentResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Return public deployment disclosure flags.",
+        "tags": [
+          "environment"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Campus Köthen API",
+    "description": "Public read-only API of the Campus Köthen app.\n\nCampus Köthen is an independent, unofficial campus app. It is neither developed\nnor operated by Hochschule Anhalt, nor is it officially endorsed by the university.\n\nAll content endpoints accept `locale=de|en` (default `de`) and report\n`requestedLocale`, `resolvedLocale` and `translationFallback` in their metadata.\nCanteen dish text comes from a German-only source and is never machine-translated.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "Campus Köthen App",
+      "url": "https://github.com/Leviora-Studio/campus-koethen",
+      "email": ""
+    },
+    "license": {
+      "name": "AGPL-3.0-only",
+      "url": "https://www.gnu.org/licenses/agpl-3.0.html"
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness and readiness probes"
+    },
+    {
+      "name": "environment",
+      "description": "Public deployment disclosure flags"
+    },
+    {
+      "name": "posts",
+      "description": "Posts (news and events), channels, and tags"
+    },
+    {
+      "name": "contacts",
+      "description": "Contact areas and persons"
+    },
+    {
+      "name": "canteens",
+      "description": "Canteens and menus"
+    },
+    {
+      "name": "public-calendars",
+      "description": "Public Google calendars (read-only, synced via public ICS)"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "ChannelDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "campus-news",
+            "description": "Stable, never localised."
+          },
+          "name": {
+            "type": "string",
+            "example": "Campus News"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "colorHex": {
+            "type": "string",
+            "example": "#5B3FD0",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 10
+          },
+          "defaultSubscribed": {
+            "type": "boolean",
+            "description": "Applied by the client exactly once, when the slug first appears."
+          },
+          "publicCalendarSlug": {
+            "type": "string",
+            "nullable": true,
+            "description": "Slug of the associated public Google calendar, if linked 1-to-1."
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "colorHex",
+          "sortOrder",
+          "defaultSubscribed"
+        ]
+      },
+      "PaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "example": 20
+          },
+          "total": {
+            "type": "number",
+            "example": 42
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "totalPages"
+        ]
+      },
+      "ResponseMetaDto": {
+        "type": "object",
+        "properties": {
+          "requestedLocale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "en"
+            ],
+            "description": "Locale the client asked for."
+          },
+          "resolvedLocale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "en"
+            ],
+            "description": "Locale actually served."
+          },
+          "translationFallback": {
+            "type": "boolean",
+            "description": "True when at least one delivered field came from the German fallback although another locale was requested."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          },
+          "droppedBlockTypes": {
+            "description": "Content block types removed because the MVP client does not render them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastSuccessfulSyncAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Last successful canteen synchronisation. Null means: never succeeded."
+          },
+          "dataStale": {
+            "type": "boolean",
+            "description": "True when the data is older than the configured threshold."
+          },
+          "from": {
+            "type": "string",
+            "description": "Start of the resolved date range (YYYY-MM-DD)."
+          },
+          "to": {
+            "type": "string",
+            "description": "End of the resolved date range (YYYY-MM-DD)."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when the server hit its own result ceiling and deliberately cut the list short. The client must say so rather than present the result as complete."
+          },
+          "featureEnabled": {
+            "type": "boolean",
+            "description": "False when the timetable integration is switched off server-side."
+          },
+          "dataState": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "pending",
+              "unavailable"
+            ],
+            "description": "ready = data present; pending = enabled but not yet synchronised; unavailable = disabled or permanently without data."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Business timezone the wall-clock times belong to.",
+            "example": "Europe/Berlin"
+          }
+        },
+        "required": [
+          "requestedLocale",
+          "resolvedLocale",
+          "translationFallback"
+        ]
+      },
+      "ChannelsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TagDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "event",
+            "description": "Stable, never localised."
+          },
+          "name": {
+            "type": "string",
+            "example": "Event"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ]
+      },
+      "TagsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImageDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://cdn.example/hero.jpg",
+            "description": "Always https."
+          },
+          "alternativeText": {
+            "type": "string",
+            "nullable": true
+          },
+          "width": {
+            "type": "number",
+            "nullable": true
+          },
+          "height": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "url",
+          "alternativeText",
+          "width",
+          "height"
+        ]
+      },
+      "TagRefDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ]
+      },
+      "ChannelRefDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "colorHex": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "colorHex"
+        ]
+      },
+      "PostListItemDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "semesterstart-2026"
+          },
+          "title": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "heroImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageDto"
+              }
+            ]
+          },
+          "tag": {
+            "description": "Mandatory single tag classification.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TagRefDto"
+              }
+            ]
+          },
+          "primaryChannel": {
+            "description": "Mandatory primary publishing channel.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChannelRefDto"
+              }
+            ]
+          },
+          "channels": {
+            "description": "All channels this post is published to.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelRefDto"
+            }
+          },
+          "sourceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Validated https URL of the original source, or null."
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Sanitised content blocks, delivered with the LIST entry so a feed can render the post inline without a request per card. Only paragraph, heading, list, quote and image survive; anything else is removed server-side and reported in meta.droppedBlockTypes."
+          },
+          "eventStart": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "eventEnd": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "eventAllDay": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "tag",
+          "primaryChannel",
+          "channels",
+          "content",
+          "eventAllDay"
+        ]
+      },
+      "PostListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostListItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PostDetailDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "semesterstart-2026"
+          },
+          "title": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "heroImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageDto"
+              }
+            ]
+          },
+          "tag": {
+            "description": "Mandatory single tag classification.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TagRefDto"
+              }
+            ]
+          },
+          "primaryChannel": {
+            "description": "Mandatory primary publishing channel.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChannelRefDto"
+              }
+            ]
+          },
+          "channels": {
+            "description": "All channels this post is published to.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelRefDto"
+            }
+          },
+          "sourceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Validated https URL of the original source, or null."
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Sanitised content blocks, delivered with the LIST entry so a feed can render the post inline without a request per card. Only paragraph, heading, list, quote and image survive; anything else is removed server-side and reported in meta.droppedBlockTypes."
+          },
+          "eventStart": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "eventEnd": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "eventAllDay": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "tag",
+          "primaryChannel",
+          "channels",
+          "content",
+          "eventAllDay"
+        ]
+      },
+      "PostDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PostDetailDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ContactAreaListItemDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "studierendenrat"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "iconKey": {
+            "type": "string",
+            "example": "students-council"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "/v1/media/uploads/team_5a141d.jpg",
+            "description": "Image of the area, served by THIS API — the client never fetches from the CMS. Null when no image is set; the icon carries the area on its own in that case."
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "generalEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "appointmentBookingUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "string",
+            "nullable": true
+          },
+          "personCount": {
+            "type": "number",
+            "description": "Zero is a valid, fully supported state — an area needs no contact person."
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "shortDescription",
+          "iconKey",
+          "image",
+          "sortOrder",
+          "generalEmail",
+          "phone",
+          "website",
+          "appointmentBookingUrl",
+          "address",
+          "openingHours",
+          "personCount"
+        ]
+      },
+      "ContactAreasResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactAreaListItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RoomReferenceDto": {
+        "type": "object",
+        "properties": {
+          "roomKey": {
+            "type": "string",
+            "example": "ratke-gebaeude-first-floor-216"
+          },
+          "roomNumber": {
+            "type": "string",
+            "example": "216"
+          },
+          "buildingNumber": {
+            "type": "string",
+            "example": "23",
+            "description": "Stable campus building number."
+          },
+          "buildingName": {
+            "type": "string",
+            "description": "Localised building name."
+          },
+          "floorName": {
+            "type": "string",
+            "description": "Localised floor name."
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "roomKey",
+          "roomNumber",
+          "buildingNumber",
+          "buildingName",
+          "floorName"
+        ]
+      },
+      "ContactSearchPersonDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomReferenceDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "description",
+          "email",
+          "phone",
+          "website",
+          "rooms"
+        ]
+      },
+      "ContactSearchAreaDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "studierendenrat"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "iconKey": {
+            "type": "string",
+            "example": "students-council"
+          },
+          "descriptionText": {
+            "type": "string",
+            "description": "The sanitised long description as PLAIN TEXT. A search matches words, not formatting; links contribute their label, images nothing."
+          },
+          "generalEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "appointmentBookingUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "string",
+            "nullable": true
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomReferenceDto"
+            }
+          },
+          "persons": {
+            "description": "Active persons only.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactSearchPersonDto"
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "shortDescription",
+          "iconKey",
+          "descriptionText",
+          "generalEmail",
+          "phone",
+          "website",
+          "appointmentBookingUrl",
+          "address",
+          "openingHours",
+          "rooms",
+          "persons"
+        ]
+      },
+      "ContactSearchIndexResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactSearchAreaDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ContactPersonDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "profileImage": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "rooms": {
+            "description": "Rooms of the demo campus map. An empty list is normal — a contact needs no room.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomReferenceDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "description",
+          "email",
+          "phone",
+          "website",
+          "profileImage",
+          "sortOrder",
+          "rooms"
+        ]
+      },
+      "ContactAreaDetailDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "iconKey": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "/v1/media/uploads/team_5a141d.jpg"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "generalEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "appointmentBookingUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Sanitised content blocks, same rules as news content."
+          },
+          "persons": {
+            "description": "Active persons only; may be empty.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactPersonDto"
+            }
+          },
+          "rooms": {
+            "description": "Rooms of the demo campus map. An empty list is normal — an area needs no room.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomReferenceDto"
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "shortDescription",
+          "iconKey",
+          "image",
+          "sortOrder",
+          "generalEmail",
+          "phone",
+          "website",
+          "appointmentBookingUrl",
+          "address",
+          "openingHours",
+          "description",
+          "persons",
+          "rooms"
+        ]
+      },
+      "ContactAreaDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ContactAreaDetailDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CanteenListItemDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "koethen-fasanerieallee"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Mensa Köthen",
+            "description": "API-owned text, available in de and en."
+          },
+          "campusLabel": {
+            "type": "string",
+            "example": "Fasanerieallee"
+          },
+          "lastSuccessfulSyncAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "Null means the canteen has never synchronised successfully."
+          },
+          "dataStale": {
+            "type": "boolean",
+            "description": "True when the data is older than the configured threshold."
+          }
+        },
+        "required": [
+          "slug",
+          "displayName",
+          "campusLabel",
+          "lastSuccessfulSyncAt",
+          "dataStale"
+        ]
+      },
+      "CanteensResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanteenListItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CanteenRefDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "koethen-fasanerieallee"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Mensa Köthen",
+            "description": "API-owned text, available in de and en."
+          },
+          "campusLabel": {
+            "type": "string",
+            "example": "Fasanerieallee"
+          }
+        },
+        "required": [
+          "slug",
+          "displayName",
+          "campusLabel"
+        ]
+      },
+      "MealMarkerDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "52"
+          },
+          "label": {
+            "type": "string",
+            "example": "vegan",
+            "description": "German label from the source — never machine-translated."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ingredient",
+              "marker"
+            ],
+            "description": "The source mixes both namespaces inside one array, so the distinction is preserved here."
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "kind"
+        ]
+      },
+      "MealPriceDto": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string",
+            "enum": [
+              "student",
+              "employee",
+              "guest"
+            ],
+            "description": "Stable technical key. The client highlights \"student\"."
+          },
+          "label": {
+            "type": "string",
+            "example": "Studierende",
+            "description": "Localised, API-owned label."
+          },
+          "amount": {
+            "type": "string",
+            "example": "1.95",
+            "description": "Decimal STRING with fixed scale — never a float, to avoid rounding."
+          },
+          "currency": {
+            "type": "string",
+            "example": "EUR"
+          }
+        },
+        "required": [
+          "group",
+          "label",
+          "amount",
+          "currency"
+        ]
+      },
+      "MealDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "58033"
+          },
+          "name": {
+            "type": "string",
+            "example": "Bulgur-Pfanne"
+          },
+          "subtitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "enum": [
+              "de"
+            ],
+            "description": "Always \"de\": the upstream source publishes German only and is not translated."
+          },
+          "counterId": {
+            "type": "number",
+            "nullable": true
+          },
+          "isSprint": {
+            "type": "boolean"
+          },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "markers": {
+            "description": "Everything the source declared, including codes with no semantic meaning to this API.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealMarkerDto"
+            }
+          },
+          "traits": {
+            "type": "array",
+            "description": "Stable semantic properties of the dish, derived from the source. Filter on these, never on marker codes or labels.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "vegetarian",
+                "vegan",
+                "meatless",
+                "sprint"
+              ]
+            }
+          },
+          "allergens": {
+            "type": "array",
+            "description": "Declared allergens as stable keys. A subtype (e.g. \"gluten_wheat\") always comes with its parent (\"gluten\"). A marker the API cannot classify appears in `markers` only and never gets an invented key.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "gluten",
+                "gluten_wheat",
+                "gluten_rye",
+                "gluten_oats",
+                "gluten_barley",
+                "gluten_spelt",
+                "crustaceans",
+                "egg",
+                "peanuts",
+                "soy",
+                "milk",
+                "nuts",
+                "nuts_hazelnut",
+                "nuts_almond",
+                "nuts_walnut",
+                "nuts_cashew",
+                "nuts_pecan",
+                "nuts_pistachio",
+                "nuts_macadamia",
+                "celery",
+                "mustard",
+                "sesame",
+                "sulphites",
+                "lupin",
+                "molluscs",
+                "fish"
+              ]
+            }
+          },
+          "prices": {
+            "description": "All groups the source provided. A missing group is absent, never estimated.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealPriceDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "subtitle",
+          "sourceLanguage",
+          "counterId",
+          "isSprint",
+          "extras",
+          "markers",
+          "traits",
+          "allergens",
+          "prices"
+        ]
+      },
+      "CanteenDayDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-07-20"
+          },
+          "meals": {
+            "description": "An empty array is a real day without meals, not a loading failure.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealDto"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "meals"
+        ]
+      },
+      "CanteenMenuDto": {
+        "type": "object",
+        "properties": {
+          "canteen": {
+            "$ref": "#/components/schemas/CanteenRefDto"
+          },
+          "days": {
+            "description": "Every day of the requested range.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanteenDayDto"
+            }
+          }
+        },
+        "required": [
+          "canteen",
+          "days"
+        ]
+      },
+      "CanteenMenuResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CanteenMenuDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimetableGroupDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable Campus identifier."
+          },
+          "shortName": {
+            "type": "string",
+            "example": "AIN2 - BT"
+          },
+          "longName": {
+            "type": "string",
+            "example": "AIN2-Angewandte Informatik Vertiefung: Biotechnologie"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true,
+            "example": "FB5"
+          }
+        },
+        "required": [
+          "id",
+          "shortName",
+          "longName",
+          "department"
+        ]
+      },
+      "TimetableGroupsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableGroupDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimetableTeacherDto": {
+        "type": "object",
+        "properties": {
+          "shortName": {
+            "type": "string",
+            "description": "Name as published by the source. Never translated."
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "shortName",
+          "displayName"
+        ]
+      },
+      "TimetableRoomDto": {
+        "type": "object",
+        "properties": {
+          "shortName": {
+            "type": "string"
+          },
+          "longName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "shortName",
+          "longName"
+        ]
+      },
+      "TimetableEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Absolute instant, UTC."
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Berlin",
+            "description": "Business timezone the source schedules in."
+          },
+          "title": {
+            "type": "string",
+            "description": "Subject name from the source. Never translated."
+          },
+          "subjectCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "regular_teaching",
+              "additional",
+              "unknown"
+            ],
+            "description": "Normalised. An unrecognised upstream value becomes `unknown`."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "changed",
+              "cancelled",
+              "unknown"
+            ],
+            "description": "Normalised. The client must render `unknown` neutrally rather than guess."
+          },
+          "teachers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableTeacherDto"
+            }
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableRoomDto"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableGroupDto"
+            }
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "start",
+          "end",
+          "timezone",
+          "title",
+          "subjectCode",
+          "type",
+          "status",
+          "teachers",
+          "rooms",
+          "groups",
+          "note"
+        ]
+      },
+      "TimetableDayDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-07-20"
+          },
+          "entries": {
+            "description": "Empty means a genuinely free day, not a loading failure.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableEntryDto"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "entries"
+        ]
+      },
+      "TimetableWeekDto": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/TimetableGroupDto"
+          },
+          "days": {
+            "description": "Every day of the requested range.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableDayDto"
+            }
+          }
+        },
+        "required": [
+          "group",
+          "days"
+        ]
+      },
+      "TimetableWeekResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimetableWeekDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimetableStatusDto": {
+        "type": "object",
+        "properties": {
+          "featureEnabled": {
+            "type": "boolean"
+          },
+          "groupCount": {
+            "type": "number",
+            "example": 270
+          },
+          "lastGroupSyncAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "lastEntrySyncAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "dataStale": {
+            "type": "boolean"
+          },
+          "coveredFrom": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-07-15"
+          },
+          "coveredTo": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-08-19"
+          }
+        },
+        "required": [
+          "featureEnabled",
+          "groupCount",
+          "lastGroupSyncAt",
+          "lastEntrySyncAt",
+          "dataStale",
+          "coveredFrom",
+          "coveredTo"
+        ]
+      },
+      "TimetableStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimetableStatusDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PublicCalendarDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "channelSlug": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "colorHex": {
+            "type": "string",
+            "example": "#5B3FD0"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "defaultSubscribed": {
+            "type": "boolean"
+          },
+          "dataState": {
+            "type": "string",
+            "description": "ready | stale",
+            "example": "ready"
+          },
+          "lastSuccessfulSyncAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "dataStale": {
+            "type": "boolean"
+          },
+          "googleOpenUrl": {
+            "type": "string",
+            "description": "Safe HTTPS link to open this calendar in Google Calendar."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "colorHex",
+          "sortOrder",
+          "defaultSubscribed",
+          "dataState",
+          "dataStale",
+          "googleOpenUrl"
+        ]
+      },
+      "PublicCalendarListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCalendarDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PublicCalendarEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable, non-invertible eventKey = base64url(sha256(calendarSlug + \"\\0\" + occurrenceKey))[0..21]."
+          },
+          "calendarId": {
+            "type": "string"
+          },
+          "calendarSlug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "allDay": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "description": "confirmed | tentative | cancelled"
+          }
+        },
+        "required": [
+          "id",
+          "calendarId",
+          "calendarSlug",
+          "title",
+          "start",
+          "end",
+          "allDay",
+          "status"
+        ]
+      },
+      "PublicCalendarEventsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCalendarEventDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "GoogleViewUrlDataDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "A calendar.google.com embed URL for the selected calendars."
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "GoogleViewUrlResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GoogleViewUrlDataDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RoomDto": {
+        "type": "object",
+        "properties": {
+          "roomKey": {
+            "type": "string",
+            "example": "ratke-gebaeude-first-floor-216"
+          },
+          "roomNumber": {
+            "type": "string",
+            "example": "216"
+          },
+          "buildingKey": {
+            "type": "string",
+            "example": "ratke-gebaeude"
+          },
+          "buildingNumber": {
+            "type": "string",
+            "example": "23",
+            "description": "Stable campus building number."
+          },
+          "buildingName": {
+            "type": "string",
+            "description": "Localised building name."
+          },
+          "floorKey": {
+            "type": "string",
+            "example": "ratke-gebaeude-first-floor"
+          },
+          "floorName": {
+            "type": "string",
+            "description": "Localised floor name."
+          },
+          "roomType": {
+            "type": "string",
+            "enum": [
+              "room",
+              "lecture",
+              "seminar",
+              "office",
+              "lab",
+              "meeting",
+              "service"
+            ],
+            "description": "Stable technical key; the client renders a localised label."
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Localised display name."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Localised description."
+          },
+          "mapVersion": {
+            "type": "string",
+            "example": "campus-koethen-2026-08-26",
+            "description": "Version of the map catalogue this room belongs to."
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "roomKey",
+          "roomNumber",
+          "buildingKey",
+          "buildingNumber",
+          "buildingName",
+          "floorKey",
+          "floorName",
+          "roomType",
+          "mapVersion",
+          "sortOrder"
+        ]
+      },
+      "RoomsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoomDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RoomResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RoomDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "UserTestEnvironmentDto": {
+        "type": "object",
+        "properties": {
+          "userTestData": {
+            "type": "boolean",
+            "description": "True when this deployment may contain synthetic user-test content. Clients must disclose that state globally."
+          }
+        },
+        "required": [
+          "userTestData"
+        ]
+      },
+      "UserTestEnvironmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/UserTestEnvironmentDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

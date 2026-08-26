@@ -1,0 +1,630 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+import 'package:campus_koethen/features/grades/application/grade_account_controller.dart';
+import 'package:campus_koethen/features/grades/application/grades_controller.dart';
+import 'package:campus_koethen/features/grades/application/grades_providers.dart';
+import 'package:campus_koethen/features/grades/domain/grade_credentials.dart';
+import 'package:campus_koethen/features/grades/domain/grade_failure.dart';
+import 'package:campus_koethen/features/grades/domain/grade_portal.dart';
+import 'package:campus_koethen/features/grades/domain/grade.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/fake_grades.dart';
+
+const GradeCredentials _creds = GradeCredentials(
+  username: 'testuser',
+  password: 'test-pw',
+);
+
+ProviderContainer _container({
+  required FakeGradesGateway gateway,
+  required InMemoryGradeCredentialStore store,
+  required InMemoryGradeCacheStore cache,
+  required MutableClock clock,
+  InMemoryGradePortalStore? portalStore,
+}) {
+  final ProviderContainer container = ProviderContainer(
+    overrides: <Override>[
+      // Setup tries the per-portal gateways in order; pointing BOTH at the
+      // same fake keeps every existing single-portal test scenario intact
+      // (the first portal tried always answers deterministically).
+      legacyQisGatewayProvider.overrideWithValue(gateway),
+      hisInOneGatewayProvider.overrideWithValue(gateway),
+      gradesGatewayProvider.overrideWithValue(gateway),
+      gradeCredentialStoreProvider.overrideWithValue(store),
+      gradePortalStoreProvider.overrideWithValue(
+        portalStore ?? InMemoryGradePortalStore(),
+      ),
+      gradeCacheStoreProvider.overrideWithValue(cache),
+      gradeClockProvider.overrideWithValue(clock),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container;
+}
+
+void main() {
+  final DateTime t0 = DateTime.utc(2026, 7, 26, 12);
+
+  group('account', () {
+    test('starts signed out when the store is empty', () async {
+      final c = _container(
+        gateway: FakeGradesGateway(),
+        store: InMemoryGradeCredentialStore(),
+        cache: InMemoryGradeCacheStore(),
+        clock: MutableClock(t0),
+      );
+      final GradeAccountState s = await c.read(
+        gradeAccountControllerProvider.future,
+      );
+      expect(s.isSignedIn, isFalse);
+    });
+
+    test('restores a stored account (username only, no password)', () async {
+      final store = InMemoryGradeCredentialStore()..write(_creds);
+      final c = _container(
+        gateway: FakeGradesGateway(),
+        store: store,
+        cache: InMemoryGradeCacheStore(),
+        clock: MutableClock(t0),
+      );
+      final GradeAccountState s = await c.read(
+        gradeAccountControllerProvider.future,
+      );
+      expect(s.username, 'testuser');
+      expect(s.toString().contains('test-pw'), isFalse);
+    });
+
+    test(
+      'signIn verifies via the portal, then stores creds and seeds cache',
+      () async {
+        final gateway = FakeGradesGateway(report: sampleReport());
+        final store = InMemoryGradeCredentialStore();
+        final cache = InMemoryGradeCacheStore();
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+        );
+        await c.read(gradeAccountControllerProvider.future);
+
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: '  testuser ', password: 'test-pw');
+
+        expect(gateway.fetchCalls, 1);
+        expect(store.writes, 1);
+        expect(store.lastWritten?.username, 'testuser');
+        expect(cache.reportWrites, 1, reason: 'the initial report is cached');
+        expect(await cache.readLastSuccessfulSync(), t0);
+        expect(await cache.readLastAttemptedSync(), t0);
+        expect(
+          c.read(gradeAccountControllerProvider).requireValue.isSignedIn,
+          isTrue,
+        );
+      },
+    );
+
+    test('does NOT store credentials when the portal rejects them', () async {
+      final gateway = FakeGradesGateway(
+        error: const GradeFailure(GradeFailureKind.invalidCredentials),
+      );
+      final store = InMemoryGradeCredentialStore();
+      final cache = InMemoryGradeCacheStore();
+      final c = _container(
+        gateway: gateway,
+        store: store,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+      await c.read(gradeAccountControllerProvider.future);
+
+      await expectLater(
+        c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: 'testuser', password: 'wrong'),
+        throwsA(isA<GradeFailure>()),
+      );
+      expect(store.writes, 0);
+      expect(cache.reportWrites, 0);
+      expect(
+        c.read(gradeAccountControllerProvider).requireValue.isSignedIn,
+        isFalse,
+      );
+    });
+
+    test('surfaces a secure-storage failure and stays signed out', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final store = InMemoryGradeCredentialStore(available: false);
+      final c = _container(
+        gateway: gateway,
+        store: store,
+        cache: InMemoryGradeCacheStore(),
+        clock: MutableClock(t0),
+      );
+      await c.read(gradeAccountControllerProvider.future);
+
+      await expectLater(
+        c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: 'testuser', password: 'test-pw'),
+        throwsA(
+          isA<GradeFailure>().having(
+            (GradeFailure e) => e.kind,
+            'kind',
+            GradeFailureKind.secureStorageUnavailable,
+          ),
+        ),
+      );
+      expect(
+        c.read(gradeAccountControllerProvider).requireValue.isSignedIn,
+        isFalse,
+      );
+    });
+
+    test(
+      'deleteEverything wipes credentials, cache, key and timestamps',
+      () async {
+        final store = InMemoryGradeCredentialStore()..write(_creds);
+        final cache = InMemoryGradeCacheStore();
+        await cache.writeReport(sampleReport());
+        await cache.writeLastSuccessfulSync(t0);
+        final c = _container(
+          gateway: FakeGradesGateway(),
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+        );
+        await c.read(gradeAccountControllerProvider.future);
+
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .deleteEverything();
+
+        expect(store.clears, greaterThanOrEqualTo(1));
+        expect(cache.clears, greaterThanOrEqualTo(1));
+        expect(await cache.readReport(), isNull);
+        expect(
+          c.read(gradeAccountControllerProvider).requireValue.isSignedIn,
+          isFalse,
+        );
+      },
+    );
+  });
+
+  group('sync policy', () {
+    Future<ProviderContainer> signedIn({
+      required FakeGradesGateway gateway,
+      required InMemoryGradeCacheStore cache,
+      required MutableClock clock,
+    }) async {
+      final store = InMemoryGradeCredentialStore()..write(_creds);
+      final c = _container(
+        gateway: gateway,
+        store: store,
+        cache: cache,
+        clock: clock,
+      );
+      await c.read(gradeAccountControllerProvider.future);
+      // Keep the controller alive like a screen would.
+      c.listen(gradesControllerProvider, (_, _) {});
+      await c.read(gradesControllerProvider.future);
+      return c;
+    }
+
+    test('first open without a cache syncs', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final cache = InMemoryGradeCacheStore();
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      await c.read(gradesControllerProvider.notifier).maybeAutoSync();
+
+      expect(gateway.fetchCalls, 1);
+      expect(await cache.readReport(), isNotNull);
+    });
+
+    test('a cache younger than 24h prevents an automatic net call', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final cache = InMemoryGradeCacheStore();
+      await cache.writeLastAttemptedSync(t0.subtract(const Duration(hours: 1)));
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      await c.read(gradesControllerProvider.notifier).maybeAutoSync();
+
+      expect(gateway.fetchCalls, 0);
+    });
+
+    test('after 24h exactly one automatic attempt runs', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final cache = InMemoryGradeCacheStore();
+      await cache.writeLastAttemptedSync(
+        t0.subtract(const Duration(hours: 25)),
+      );
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      await c.read(gradesControllerProvider.notifier).maybeAutoSync();
+
+      expect(gateway.fetchCalls, 1);
+    });
+
+    test('concurrent automatic syncs cause only one portal call', () async {
+      final gateway = FakeGradesGateway(
+        report: sampleReport(),
+        delay: const Duration(milliseconds: 30),
+      );
+      final cache = InMemoryGradeCacheStore();
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      final notifier = c.read(gradesControllerProvider.notifier);
+      await Future.wait(<Future<void>>[
+        notifier.maybeAutoSync(),
+        notifier.maybeAutoSync(),
+      ]);
+
+      expect(gateway.fetchCalls, 1);
+    });
+
+    test('manual refresh bypasses the 24h gate', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final cache = InMemoryGradeCacheStore();
+      await cache.writeLastAttemptedSync(t0); // just attempted
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      await c.read(gradesControllerProvider.notifier).refresh();
+
+      expect(gateway.fetchCalls, 1);
+    });
+
+    test('a failed sync keeps the old cache and lastSuccessfulSync', () async {
+      final gateway = FakeGradesGateway(
+        error: const GradeFailure(GradeFailureKind.timeout),
+      );
+      final cache = InMemoryGradeCacheStore();
+      await cache.writeReport(sampleReport('Alt'));
+      await cache.writeLastSuccessfulSync(t0.subtract(const Duration(days: 2)));
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      await c.read(gradesControllerProvider.notifier).refresh();
+
+      final GradesViewState s = c.read(gradesControllerProvider).requireValue;
+      expect(s.error?.kind, GradeFailureKind.timeout);
+      expect(s.report, isNotNull, reason: 'the old cache stays visible');
+      expect(s.report!.entries.single.title, 'Alt');
+      expect(
+        cache.reportWrites,
+        1,
+        reason: 'the failed sync did not overwrite',
+      );
+      expect(
+        await cache.readLastSuccessfulSync(),
+        t0.subtract(const Duration(days: 2)),
+      );
+    });
+
+    test('lastSuccessfulSync changes only on success', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final cache = InMemoryGradeCacheStore();
+      final c = await signedIn(
+        gateway: gateway,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+
+      await c.read(gradesControllerProvider.notifier).refresh();
+
+      expect(await cache.readLastSuccessfulSync(), t0);
+    });
+
+    test(
+      'a failed auto attempt is not retried on every build; manual still works',
+      () async {
+        final gateway = FakeGradesGateway(
+          error: const GradeFailure(GradeFailureKind.portalUnavailable),
+        );
+        final cache = InMemoryGradeCacheStore();
+        final clock = MutableClock(t0);
+        final c = await signedIn(gateway: gateway, cache: cache, clock: clock);
+        final notifier = c.read(gradesControllerProvider.notifier);
+
+        await notifier
+            .maybeAutoSync(); // attempt #1 (fails, records lastAttempt)
+        await notifier.maybeAutoSync(); // within 24h → skipped
+        expect(gateway.fetchCalls, 1);
+
+        // The user can still force a sync.
+        await notifier.refresh();
+        expect(gateway.fetchCalls, 2);
+      },
+    );
+  });
+
+  // Regression for LEVIORA-154: an empty answer must never replace grades we
+  // already have. HISinOne answers with an empty Leistungen page for accounts
+  // whose results live in HIS-QIS — if that ever reaches a refresh, the cached
+  // Notenspiegel has to survive it.
+  group('an empty report never overwrites a non-empty cache', () {
+    test(
+      'keeps the cache, keeps lastSuccessfulSync, surfaces the anomaly',
+      () async {
+        final gateway = FakeGradesGateway(report: sampleReport('Grundlagen'));
+        final store = InMemoryGradeCredentialStore()..write(_creds);
+        final cache = InMemoryGradeCacheStore();
+        final clock = MutableClock(t0);
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: clock,
+        );
+        await c.read(gradeAccountControllerProvider.future);
+        await c.read(gradesControllerProvider.future);
+        await c.read(gradesControllerProvider.notifier).refresh();
+
+        final DateTime firstSync = c
+            .read(gradesControllerProvider)
+            .requireValue
+            .lastSuccessfulSync!;
+
+        // The portal now answers with nothing at all.
+        gateway.report = const GradeReport(<GradeEntry>[]);
+        clock.advance(const Duration(days: 2));
+        await c.read(gradesControllerProvider.notifier).refresh();
+
+        final GradesViewState after = c
+            .read(gradesControllerProvider)
+            .requireValue;
+        expect(after.report!.entries.single.title, 'Grundlagen');
+        expect(after.lastSuccessfulSync, firstSync);
+        expect(after.error?.kind, GradeFailureKind.portalStructureChanged);
+        expect((await cache.readReport())!.entries, hasLength(1));
+      },
+    );
+
+    test(
+      'an empty report IS cached when there is nothing cached yet',
+      () async {
+        final gateway = FakeGradesGateway(
+          report: const GradeReport(<GradeEntry>[]),
+        );
+        final store = InMemoryGradeCredentialStore()..write(_creds);
+        final cache = InMemoryGradeCacheStore();
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+        );
+        await c.read(gradeAccountControllerProvider.future);
+        await c.read(gradesControllerProvider.future);
+        await c.read(gradesControllerProvider.notifier).refresh();
+
+        final GradesViewState after = c
+            .read(gradesControllerProvider)
+            .requireValue;
+        expect(after.report!.isEmpty, isTrue);
+        expect(after.error, isNull);
+        expect(after.lastSuccessfulSync, isNotNull);
+      },
+    );
+  });
+
+  group('local wipe is reported honestly', () {
+    test(
+      'deleteEverything throws and stays signed in when the cache survives',
+      () async {
+        // The whole point of "delete credentials and local grades" is that
+        // afterwards nothing is left. Swallowing a failed clear reported
+        // "signed out" while the encrypted report and its key were still on
+        // the device — the one claim this path must never make falsely.
+        final gateway = FakeGradesGateway(report: sampleReport());
+        final store = InMemoryGradeCredentialStore();
+        final cache = InMemoryGradeCacheStore();
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+        );
+        await c.read(gradeAccountControllerProvider.future);
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: _creds.username, password: _creds.password);
+
+        cache.clearError = StateError('keystore unavailable');
+
+        await expectLater(
+          c.read(gradeAccountControllerProvider.notifier).deleteEverything(),
+          throwsA(
+            isA<GradeFailure>().having(
+              (GradeFailure f) => f.kind,
+              'kind',
+              GradeFailureKind.cacheUnavailable,
+            ),
+          ),
+        );
+
+        // Credentials are gone (that step succeeded) but the state must NOT
+        // claim a clean signed-out account while the cache is still there.
+        expect(cache.isEmpty, isFalse);
+        expect(
+          c.read(gradeAccountControllerProvider).value?.isSignedIn ?? false,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'deleteEverything still attempts every store before it throws',
+      () async {
+        final gateway = FakeGradesGateway(report: sampleReport());
+        final store = InMemoryGradeCredentialStore();
+        final cache = InMemoryGradeCacheStore();
+        final portalStore = InMemoryGradePortalStore();
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+          portalStore: portalStore,
+        );
+        await c.read(gradeAccountControllerProvider.future);
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: _creds.username, password: _creds.password);
+
+        cache.clearError = StateError('keystore unavailable');
+        await expectLater(
+          c.read(gradeAccountControllerProvider.notifier).deleteEverything(),
+          throwsA(isA<GradeFailure>()),
+        );
+
+        // A partial wipe that removed more is better than one that stopped at
+        // the first error, so the portal choice is cleared regardless.
+        expect(await store.read(), isNull);
+        expect(portalStore.clears, 1);
+        expect(cache.clears, 1);
+      },
+    );
+
+    test(
+      'switchPortal aborts when the old portal cache cannot be cleared',
+      () async {
+        // Writing the new portal over a cache that still holds the old
+        // portal's report showed those grades under the new portal's host —
+        // exactly what docs/grades.md rules out.
+        final gateway = FakeGradesGateway(report: sampleReport());
+        final store = InMemoryGradeCredentialStore();
+        final cache = InMemoryGradeCacheStore();
+        final portalStore = InMemoryGradePortalStore();
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+          portalStore: portalStore,
+        );
+        await c.read(gradeAccountControllerProvider.future);
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: _creds.username, password: _creds.password);
+
+        final GradePortal before = c
+            .read(gradeAccountControllerProvider)
+            .requireValue
+            .activePortal!;
+        final GradePortal target = before == GradePortal.hisInOne
+            ? GradePortal.hisQisLegacy
+            : GradePortal.hisInOne;
+        final int writesBefore = portalStore.writes;
+
+        cache.clearError = StateError('cache locked');
+        await expectLater(
+          c.read(gradeAccountControllerProvider.notifier).switchPortal(target),
+          throwsA(isA<StateError>()),
+        );
+
+        // Neither the stored choice nor the published state moved.
+        expect(portalStore.writes, writesBefore);
+        expect(
+          c.read(gradeAccountControllerProvider).requireValue.activePortal,
+          before,
+        );
+      },
+    );
+  });
+
+  group('re-authentication after a password change', () {
+    test(
+      'keeps the cached report and the portal, and rewrites credentials',
+      () async {
+        final gateway = FakeGradesGateway(report: sampleReport());
+        final store = InMemoryGradeCredentialStore();
+        final cache = InMemoryGradeCacheStore();
+        final portalStore = InMemoryGradePortalStore();
+        final c = _container(
+          gateway: gateway,
+          store: store,
+          cache: cache,
+          clock: MutableClock(t0),
+          portalStore: portalStore,
+        );
+        await c.read(gradeAccountControllerProvider.future);
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .signIn(username: _creds.username, password: _creds.password);
+        final GradePortal portal = c
+            .read(gradeAccountControllerProvider)
+            .requireValue
+            .activePortal!;
+
+        await c
+            .read(gradeAccountControllerProvider.notifier)
+            .reauthenticate(password: 'new-pw');
+
+        expect((await store.read())?.password, 'new-pw');
+        expect((await store.read())?.username, _creds.username);
+        // The portal is not re-detected: a new password does not move an
+        // account between portals.
+        expect(
+          c.read(gradeAccountControllerProvider).requireValue.activePortal,
+          portal,
+        );
+        expect(cache.isEmpty, isFalse);
+      },
+    );
+
+    test('a rejected password is never written', () async {
+      final gateway = FakeGradesGateway(report: sampleReport());
+      final store = InMemoryGradeCredentialStore();
+      final cache = InMemoryGradeCacheStore();
+      final c = _container(
+        gateway: gateway,
+        store: store,
+        cache: cache,
+        clock: MutableClock(t0),
+      );
+      await c.read(gradeAccountControllerProvider.future);
+      await c
+          .read(gradeAccountControllerProvider.notifier)
+          .signIn(username: _creds.username, password: _creds.password);
+
+      gateway.error = const GradeFailure(GradeFailureKind.invalidCredentials);
+      await expectLater(
+        c
+            .read(gradeAccountControllerProvider.notifier)
+            .reauthenticate(password: 'wrong-pw'),
+        throwsA(isA<GradeFailure>()),
+      );
+
+      expect((await store.read())?.password, _creds.password);
+    });
+  });
+}

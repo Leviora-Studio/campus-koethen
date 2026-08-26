@@ -1,0 +1,374 @@
+# Noten (HIS-QIS- und HISinOne-Notenspiegel)
+
+Ein mobiler Bereich unter **Mehr → Noten**, der den persönlichen Notenspiegel **direkt vom
+Gerät** abruft. Es gibt bewusst **keine** Backend-Beteiligung.
+
+Die Hochschule Anhalt betreibt zwei Prüfungsportale parallel:
+
+- **HIS-QIS** (Bestandsportal) — `service.ssc.hs-anhalt.de`, flache HTML-Tabelle.
+- **HISinOne** (neueres Portal) — `sscportal.ssc.hs-anhalt.de`, JSF-MyFaces, hierarchischer
+  Prüfungsbaum.
+
+Ein Konto spricht **immer nur eines** der beiden Portale. Welches, wird bei der Einrichtung
+einmalig ermittelt (siehe „Portalwahl" unten) und danach persistiert — jede weitere
+Synchronisation spricht nur noch dieses eine Portal an.
+
+## Direkter Datenfluss — nicht verhandelbar
+
+- Die App spricht **ausschließlich** und **direkt** mit dem Host des aktiven Portals. Beide
+  Portale haben eine **eigene, getrennte** Host-Allowlist — es gibt **keine** gemeinsame Liste,
+  damit ein Fehler im einen Profil nie das andere aufweitet.
+- Login bei **beiden** Portalen identisch: `application/x-www-form-urlencoded`-POST mit den
+  Feldern `asdf` (Benutzername) und `fdsa` (Passwort).
+- **Kein** Umweg über Campus API, Strapi, CMS, Campus-Backend, Proxy, Analytics- oder
+  Logging-Dienst. Weder Zugangsdaten noch Sitzungscookies, `asi`/`authenticity_token`/
+  `ViewState`, Noten oder Prüfungsnamen verlassen das Gerät — außer über die direkte
+  TLS-Verbindung zum jeweiligen offiziellen Portal.
+- Dies ist eine **ausdrücklich beschlossene, eng begrenzte Ausnahme** von der Regel „Flutter
+  spricht nur mit der Campus API" (siehe `AGENTS.md`, § 2.1).
+
+## Ablauf HIS-QIS (Bestandsportal, `LegacyQisGradesGateway`)
+
+Unverändert gegenüber der bisherigen Fassung: Login → Prüfungsverwaltung → Notenspiegel →
+Logout, mit dem dynamischen `asi`-Parameter aus den Links der jeweils aktuellen Sitzung.
+
+## Ablauf HISinOne (`HisInOneGradesGateway`) — höchstens vier Requests
+
+1. `POST /qisserver/rds?state=user&type=1&category=auth.login` (`asdf`/`fdsa`). Antwort ist
+   immer `302`. **Erfolgssignal:** `Location` enthält `category=menu.browse`. **Fehlsignal:**
+   `Location` zeigt auf `hisinoneStartPage.faces`. Der Redirect-Ziel-Host wird **vor** der
+   Signal-Prüfung validiert, damit ein böswilliger Redirect immer als `tlsOrHostRejected`
+   erkannt wird, nie als gewöhnlicher Login-Fehler.
+
+   **Zusätzliche Absicherung — positiv, nicht negativ geprüft:** Die Zielseite gilt nur dann als
+   eingeloggt, wenn sie einen Logout-Link (`category=auth.logout`, `QisHtmlParser.isAuthenticated`)
+   enthält. **Nicht** geprüft wird, ob das Login-Feld `asdf` verschwunden ist — anders als beim
+   alten Portal rendert HISinOne auf **jeder** Seite, eingeloggt oder nicht, ein verstecktes
+   Formular `id="sessionTimeoutLoginForm"` mit genau den Feldern `asdf`/`fdsa`, für die
+   Wiederanmeldung nach Sitzungsablauf. Eine reine Anwesenheitsprüfung auf `asdf` (wie sie das
+   alte Portal zusätzlich zum Location-Signal einsetzt) ist auf HISinOne deshalb **immer**
+   positiv und macht jeden Login — auch mit korrekten Zugangsdaten — als `invalidCredentials`
+   fehlschlagen. Das war ein realer Bug in einer früheren Fassung dieses Ablaufs.
+
+2. `GET /qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow`
+   — liefert den (zugeklappten) Prüfungsbaum. Der `_flowExecutionKey` kommt vom Server und wird
+   **nie** hart kodiert.
+   **Vor jeder weiteren Aktion wird diese Seite klassifiziert**
+   (`HisInOneHtmlParser.readOverview`), weil „Konto ohne Leistungen" und „Seite nicht
+   erkannt" sonst identisch aussehen — beide ohne Aufklapp-Button:
+
+   | `HisInOneOverviewKind` | Seite                                                                                         | Reaktion                        |
+   | ---------------------- | --------------------------------------------------------------------------------------------- | ------------------------------- |
+   | `expandable`           | zugeklappter Baum **mit** Aufklapp-Button                                                     | Schritt 3, dann parsen          |
+   | `rendered`             | Baum **ohne** Aufklapp-Button                                                                 | direkt parsen                   |
+   | `empty`                | Abschnitt „Leistungsdaten" vorhanden, aber ohne Baum („Es wurden keine Datensätze gefunden.") | **leerer Bericht**, kein Fehler |
+   | `unrecognised`         | weder Formular `examsReadonly` noch Abschnitt „Leistungsdaten"                                | `portalStructureChanged`        |
+
+   Der am 24.08.2026 an der Hochschule Anhalt ausgelieferte Stand liefert für ein Konto ohne
+   HISinOne-Leistungen `empty`. Vorher meldete der Gateway dafür `portalStructureChanged`; das
+   brach die Einrichtung ab, bevor HIS-QIS — wo die Leistungen dieses Kontos tatsächlich liegen
+   — überhaupt probiert wurde. Ergebnis: gültige Zugangsdaten, aber keine einzige Note in der
+   App.
+
+3. Nur bei `expandable`: ein Form-POST auf die `action` des Formulars `id="examsReadonly"`
+   klappt den Baum auf. Mitgesendet werden **alle** Hidden-Felder dieser Seite — insbesondere
+   `authenticity_token`, `javax.faces.ViewState`, `examsReadonly_SUBMIT` und der dynamische
+   `_flowExecutionKey` — plus der Button, gefunden über die ID-**Endung** `:expandAll2`
+   (Fallback: `:expandAll`), **nie** über die (lokalisierte) Beschriftung. Der aktuell
+   ausgelieferte Portalstand kennt diesen Button nicht mehr (Knoten werden einzeln über
+   `t2g_*`-Buttons geschaltet) — deshalb der Zweig `rendered`.
+4. `GET /qisserver/rds?state=user&type=3&category=auth.logout` im `finally`, danach wird der
+   Cookie-Jar geleert.
+
+`authenticity_token` und `ViewState` sind das HISinOne-Gegenstück zum `asi` des alten Portals:
+immer aus der aktuellen Sitzung übernommen, nie gespeichert, nie geloggt.
+
+### Parser (`HisInOneHtmlParser`)
+
+Zieltabelle: `<table class="treeTableWithIcons">` **innerhalb** des Abschnitts, dessen ID
+`examsReadonly:overviewAsTreeReadonly` lautet **oder** mit `examsReadonly:overviewAsTreeReadonly:`
+beginnt. Die zweite, strukturgleiche Tabelle („Studienverlauf") liegt im Geschwister-Abschnitt
+`examsReadonly:degreeProgramProgressForReportAsTree` und wird dadurch nie getroffen. Gematcht
+wird der **Abschnitt**, nicht eine exakte innere ID: ältere Portalstände rendern die Tabelle
+unter `…:tree:ExamOverviewForPersonTreeReadonly`, der aktuell ausgelieferte Stand nutzt diese
+ID gar nicht mehr. Eine Pinnung auf die innere ID hat genau deshalb versagt. (Hinweis: `getElementById`/`#id`-CSS-Selektoren funktionieren nicht,
+weil JSF-IDs `:` enthalten, das `html`-Paket das als Pseudoklassen-Selektor fehlinterpretiert —
+der Parser sucht das Element daher über einen manuellen Attribut-Scan.)
+
+- Kopfzeile: `<th class="invisible">Ebene</th>`, dann `<th colspan="…">Titel</th>` (die
+  tatsächliche `colspan` wird gelesen, nicht hart auf 9 angenommen), danach eine Spalte je
+  Feld (`Nummer, Versuch, Rücktritt, Bewertung, Bonus, Malus, Status, Freiversuch, Vermerk, Vorbehalt, Zusatzmerkmal, Freigabedatum, Aktionen`).
+- Spaltenauswahl **ausschließlich** über den Kopfzeilentext, nie über feste Indizes — die
+  sichtbaren Spalten sind pro Nutzerkonto konfigurierbar (dieselbe Regel wie im
+  bestehenden `QisHtmlParser`).
+- Datenzeile: erste Zelle `<td class="invisible">` = Pfad (z. B. `1.1.1.1`). Die Titelzelle ist
+  die Zelle, bei der die aufsummierte `colspan` ab Position 1 die `colspan` der Kopfspalte
+  „Titel" erreicht. Alle Zellen danach entsprechen 1:1 den Feld-Kopfspalten.
+- **Blatt-Erkennung rein strukturell:** eine Zeile ist ein Prüfungsergebnis, wenn kein anderer
+  Pfad mit `<eigenerPfad>.` beginnt — nicht über CSS-Klassen, Icons oder Nummernmuster. **Der
+  Parser liefert trotzdem JEDE Zeile des Baums** (Modul-, Wurzel- und Blattknoten), inklusive der
+  `C-Sammelkonto`-Zeile — die im echten Portal selbst ein innerer Knoten ist, kein Blatt. Ob eine
+  Zeile ein Blatt ist, wird nur als `GradeEntry.isLeaf` mitgeführt; Modul-/Wurzelknoten liefern
+  zusätzlich ihren Titel für `GradeEntry.module` (die Elternknoten-Bezeichnung des jeweiligen
+  Blatts). Ein Blattfilter im Parser würde `C-Sammelkonto` verwerfen, bevor `GradeProjection` die
+  Zeile je als Durchschnitt erkennen kann — die Auswahl „nur Blätter anzeigen" gehört deshalb in
+  die Darstellung, nicht in den Parser (dieselbe Trennung wie bei Ausblenden und Umbenennen).
+  Mehrere Abschlüsse ergeben mehrere Wurzeln; die flachste beobachtete Wurzeltiefe ist `1.1`,
+  nicht `1` — der Parser nimmt nie eine feste Wurzeltiefe an.
+- Fehlende Pflichtspalten (`Titel`, `Bewertung`, `Status`) oder keine gefundene Tabelle →
+  `portalStructureChanged`, kein Cache-Überschreiben, keine Antwort im Log.
+
+**Feldabbildung:** Nummer→`examNumber`, Titel→`title`, Bewertung→`grade`, Status→`status` +
+`statusText`, Versuch→`attempt`, Freigabedatum→`examDate`, Bonus→`bonus`, Ebene→`path` (daraus
+`depth`), übrige Spalten (`Rücktritt, Malus, Freiversuch, Vermerk, Vorbehalt, Zusatzmerkmal,
+Aktionen`) → `extras: Map<String,String>` mit dem **originalen Kopfzeilentext** als Schlüssel.
+`examiner` bleibt `null` (HISinOne führt keine eigene Prüferspalte in diesem Layout).
+
+**Unterschiede zum alten Parser:**
+
+- Dezimaltrennzeichen ist der **Punkt** (`2.7`, `3.0`); beide Trennzeichen werden von beiden
+  Parsern akzeptiert (`domain/decimal_parsing.dart`, gemeinsam genutzt).
+- Status-Kürzel: `BE` bestanden, `NB` nicht bestanden, `PV` Prüfung vorhanden. Unbekannte Kürzel
+  → `ExamStatus.unknown` mit Originaltext, nie verworfen.
+- Unbenotet bestanden: `Bewertung` leer + `Status = BE` → `Grade.passedUngraded()`. Die alte
+  „0,0/0.0 + bestanden"-Regel gilt zusätzlich weiter.
+- `Freigabedatum` ist `dd.MM.yyyy HH:mm:ss`, nicht `dd.MM.yyyy`.
+- Der Durchschnitt steht in der Zeile **„C-Sammelkonto"** (Spalte `Bewertung`), nicht
+  „Credit-Sammelkonto". `classifyQisRow` (in `grade_projection.dart`, portalunabhängig genutzt)
+  erkennt nach Normalisierung `^c(redit)? sammelkonto$` — der Wert wird unverändert übernommen,
+  nie selbst berechnet.
+- Die Spalte `Bonus` trägt Werte, die wie Credits aussehen — sie wird **nie** als ECTS
+  umgedeutet oder umbenannt; Kopfzeilentext und Wert werden wörtlich übernommen.
+
+## Sicherheit (für beide Portale identisch)
+
+- **Nur HTTPS**, **nur** der jeweils angeheftete Host. Ein Redirect auf einen anderen Host oder
+  auf HTTP wird abgebrochen (`tlsOrHostRejected`). Zertifikatsprüfung ist **nie** deaktiviert;
+  es gibt **kein** „accept all certificates".
+- Dynamische Session-Werte (`asi` bzw. `authenticity_token`/`ViewState`) werden **aus der
+  aktuellen Sitzung** übernommen, **nie** fest einprogrammiert oder persistiert.
+- Cookies liegen **nur im Arbeitsspeicher** (In-Memory-Cookie-Jar, pro Abruf). Im `finally` wird
+  der jeweilige Portal-Logout aufgerufen und der Cookie-Jar geleert.
+- **Nichts** wird geloggt: keine Zugangsdaten, Cookies, Session-Tokens oder HTML. Fehler sind
+  klassifizierte `GradeFailure`-Werte; `toString()` enthält nur die Kategorie.
+- Zugangsdaten liegen **ausschließlich** im Keychain/Keystore (`flutter_secure_storage`), ohne
+  unsicheren Fallback. Das Passwort wird **erst unmittelbar vor** einem Portalaufruf gelesen und
+  **nie** dauerhaft im State/Controller gehalten. Der öffentliche Account-State enthält höchstens
+  Benutzername und aktives Portal, **nie** das Passwort.
+
+## Portalwahl
+
+Studierende wissen nicht, welches Portal ihr Studiengang nutzt.
+
+- Bei der Einrichtung probiert die App **`hisInOne`, dann `hisQisLegacy`**
+  (`kGradePortalTryOrder`). Sie nimmt das erste Portal, das Login **und** einen nicht leeren
+  Notenspiegel liefert.
+- Liefert das erste Portal einen Login, aber eine leere Liste, wird das zweite probiert. Sind
+  beide leer, bleibt das erste erfolgreiche Portal aktiv (bestehende Meldung „Es wurden noch
+  keine Noten gefunden.").
+- **Höchstens zwei Loginversuche** pro Einrichtung (`kMaxSetupLoginAttempts`) — nie automatisch
+  erneut probiert.
+- Ein Fehler, der **ein Portal** betrifft (`invalidCredentials`, `portalStructureChanged`,
+  `portalUnavailable`, `sessionExpired`), lässt Portal 2 genau einmal probieren. Der Fehler wird
+  gemerkt und nur dann gemeldet, wenn **kein** Portal funktioniert.
+- Ein Fehler der **Geräteseite** (`networkUnavailable`, `timeout`, `tlsOrHostRejected`,
+  `secureStorageUnavailable`) bricht sofort ab — über dieselbe kaputte Verbindung kann das
+  zweite Portal nur genauso scheitern.
+- Grund für die Durchreichung: HISinOne akzeptiert die Zugangsdaten von Konten, deren
+  Leistungen noch in HIS-QIS liegen. Ein harter Abbruch beim ersten Portal ließ diese Konten
+  ohne jede Note zurück.
+- Das Ergebnis wird persistiert (`GradePortalStore`, **dieselbe** sichere Ablage wie die
+  Zugangsdaten) — jede weitere Synchronisation spricht nur noch dieses eine Portal an.
+- Im Notenbereich gibt es einen sichtbaren, faktischen Umschalter „Prüfungsportal wechseln" mit
+  Anzeige des aktiven Hosts. Ein Wechsel verwirft den lokalen Cache und synchronisiert neu.
+- „Zugangsdaten und lokale Noten löschen" entfernt auch die Portalwahl in **einem** Schritt.
+
+## Lokaler, verschlüsselter Notencache
+
+- Die Noten werden in einer **verschlüsselten** Hive-CE-Box gespeichert
+  (`campus_grades_cache_v2`, Schlüssel `grades.cache.key.v2`), geöffnet mit einem zufälligen
+  **256-Bit-AES-Schlüssel** (`Hive.generateSecureKey()`, CSPRNG). **Nur** dieser Schlüssel liegt
+  im Keychain/Keystore.
+  - Die Box wurde von `v1` auf `v2` gehoben, weil `GradeEntry` für HISinOne neue Felder
+    bekommen hat (`path`, `module`, `extras`). Migration = **verwerfen und neu laden**: `v1` ist
+    schlicht ein anderer, nun ungenutzter Box-Name — er wird nie gelesen, es gibt also keinen
+    Decodier-Schritt, der fehlschlagen könnte. Das Öffnen der `v2`-Box schlägt **nie** wegen
+    `v1`-Inhalten fehl; die App startet einfach mit einem leeren Cache und lädt neu, wie bei
+    jedem anderen Cache-Fehltreffer auch.
+- **Keine** Noten in einer unverschlüsselten Box oder als JSON in SharedPreferences.
+- „Zugangsdaten und lokale Noten löschen" entfernt vollständig: Benutzername, Passwort, aktive
+  Portalwahl, Cacheinhalt, Cache-Schlüssel, Synchronisationszeitpunkte, Sitzungsspuren und den
+  State.
+- Eine leere, ungültige oder fehlgeschlagene Portalantwort **überschreibt den letzten
+  erfolgreichen Cache nie** — nur ein verifizierter Notenspiegel wird geschrieben. Ein
+  Portalwechsel ist die einzige absichtliche Ausnahme: er verwirft den Cache explizit, weil ein
+  Bericht vom falschen Portal nie als aktuell gelten darf.
+- Der Cache speichert weiterhin den **Rohbericht** je Portal unverändert (bei HISinOne: JEDE
+  Baumzeile inklusive Modul-/Wurzelknoten und der `C-Sammelkonto`-Zeile, mit `module`/`isLeaf`
+  angereichert — siehe Parserabschnitt oben; das Blattfiltern passiert erst in der Darstellung).
+
+## Synchronisation — 24-Stunden-Regel
+
+Unverändert für beide Portale: kein Hintergrund-Polling, kein Timer, kein Backend-Cron.
+Automatisch (lazy) beim Öffnen des Bereichs, getrennte Zeitstempel für letzten Versuch und
+letzten Erfolg, 24-Stunden-Sperre für automatische Versuche, manueller Refresh umgeht sie,
+Single-Flight bei parallelen Auslösern. Details unverändert gegenüber der bisherigen Fassung.
+
+Zusätzlich: Ein **leerer** Bericht überschreibt einen **nicht leeren** Cache nie. Liefert das
+Portal plötzlich nichts, wo gestern noch Leistungen standen, heißt das nie „die Noten sind weg",
+sondern Konto verschoben, Sitzung still verloren oder Seite geändert. Cache und
+`lastSuccessfulSync` bleiben stehen, die Abweichung wird als `portalStructureChanged` gemeldet.
+Ist noch **kein** Cache vorhanden, wird ein leerer Bericht normal übernommen — das ist der
+legitime Fall „noch keine Noten".
+
+## Darstellung: Durchschnitt, Gruppierung und ausgeblendete Zeilen
+
+Beide Portale mischen unterschiedliche Dinge in dieselbe Antwort — HIS-QIS eine flache Tabelle
+mit Sonderzeilen, HISinOne einen Baum mit Modul- und Wurzelknoten. Die App trennt das einmal
+fachlich (`grade_projection.dart` für die HIS-QIS-Sonderzeilen; der HISinOne-Parser selbst für
+die Baumebenen), statt in der Oberfläche gegen Zeichenketten zu vergleichen.
+
+- **Credit-Sammelkonto / C-Sammelkonto → „Durchschnitt" / „Average".** Der Wert dieser Zeile
+  **ist** der Durchschnitt. Die App übernimmt ihn unverändert und **berechnet keinen eigenen**.
+  Angezeigt als eigene Zeile über der Liste, nicht als Prüfung.
+- **Zulassung zur Abschlussarbeit** (nur HIS-QIS) wird nicht angezeigt.
+- **Alles andere bleibt stehen**, auch unbekannte Zeilentypen/Statuscodes.
+- **HISinOne-spezifisch:** Die Liste zeigt nur die Blattzeilen (echte Prüfungsergebnisse,
+  `GradeEntry.isLeaf`), gruppiert unter dem Titel des jeweiligen Elternknotens als
+  Abschnittsüberschrift (`GradeEntry.module`) — gefiltert in der Darstellung, **nicht** im
+  Parser, damit `C-Sammelkonto` als innerer Knoten trotzdem als Durchschnitt gefunden wird. Das
+  Detail-Sheet zeigt zusätzlich die Modulbezeichnung und die `extras`-Felder als Label/Wert-Paare
+  mit den originalen Portalüberschriften. Bewusst **keine** aufwendigere Baumdarstellung.
+
+Die Zuordnung ist unempfindlich gegen Groß-/Kleinschreibung, Leerzeichen und Bindestrich-
+Varianten.
+
+## Bekannte Fragilität (inoffizielle HTML-Integration)
+
+Keines der beiden Portale bietet eine offizielle JSON-API; Login und Notenspiegel sind HTML.
+Die Integration ist daher **inhärent fragil**:
+
+- Beide Parser identifizieren ihre Tabelle über **erwartete Spaltenüberschriften** bzw. eine
+  gepinnte Container-ID, **nicht** über Tabellenreihenfolge allein.
+- Ändert die Hochschule eines der Portale, wird die Struktur nicht erkannt → klassifizierter
+  Fehler `portalStructureChanged`, verständliche lokalisierte Meldung, **kein** Überschreiben
+  des Caches, **kein** Loggen der Antwort.
+- **Vorgehen bei Portaländerungen:** die Header-/Container-Erkennung in `qis_html_parser.dart` /
+  `legacy_qis_gateway.dart` bzw. `his_in_one_html_parser.dart` / `his_in_one_grades_gateway.dart`
+  anpassen, die anonymisierten Fixtures unter `test/features/grades/grade_fixtures.dart` bzw.
+  `test/features/grades/his_in_one_fixtures.dart` aktualisieren, Tests grün machen.
+- **Vor einer Veröffentlichung** sollte möglichst eine **Abstimmung mit der Hochschule Anhalt**
+  über die automatisierte Nutzung **beider** Prüfungsportale erfolgen. Dies ist ein offenes
+  Release-Gate.
+
+## App-Switcher-Vorschau — entschieden: selektiver Schutz
+
+Entschieden (LEVIORA-179, bestätigt in LEVIORA-181 durch Erik): Der Schutz gilt **selektiv** für
+die Masken, auf denen ein Hochschulpasswort oder eine Kopie des Studierendenausweises **eingegeben**
+wird — die drei Anmeldebildschirme (Mail, Noten, Moodle) und das Antragsformular. Genau vier Stellen
+setzen `ProtectedScreen`: `mail_setup_screen.dart`, `grade_setup_screen.dart`,
+`moodle_setup_screen.dart`, `application_form_screen.dart`.
+
+**Ungeschützt bleiben bewusst auch die Inhalte selbst**, nicht nur die unkritischen Bereiche:
+
+- **Notenspiegel-Übersicht** (`grades_overview_screen.dart`) und die Moodle-Bewertungschips —
+  Noten sind im App-Switcher lesbar und lassen sich uneingeschränkt per Screenshot teilen.
+- **Mail-Nachrichtenansicht** (`mail_message_screen.dart`) — dasselbe gilt für Nachrichteninhalte.
+- Stundenplan, Mensa, News und alle weiteren Übersichten.
+
+Das ist der ausdrücklich entschiedene Umfang und **keine** Lücke in der Umsetzung: Der ursprüngliche
+Befund GRAD-8 („Noten sichtbar im App-Switcher", hoch) und MAIL-4 nannten diese Inhaltsbildschirme,
+die Abwägung fiel bewusst zugunsten der Teilbarkeit aus. Wer eine Note oder eine Nachricht
+weiterschickt, tut das in aller Regel absichtlich; eine App-weite Sperre nimmt diesen Normalfall
+weg, um einen Blick über die Schulter zu erschweren, den sie ohnehin nicht verhindert. Geschützt
+wird deshalb nur, was zum Zeitpunkt der Eingabe ein _Geheimnis_ auf dem Bildschirm hat.
+
+Wer diesen Umfang ändern will, ändert eine Produktentscheidung, nicht einen Bug.
+
+Umgesetzt über einen eigenen Plattformkanal
+(`apps/mobile/lib/core/security/screen_protection.dart`), nicht über ein zusätzliches Paket:
+
+- **Android** setzt `FLAG_SECURE`. Das unterbindet Screenshots **und** schwärzt die
+  Recents-Vorschau.
+- **iOS** kennt kein Äquivalent. Die App legt beim `resignActive` eine deckende Fläche über das
+  Fenster — genau der Moment, in dem der Snapshot für den App-Switcher entsteht — und entfernt sie
+  beim `didBecomeActive` wieder. **Screenshots bleiben auf iOS möglich.**
+
+Die Anforderungen sind zählend, damit verschachtelte geschützte Bildschirme sich nicht gegenseitig
+aufdecken. Nicht behauptet wird ein Schutz gegen gerootete Geräte, privilegierte Bildschirmaufnahme
+oder jemanden mit dem Telefon in der Hand.
+
+**Nicht auf Geräten verifiziert.** Die Zählerlogik ist durch Widget-Tests abgedeckt; die
+tatsächliche Wirkung auf die Recents-Vorschau und den iOS-Snapshot muss auf echter Hardware
+geprüft werden.
+
+## Schichten
+
+```
+features/grades/
+  domain/         GradePortal, GradePortalProfile (Interface, je EIN Host pro Portal),
+                  LegacyQisProfile, HisInOneProfile, GradeCredentials, Grade/GradeEntry/
+                  ExamStatus (typsicher, inkl. path/module/extras), GradeReport, GradeFailure,
+                  Clock, decimal_parsing, Ports (Gateway, CredentialStore, PortalStore,
+                  CacheStore)
+  data/           QisHtmlParser / LegacyQisGradesGateway (HIS-QIS), HisInOneHtmlParser /
+                  HisInOneGradesGateway (HISinOne, Baum), SecureGradeCredentialStore,
+                  SecureGradePortalStore, EncryptedGradeCache (+ Codec, v2)
+  application/    Provider (inkl. Per-Portal-Gateways + aufgelöstes gradesGatewayProvider),
+                  GradeAccountController (Portalwahl, Wechsel, Löschen), GradesController
+                  (24h-Policy, Single-Flight)
+  presentation/   Gate, Setup, Overview (Portal-Umschalter, Gruppierung), Tile, Detail-Sheet
+                  (Modul + extras), Fehler-Mapping
+```
+
+UI und Controller kennen **keine** Dio-, Cookie- oder HTML-Typen — alles liegt hinter
+`GradesGateway`, das für beide Portale identisch bleibt. Tests nutzen ausschließlich
+anonymisierte Fixtures, In-Memory-Fakes und einen gescripteten HTTP-Adapter; **kein** Test
+kontaktiert ein echtes Portal.
+
+## Automatisierte Tests
+
+```bash
+flutter test test/features/grades/
+```
+
+- `qis_html_parser_test.dart` — HIS-QIS: Header-Erkennung, deutsche Dezimalnoten,
+  `0,0`+bestanden → unbenotet bestanden, leere Noten, Datum `dd.MM.yyyy`, Whitespace/Entities,
+  unbekannte Status, fehlende Pflichtspalten → `portalStructureChanged`, keine Dedup.
+- `legacy_qis_gateway_test.dart` — HIS-QIS: form-urlencoded `asdf`/`fdsa`, HTTPS-Host-Allowlist,
+  Redirect-Ablehnung (anderer Host / HTTP), Login-Erkennung (nicht nur HTTP 200), `asi` aus
+  Session-Links, Logout auch bei Fehlern, keine Secrets/HTML in Fehlern.
+- `his_in_one_html_parser_test.dart` — HISinOne: Hidden-Felder + Button über ID-Suffix
+  (inkl. Fallback), Blatt-Erkennung über Pfade (**jede** Zeile landet im `GradeReport`, auch
+  Modul-/Wurzelknoten und der nicht-blättrige `C-Sammelkonto`-Knoten — `isLeaf` unterscheidet
+  sie), mehrere Wurzeln, Gruppierung unter Modul, Punkt-Dezimalzahlen, `dd.MM.yyyy HH:mm:ss`,
+  `C-Sammelkonto` → Durchschnitt trotz `isLeaf == false`, unbekannter Status bleibt sichtbar,
+  Studienverlauf-Decoy nie getroffen, fehlende Pflichtspalte → `portalStructureChanged`,
+  `isAuthenticated` erkennt eine eingeloggte Seite auch dann, wenn das versteckte
+  `sessionTimeoutLoginForm` (`asdf`/`fdsa`) noch im Markup steht; `readOverview` unterscheidet
+  `empty` / `rendered` / `expandable` / `unrecognised` und liest einen Baum auch dann, wenn er
+  direkt unter dem Abschnitt `examsReadonly:overviewAsTreeReadonly` liegt (Stand 24.08.2026,
+  ohne die alte innere ID `…:tree:ExamOverviewForPersonTreeReadonly`).
+- `his_in_one_grades_gateway_test.dart` — HISinOne: form-urlencoded `asdf`/`fdsa`,
+  Erfolgs-/Fehlsignal per `Location`, Redirect-Host-Validierung vor der Signal-Prüfung,
+  Hidden-Felder aus der Seite (nicht hart kodiert), Logout auch bei Fehlern; leerer Abschnitt
+  „Leistungsdaten" → leerer Bericht ohne Aufklapp-POST, Baum ohne Aufklapp-Button → direkt
+  geparst.
+  **Regressionstest:** eine authentifizierte Landing-Page mit sichtbarem `sessionTimeoutLoginForm`
+  gilt als erfolgreicher Login (nicht als `invalidCredentials`) — der Bug, der jeden Login,
+  auch mit korrekten Zugangsdaten, scheitern ließ.
+- `grade_portal_selection_test.dart` — Reihenfolge `hisInOne` → `hisQisLegacy`, „Login ok aber
+  leer" → zweites Portal, maximal zwei Loginversuche, Persistenz, Wechsel verwirft Cache,
+  Löschen entfernt auch die Portalwahl, Altkonten ohne gespeicherte Portalwahl fallen auf
+  `hisQisLegacy` zurück; `portalStructureChanged`/`portalUnavailable` auf Portal 1 lassen
+  Portal 2 probieren, beide strukturell defekt → Fehler wird gemeldet und **nichts**
+  persistiert, `tlsOrHostRejected` bricht weiterhin sofort ab.
+- `grade_cache_migration_test.dart` — `v1`-Boxinhalte werden nie gelesen; das Öffnen der
+  `v2`-Box schlägt dadurch nie fehl.
+- `grade_controller_test.dart` — Setup speichert erst nach Erfolg, kein Passwort im State,
+  Secure-Storage-Fehler, Löschen wischt alles; 24h-Policy, Single-Flight, manueller Refresh,
+  Fehler behält Cache, `lastSuccessfulSync` nur bei Erfolg; ein **leerer** Bericht überschreibt
+  einen nicht leeren Cache nie (Cache und `lastSuccessfulSync` bleiben stehen), ohne
+  vorhandenen Cache wird ein leerer Bericht normal übernommen.
+- `grade_ui_test.dart` — „Noten" unter Mehr, Setup/Consent-Validierung, Anmeldung enthüllt
+  Overview, Cache ohne Auto-Sync, Löschbestätigung.

@@ -1,0 +1,2615 @@
+{
+  "@@locale": "de",
+  "appTitle": "Campus Köthen",
+  "@appTitle": {
+    "description": "Sichtbarer Name der App."
+  },
+  "navNews": "News",
+  "navToday": "Heute",
+  "requestsTitle": "Anträge & Feedback",
+  "@navNews": {
+    "description": "Label des News-Tabs in der unteren Navigation."
+  },
+  "navTimetable": "Stundenplan",
+  "@navTimetable": {
+    "description": "Label des Stundenplan-Tabs in der unteren Navigation."
+  },
+  "navCanteen": "Mensa",
+  "@navCanteen": {
+    "description": "Label des Mensa-Tabs in der unteren Navigation."
+  },
+  "navContacts": "Kontakte",
+  "@navContacts": {
+    "description": "Label des Kontakte-Tabs in der unteren Navigation."
+  },
+  "navSettings": "Einstellungen",
+  "@navSettings": {
+    "description": "Label des Einstellungen-Tabs in der unteren Navigation."
+  },
+  "navMore": "Mehr",
+  "@navMore": {
+    "description": "Label des Mehr-Tabs in der unteren Navigation."
+  },
+  "navigationSemanticLabel": "Hauptnavigation",
+  "@navigationSemanticLabel": {
+    "description": "Screenreader-Label der unteren Navigationsleiste."
+  },
+  "testEnvironmentNotice": "Testumgebung – Inhalte können synthetisch sein",
+  "@testEnvironmentNotice": {
+    "description": "Globaler Hinweis, wenn der verbundene Server synthetische Inhalte für einen Nutzertest enthält."
+  },
+  "actionRetry": "Erneut versuchen",
+  "@actionRetry": {},
+  "actionRefresh": "Aktualisieren",
+  "@actionRefresh": {},
+  "actionClose": "Schließen",
+  "@actionClose": {},
+  "actionBack": "Zurück",
+  "@actionBack": {},
+  "actionOpenExternally": "Extern öffnen",
+  "@actionOpenExternally": {},
+  "actionSelect": "Auswählen",
+  "@actionSelect": {},
+  "commonLoading": "Wird geladen …",
+  "@commonLoading": {},
+  "commonLoadingSemanticLabel": "Inhalte werden geladen",
+  "@commonLoadingSemanticLabel": {},
+  "apiNotConfiguredTitle": "App nicht angebunden",
+  "@apiNotConfiguredTitle": {},
+  "apiNotConfiguredBody": "Dieser Build wurde ohne Adresse der Campus-API erstellt. Campusdaten können nicht geladen werden.",
+  "@apiNotConfiguredBody": {},
+  "apiInsecureTitle": "Unsichere API-Adresse",
+  "@apiInsecureTitle": {},
+  "apiInsecureBody": "Dieser Build zeigt auf eine unverschlüsselte Adresse. Campusdaten werden nicht geladen.",
+  "@apiInsecureBody": {},
+  "errorGenericMessage": "Die Inhalte konnten nicht geladen werden. Bitte versuche es erneut.",
+  "@errorGenericMessage": {},
+  "errorNetworkMessage": "Keine Verbindung zum Server. Bitte prüfe deine Internetverbindung.",
+  "@errorNetworkMessage": {},
+  "errorTimeoutMessage": "Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.",
+  "@errorTimeoutMessage": {},
+  "errorNotFoundMessage": "Der angeforderte Inhalt wurde nicht gefunden.",
+  "@errorNotFoundMessage": {},
+  "errorServerMessage": "Der Dienst ist derzeit nicht erreichbar. Bitte versuche es später erneut.",
+  "@errorServerMessage": {},
+  "errorLinkNotOpened": "Der Link konnte nicht geöffnet werden.",
+  "@errorLinkNotOpened": {},
+  "errorLinkBlocked": "Dieser Link wurde aus Sicherheitsgründen nicht geöffnet.",
+  "@errorLinkBlocked": {},
+  "offlineCachedTitle": "Offline gespeicherte Inhalte",
+  "@offlineCachedTitle": {},
+  "offlineCachedAt": "Zuletzt geladen: {timestamp}",
+  "@offlineCachedAt": {
+    "description": "timestamp wird von AppDateFormats locale-gerecht vorformatiert.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineCachedUnknownTime": "Zuletzt geladen: unbekannt",
+  "@offlineCachedUnknownTime": {},
+  "newsEmptyTitle": "Keine Beiträge",
+  "@newsEmptyTitle": {},
+  "newsEmptyMessage": "In den ausgewählten Kanälen gibt es derzeit keine Beiträge.",
+  "@newsEmptyMessage": {},
+  "newsNoChannelsSelectedTitle": "Keine Kanäle ausgewählt",
+  "@newsNoChannelsSelectedTitle": {},
+  "newsNoChannelsSelectedMessage": "Du hast alle News-Kanäle abgewählt. Wähle mindestens einen Kanal aus, um Beiträge zu sehen.",
+  "@newsNoChannelsSelectedMessage": {},
+  "newsNoChannelsAvailableTitle": "Keine Kanäle verfügbar",
+  "@newsNoChannelsAvailableTitle": {},
+  "newsNoChannelsAvailableMessage": "Zurzeit sind keine News-Kanäle vorhanden.",
+  "@newsNoChannelsAvailableMessage": {},
+  "newsChannelPickerTitle": "Kanäle",
+  "@newsChannelPickerTitle": {},
+  "newsChannelSelected": "Kanal {name} abonniert",
+  "@newsChannelSelected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "newsChannelDeselected": "Kanal {name} nicht abonniert",
+  "@newsChannelDeselected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "newsSourceLabel": "Quelle: {source}",
+  "@newsSourceLabel": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "newsOpenSource": "Quelle öffnen",
+  "@newsOpenSource": {},
+  "newsChannelCountLabel": "{count, plural, =0{Keine Kanäle ausgewählt} =1{1 Kanal ausgewählt} other{{count} Kanäle ausgewählt}}",
+  "@newsChannelCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newsTranslationFallbackHint": "Für diesen Inhalt liegt noch keine englische Fassung vor. Angezeigt wird der deutsche Originaltext.",
+  "@newsTranslationFallbackHint": {},
+  "translationFallbackHint": "Einige Inhalte liegen noch nicht auf Englisch vor. Angezeigt wird der deutsche Originaltext.",
+  "@translationFallbackHint": {},
+  "newsChannelLinkSemanticLabel": "Kanal {name} öffnen",
+  "@newsChannelLinkSemanticLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "newsChannelNotAvailableTitle": "Kanal nicht verfügbar",
+  "@newsChannelNotAvailableTitle": {},
+  "newsChannelNotAvailableMessage": "Diesen Kanal gibt es nicht oder er ist derzeit nicht aktiv.",
+  "@newsChannelNotAvailableMessage": {},
+  "newsChannelEmptyTitle": "Keine Beiträge",
+  "@newsChannelEmptyTitle": {},
+  "newsChannelEmptyMessage": "Für diesen Kanal liegen derzeit keine Beiträge vor.",
+  "@newsChannelEmptyMessage": {},
+  "newsTagFilterSectionTitle": "Themen",
+  "@newsTagFilterSectionTitle": {},
+  "newsTagFilterAllLabel": "Alle",
+  "@newsTagFilterAllLabel": {},
+  "newsTagFilterAllSemanticLabel": "Alle Themen anzeigen",
+  "@newsTagFilterAllSemanticLabel": {},
+  "newsTagFilterTagSemanticLabel": "Nach {name} filtern",
+  "@newsTagFilterTagSemanticLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "newsTagChipSemanticLabel": "Thema {name}",
+  "@newsTagChipSemanticLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "newsEventsEntryLabel": "Events",
+  "@newsEventsEntryLabel": {},
+  "newsEventsEntryTooltip": "Nur Events anzeigen",
+  "@newsEventsEntryTooltip": {},
+  "newsEventsTitle": "Events",
+  "@newsEventsTitle": {},
+  "newsEventsNotAvailableTitle": "Events nicht verfügbar",
+  "@newsEventsNotAvailableTitle": {},
+  "newsEventsNotAvailableMessage": "Die Event-Ansicht ist derzeit nicht verfügbar, weil das Thema „Event“ nicht existiert oder nicht aktiv ist.",
+  "@newsEventsNotAvailableMessage": {},
+  "newsEventsEmptyTitle": "Keine Events",
+  "@newsEventsEmptyTitle": {},
+  "newsEventsEmptyMessage": "Zurzeit gibt es keine anstehenden Events.",
+  "@newsEventsEmptyMessage": {},
+  "eventOverviewFilterTooltip": "Quellen filtern",
+  "@eventOverviewFilterTooltip": {},
+  "eventOverviewSavedShowTooltip": "Gemerkte Events anzeigen",
+  "@eventOverviewSavedShowTooltip": {},
+  "eventOverviewSavedHideTooltip": "Alle Events anzeigen",
+  "@eventOverviewSavedHideTooltip": {},
+  "eventOverviewSavedCountLabel": "{count, plural, =0{Keine gemerkten Events} =1{1 gemerktes Event} other{{count} gemerkte Events}}",
+  "@eventOverviewSavedCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "eventShowAllAction": "Alle Events anzeigen",
+  "@eventShowAllAction": {},
+  "eventOverviewEmptyTitle": "Keine anstehenden Events",
+  "@eventOverviewEmptyTitle": {},
+  "eventOverviewEmptyMessage": "Für die ausgewählten Quellen gibt es derzeit keine laufenden oder anstehenden Events.",
+  "@eventOverviewEmptyMessage": {},
+  "eventOverviewNoSourcesTitle": "Keine Quellen ausgewählt",
+  "@eventOverviewNoSourcesTitle": {},
+  "eventOverviewNoSourcesMessage": "Wähle mindestens eine Quelle aus, um Events zu sehen.",
+  "@eventOverviewNoSourcesMessage": {},
+  "eventSourceFilterOpenAction": "Quellen auswählen",
+  "@eventSourceFilterOpenAction": {},
+  "eventSourceFilterTitle": "Quellen filtern",
+  "@eventSourceFilterTitle": {},
+  "eventSourceFilterSelectAll": "Alle auswählen",
+  "@eventSourceFilterSelectAll": {},
+  "eventSourceFilterDeselectAll": "Alle abwählen",
+  "@eventSourceFilterDeselectAll": {},
+  "eventSourceFilterDone": "Fertig",
+  "@eventSourceFilterDone": {},
+  "eventPostsUnavailableWarning": "Event-Beiträge sind derzeit nicht verfügbar.",
+  "@eventPostsUnavailableWarning": {},
+  "eventCalendarsUnavailableWarning": "Kalender-Events sind derzeit nicht verfügbar.",
+  "@eventCalendarsUnavailableWarning": {},
+  "eventTruncatedWarningTitle": "Nicht alle Events werden angezeigt",
+  "@eventTruncatedWarningTitle": {},
+  "eventTruncatedWarningMessage": "Es gibt mehr Events, als geladen werden konnten.",
+  "@eventTruncatedWarningMessage": {},
+  "eventSavedEmptyTitle": "Keine gemerkten Events",
+  "@eventSavedEmptyTitle": {},
+  "eventSavedEmptyMessage": "Merke Events auf der Eventseite, um sie hier wiederzufinden.",
+  "@eventSavedEmptyMessage": {},
+  "eventSavedPastSectionTitle": "Vergangene Events",
+  "@eventSavedPastSectionTitle": {},
+  "eventPastBadge": "Vergangen",
+  "@eventPastBadge": {},
+  "eventCancelledBadge": "Abgesagt",
+  "@eventCancelledBadge": {},
+  "eventOrphanedBadge": "Nicht mehr verfügbar",
+  "@eventOrphanedBadge": {},
+  "eventSaveAdd": "Event merken",
+  "@eventSaveAdd": {},
+  "eventSaveRemove": "Event nicht mehr merken",
+  "@eventSaveRemove": {},
+  "eventSavedSemanticPrefix": "Gemerkt",
+  "@eventSavedSemanticPrefix": {},
+  "eventSourceSemanticLabel": "Quelle {source}",
+  "@eventSourceSemanticLabel": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "eventSaveLimitReachedMessage": "Es können nicht mehr als 500 Events gemerkt werden.",
+  "@eventSaveLimitReachedMessage": {},
+  "canteenPickerTitle": "Mensa wählen",
+  "@canteenPickerTitle": {},
+  "canteenNoCanteensTitle": "Keine Mensa verfügbar",
+  "@canteenNoCanteensTitle": {},
+  "canteenNoCanteensMessage": "Zurzeit sind keine Mensen hinterlegt.",
+  "@canteenNoCanteensMessage": {},
+  "canteenFavouritesTitle": "Favoriten",
+  "@canteenFavouritesTitle": {},
+  "canteenFavouritesEmptyTitle": "Noch keine Favoriten",
+  "@canteenFavouritesEmptyTitle": {},
+  "canteenFavouritesEmptyMessage": "Tippe im Speiseplan auf den Stern eines Gerichts, um es hier zu sammeln.",
+  "@canteenFavouritesEmptyMessage": {},
+  "canteenFavouritesUnavailableHint": "Aktuell nicht im Speiseplan",
+  "@canteenFavouritesUnavailableHint": {},
+  "canteenNoMealsTitle": "Kein Angebot",
+  "@canteenNoMealsTitle": {},
+  "canteenNoMealsMessage": "Für diesen Tag ist kein Speisenangebot hinterlegt.",
+  "@canteenNoMealsMessage": {},
+  "canteenPreviousDay": "Vorheriger Tag",
+  "@canteenPreviousDay": {},
+  "canteenNextDay": "Nächster Tag",
+  "@canteenNextDay": {},
+  "canteenDayLabel": "{date}",
+  "@canteenDayLabel": {
+    "description": "date wird von AppDateFormats locale-gerecht vorformatiert.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "canteenSprintLabel": "Sprint",
+  "@canteenSprintLabel": {
+    "description": "Kennzeichnung eines Sprint-Gerichts."
+  },
+  "canteenSprintSemanticLabel": "Sprint-Angebot",
+  "@canteenSprintSemanticLabel": {},
+  "canteenExtrasLabel": "Beilagen",
+  "@canteenExtrasLabel": {},
+  "canteenMarkersLabel": "Marker",
+  "@canteenMarkersLabel": {},
+  "canteenAllergensTitle": "Deklarierte Allergene",
+  "@canteenAllergensTitle": {},
+  "canteenAllergensNone": "Für dieses Gericht sind keine Allergene deklariert.",
+  "@canteenAllergensNone": {},
+  "canteenAllergensDisclaimer": "Angaben der Mensa. Bei Unverträglichkeiten bitte vor Ort nachfragen.",
+  "@canteenAllergensDisclaimer": {},
+  "canteenMealOriginalLanguage": "Name in Originalsprache",
+  "@canteenMealOriginalLanguage": {},
+  "canteenTodayAction": "Heute",
+  "@canteenTodayAction": {},
+  "canteenNoDataForDay": "Für diesen Tag liegen keine Daten vor.",
+  "@canteenNoDataForDay": {},
+  "canteenPriceSemanticLabel": "{group}: {price}",
+  "@canteenPriceSemanticLabel": {
+    "placeholders": {
+      "group": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "canteenPriceMissing": "kein Preis hinterlegt",
+  "@canteenPriceMissing": {},
+  "canteenLastSyncAt": "Zuletzt aktualisiert: {timestamp}",
+  "@canteenLastSyncAt": {
+    "description": "timestamp wird von AppDateFormats locale-gerecht vorformatiert.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "canteenNeverSynced": "Noch nie erfolgreich aktualisiert",
+  "@canteenNeverSynced": {},
+  "canteenStaleTitle": "Daten möglicherweise veraltet",
+  "@canteenStaleTitle": {},
+  "canteenStaleMessage": "Der Speiseplan konnte länger nicht aktualisiert werden. Angaben können vom aktuellen Plan abweichen.",
+  "@canteenStaleMessage": {},
+  "canteenSourceLanguageHint": "Gerichtsnamen stammen unverändert aus der deutschsprachigen Quelle und werden nicht übersetzt.",
+  "@canteenSourceLanguageHint": {},
+  "canteenMealSemanticLabel": "Gericht {name}",
+  "@canteenMealSemanticLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableTitle": "Stundenplan",
+  "@timetableTitle": {},
+  "timetableRefreshFailed": "Aktualisierung fehlgeschlagen",
+  "@timetableRefreshFailed": {},
+  "timetableGroupPickerTitle": "Kurs wählen",
+  "@timetableGroupPickerTitle": {},
+  "timetableGroupPickerTooltip": "Kurs wechseln",
+  "@timetableGroupPickerTooltip": {},
+  "timetableGroupSearchLabel": "Kurs suchen",
+  "@timetableGroupSearchLabel": {},
+  "timetableGroupSearchHint": "Kurzname, Langname oder Bereich",
+  "@timetableGroupSearchHint": {},
+  "timetableGroupSearchEmptyTitle": "Kein passender Kurs",
+  "@timetableGroupSearchEmptyTitle": {},
+  "timetableGroupSearchEmptyMessage": "Zu deiner Suche gibt es keinen Kurs. Prüfe die Schreibweise oder suche nach dem Bereich.",
+  "@timetableGroupSearchEmptyMessage": {},
+  "timetableNoGroupsTitle": "Keine Kurse verfügbar",
+  "@timetableNoGroupsTitle": {},
+  "timetableNoGroupsMessage": "Zurzeit sind keine Kurse hinterlegt.",
+  "@timetableNoGroupsMessage": {},
+  "timetableNoSelectionTitle": "Noch kein Kurs gewählt",
+  "@timetableNoSelectionTitle": {},
+  "timetableNoSelectionMessage": "Wähle deinen Kurs, um den Stundenplan zu sehen. Du kannst ihn jederzeit wechseln.",
+  "@timetableNoSelectionMessage": {},
+  "timetableChooseGroupAction": "Kurs auswählen",
+  "@timetableChooseGroupAction": {},
+  "timetableGroupSemanticLabel": "Kurs {name}, {details}",
+  "@timetableGroupSemanticLabel": {
+    "description": "details enthält Langname und Bereich, beide unübersetzt aus der Quelle.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "timetablePreviousWeek": "Vorherige Woche",
+  "@timetablePreviousWeek": {},
+  "timetableNextWeek": "Nächste Woche",
+  "@timetableNextWeek": {},
+  "timetableCurrentWeek": "Diese Woche",
+  "@timetableCurrentWeek": {},
+  "timetableWeekRange": "Woche {range}",
+  "@timetableWeekRange": {
+    "description": "range wird von AppDateFormats locale-gerecht vorformatiert.",
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableDaySemanticLabel": "Tag {date}",
+  "@timetableDaySemanticLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableDayHeading": "{date}",
+  "@timetableDayHeading": {
+    "description": "date wird von AppDateFormats locale-gerecht vorformatiert.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableEmptyDayTitle": "Keine Termine",
+  "@timetableEmptyDayTitle": {},
+  "timetableEmptyDayMessage": "Für diesen Tag sind keine Termine eingetragen.",
+  "@timetableEmptyDayMessage": {},
+  "timetablePendingTitle": "Stundenplan wird vorbereitet",
+  "@timetablePendingTitle": {},
+  "timetablePendingMessage": "Für diesen Zeitraum liegt noch kein fertiger Datenstand vor. Die App prüft in größer werdenden Abständen erneut.",
+  "@timetablePendingMessage": {},
+  "timetableDisabledTitle": "Stundenplan noch nicht freigeschaltet",
+  "@timetableDisabledTitle": {},
+  "timetableDisabledMessage": "Die Stundenplanfunktion ist derzeit nicht aktiv. Sobald die Nutzung geklärt ist, erscheinen hier Termine.",
+  "@timetableDisabledMessage": {},
+  "timetableUnavailableTitle": "Kein Datenstand verfügbar",
+  "@timetableUnavailableTitle": {},
+  "timetableUnavailableMessage": "Für diesen Zeitraum liegen keine Stundenplandaten vor.",
+  "@timetableUnavailableMessage": {},
+  "timetableStaleTitle": "Daten möglicherweise veraltet",
+  "@timetableStaleTitle": {},
+  "timetableStaleMessage": "Der Stundenplan konnte länger nicht aktualisiert werden. Termine können abweichen.",
+  "@timetableStaleMessage": {},
+  "timetableLastSyncAt": "Zuletzt aktualisiert: {timestamp}",
+  "@timetableLastSyncAt": {
+    "description": "timestamp wird von AppDateFormats locale-gerecht vorformatiert.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableNeverSynced": "Noch nie erfolgreich aktualisiert",
+  "@timetableNeverSynced": {},
+  "timetableSourceNotice": "Quelle: die öffentliche WebUntis-Ansicht der Hochschule Anhalt, serverseitig abgerufen. Es besteht keine Zusammenarbeit mit der Hochschule und keine Freigabe durch sie. Angaben ohne Gewähr.",
+  "@timetableSourceNotice": {
+    "description": "Sachlicher Quellenhinweis. Darf keine Partnerschaft oder Freigabe behaupten."
+  },
+  "timetableTimeRange": "{start} – {end}",
+  "@timetableTimeRange": {
+    "description": "start und end werden locale-gerecht vorformatiert.",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableUntitledEntry": "Ohne Titel",
+  "@timetableUntitledEntry": {},
+  "timetableTeachersLabel": "Lehrpersonen",
+  "@timetableTeachersLabel": {},
+  "timetableRoomsLabel": "Raum",
+  "@timetableRoomsLabel": {},
+  "timetableTypeRegular": "Lehrveranstaltung",
+  "@timetableTypeRegular": {},
+  "timetableTypeAdditional": "Zusatztermin",
+  "@timetableTypeAdditional": {},
+  "timetableTypeUnknown": "Sonstiger Termin",
+  "@timetableTypeUnknown": {},
+  "timetableStatusRegular": "Findet statt",
+  "@timetableStatusRegular": {},
+  "timetableStatusCancelled": "Fällt aus",
+  "@timetableStatusCancelled": {},
+  "timetableStatusChanged": "Geändert",
+  "@timetableStatusChanged": {},
+  "timetableStatusUnknown": "Status unklar",
+  "@timetableStatusUnknown": {},
+  "timetableEntrySemanticLabel": "{time}, {title}, {status}",
+  "@timetableEntrySemanticLabel": {
+    "description": "title stammt unübersetzt aus der Quelle.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableSourceLanguageHint": "Fach-, Raum- und Personennamen stammen unverändert aus der Quelle und werden nicht übersetzt.",
+  "@timetableSourceLanguageHint": {},
+  "contactsTitle": "Kontakte",
+  "@contactsTitle": {},
+  "contactsSearchTooltip": "Kontakte durchsuchen",
+  "@contactsSearchTooltip": {},
+  "contactsSearchLabel": "Kontakte suchen",
+  "@contactsSearchLabel": {},
+  "contactsSearchHint": "Name, Bereich, Raum oder Telefonnummer",
+  "@contactsSearchHint": {},
+  "contactsSearchClear": "Suche leeren",
+  "@contactsSearchClear": {},
+  "contactsSearchEmptyTitle": "Kein Treffer",
+  "@contactsSearchEmptyTitle": {},
+  "contactsSearchEmptyMessage": "Zu deiner Suche gibt es weder einen Bereich noch eine Person. Prüfe die Schreibweise oder suche nach der Raumnummer.",
+  "@contactsSearchEmptyMessage": {},
+  "contactsSearchInArea": "in {area}",
+  "@contactsSearchInArea": {
+    "placeholders": {
+      "area": {
+        "type": "String"
+      }
+    }
+  },
+  "contactsSearchResultCount": "{count, plural, =0{Keine Treffer} =1{1 Treffer} other{{count} Treffer}}",
+  "@contactsSearchResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contactsEmptyTitle": "Keine Kontaktbereiche",
+  "@contactsEmptyTitle": {},
+  "contactsEmptyMessage": "Zurzeit sind keine Anlaufstellen hinterlegt.",
+  "@contactsEmptyMessage": {},
+  "contactPersonsLabel": "Ansprechpersonen",
+  "@contactPersonsLabel": {},
+  "contactNoPersonsMessage": "Für diesen Bereich ist keine einzelne Ansprechperson hinterlegt. Nutze die allgemeinen Kontaktwege.",
+  "@contactNoPersonsMessage": {},
+  "contactNoContactDetailsMessage": "Für diesen Bereich sind noch keine Kontaktwege hinterlegt.",
+  "@contactNoContactDetailsMessage": {},
+  "contactPersonCount": "{count, plural, =0{Keine Ansprechperson} =1{1 Ansprechperson} other{{count} Ansprechpersonen}}",
+  "@contactPersonCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contactEmailLabel": "E-Mail",
+  "@contactEmailLabel": {},
+  "contactPhoneLabel": "Telefon",
+  "@contactPhoneLabel": {},
+  "contactWebsiteLabel": "Website",
+  "@contactWebsiteLabel": {},
+  "contactAppointmentLabel": "Termin vereinbaren",
+  "@contactAppointmentLabel": {},
+  "contactAddressLabel": "Adresse",
+  "@contactAddressLabel": {},
+  "contactOpeningHoursLabel": "Öffnungszeiten",
+  "@contactOpeningHoursLabel": {},
+  "contactAreaSemanticLabel": "Kontaktbereich {name}",
+  "@contactAreaSemanticLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTitle": "Einstellungen",
+  "@settingsTitle": {},
+  "settingsSectionAppearance": "Darstellung",
+  "@settingsSectionAppearance": {},
+  "settingsSectionContent": "Inhalte",
+  "@settingsSectionContent": {},
+  "settingsSectionMail": "Studentische E-Mail",
+  "@settingsSectionMail": {},
+  "settingsMailDownloadAttachments": "Anhänge herunterladen",
+  "@settingsMailDownloadAttachments": {},
+  "settingsMailDownloadAttachmentsSubtitle": "Anhänge beim Hintergrund-Abgleich mitladen, damit sie offline verfügbar sind. Benötigt mehr Speicher und Datenvolumen.",
+  "@settingsMailDownloadAttachmentsSubtitle": {},
+  "settingsSectionLegal": "Rechtliches",
+  "@settingsSectionLegal": {},
+  "settingsLanguage": "Sprache",
+  "@settingsLanguage": {},
+  "settingsLanguageGerman": "Deutsch",
+  "@settingsLanguageGerman": {},
+  "settingsLanguageEnglish": "Englisch",
+  "@settingsLanguageEnglish": {},
+  "settingsTheme": "Erscheinungsbild",
+  "@settingsTheme": {},
+  "settingsThemeLight": "Hell",
+  "@settingsThemeLight": {},
+  "settingsThemeDark": "Dunkel",
+  "@settingsThemeDark": {},
+  "settingsChannels": "News-Kanäle",
+  "@settingsChannels": {},
+  "settingsChannelsSubtitle": "Wähle aus, welche Kanäle in der News-Liste erscheinen.",
+  "@settingsChannelsSubtitle": {},
+  "settingsPreferredCanteen": "Bevorzugte Mensa",
+  "@settingsPreferredCanteen": {},
+  "settingsPreferredCanteenNone": "Keine Auswahl",
+  "@settingsPreferredCanteenNone": {},
+  "settingsTimetableGroup": "Kurs für den Stundenplan",
+  "@settingsTimetableGroup": {},
+  "settingsTimetableGroupNone": "Keine Auswahl",
+  "@settingsTimetableGroupNone": {},
+  "settingsAbout": "Über diese App",
+  "@settingsAbout": {},
+  "settingsImprint": "Impressum",
+  "@settingsImprint": {},
+  "settingsPrivacy": "Datenschutz",
+  "@settingsPrivacy": {},
+  "aboutTitle": "Über diese App",
+  "@aboutTitle": {},
+  "aboutVersion": "Version {version} ({build})",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutVersionUnavailable": "Version nicht verfügbar",
+  "@aboutVersionUnavailable": {},
+  "aboutLicenseLabel": "Lizenz",
+  "@aboutLicenseLabel": {},
+  "aboutLicenseValue": "AGPL-3.0-only",
+  "@aboutLicenseValue": {
+    "description": "SPDX-Kennung der Projektlizenz. Wird nicht übersetzt."
+  },
+  "aboutCopyright": "Copyright © 2026 Erik Engler, handelnd unter „Leviora Studio“, und Jona Loreen Sommer",
+  "@aboutCopyright": {
+    "description": "Urheberrechtsvermerk. Wird nicht übersetzt."
+  },
+  "aboutIndependenceTitle": "Unabhängigkeitshinweis",
+  "@aboutIndependenceTitle": {},
+  "aboutIndependenceNotice": "Campus Köthen ist keine offizielle App der Hochschule Anhalt. Die App wird unabhängig von Erik Engler, handelnd unter „Leviora Studio“, entwickelt und über die App Stores bereitgestellt. Das Campus-Backend und die redaktionellen Inhalte werden von der rechtlich selbstständigen Studierendenschaft der Hochschule Anhalt betrieben. Die Hochschule Anhalt selbst ist weder Entwicklerin noch Betreiberin der App.",
+  "@aboutIndependenceNotice": {
+    "description": "Kanonischer Unabhängigkeitshinweis. Wortlaut ist verbindlich und darf nicht verändert werden."
+  },
+  "aboutOpenSourceLicenses": "Open-Source-Lizenzen",
+  "@aboutOpenSourceLicenses": {},
+  "aboutFontNotice": "Schrift Albert Sans, lizenziert unter der SIL Open Font License 1.1. Icons von Tabler Icons, lizenziert unter der MIT-Lizenz.",
+  "@aboutFontNotice": {},
+  "imprintTitle": "Impressum",
+  "@imprintTitle": {},
+  "privacyTitle": "Datenschutz",
+  "@privacyTitle": {},
+  "legalLastUpdated": "Stand: 25. August 2026",
+  "@legalLastUpdated": {},
+  "imprintProviderTitle": "Anbieter der mobilen App",
+  "@imprintProviderTitle": {},
+  "imprintProviderBody": "Erik Engler\nhandelnd unter „Leviora Studio“\nGartenstraße 29C\n06406 Bernburg\nDeutschland\n\nE-Mail: erik@leviora.studio\nTelefon: +49 151 10481071",
+  "@imprintProviderBody": {},
+  "imprintDevelopmentTitle": "Entwicklung",
+  "@imprintDevelopmentTitle": {},
+  "imprintDevelopmentBody": "Leviora Studio (Erik Engler)\n\nMitentwicklung: Jona Loreen Sommer\nJona Loreen Sommer ist nicht Teil von Leviora Studio.",
+  "@imprintDevelopmentBody": {},
+  "imprintBackendTitle": "Betrieb des Campus-Backends und Herausgabe der Inhalte",
+  "@imprintBackendTitle": {},
+  "imprintBackendBody": "Studierendenschaft der Hochschule Anhalt\nKörperschaft des öffentlichen Rechts\nvertreten durch den Sprecherrat des Studierendenrates\nBernburger Straße 55\n06366 Köthen\nDeutschland\n\nE-Mail: stura@hs-anhalt.de",
+  "@imprintBackendBody": {},
+  "imprintEditorialTitle": "Verantwortlich für journalistisch-redaktionelle Inhalte gemäß § 18 Abs. 2 MStV",
+  "@imprintEditorialTitle": {},
+  "imprintEditorialBody": "Erik Engler\nVorsitzender des Studierendenrates Köthen\nBernburger Straße 55\n06366 Köthen\nDeutschland",
+  "@imprintEditorialBody": {},
+  "imprintCopyrightTitle": "Urheberrecht",
+  "@imprintCopyrightTitle": {},
+  "imprintCopyrightBody": "Copyright © 2026 Erik Engler, handelnd unter „Leviora Studio“, und Jona Loreen Sommer",
+  "@imprintCopyrightBody": {},
+  "privacyScopeTitle": "Geltungsbereich und Verantwortliche",
+  "@privacyScopeTitle": {},
+  "privacyScopeBody": "Diese Datenschutzerklärung beschreibt die Verarbeitung personenbezogener Daten in der mobilen App „Campus Köthen“. Für die Bereitstellung der App und die Verarbeitung auf dem Gerät ist Erik Engler, handelnd unter „Leviora Studio“, Gartenstraße 29C, 06406 Bernburg, E-Mail: erik@leviora.studio, verantwortlich. Für die Campus-API, das Content-Management-System, die redaktionellen Inhalte sowie das Antrags- und Feedbacksystem ist die Studierendenschaft der Hochschule Anhalt, Körperschaft des öffentlichen Rechts, vertreten durch den Sprecherrat des Studierendenrates, Bernburger Straße 55, 06366 Köthen, E-Mail: stura@hs-anhalt.de, verantwortlich. Beide Stellen verantworten jeweils ihren beschriebenen Bereich.",
+  "@privacyScopeBody": {},
+  "privacyBackendTitle": "Campus-API und öffentliche Inhalte",
+  "@privacyBackendTitle": {},
+  "privacyBackendBody": "Beim Abruf von News, Veranstaltungen, Kontakten, Raum-, Mensa-, Stundenplan- und öffentlichen Kalenderdaten verbindet sich die App verschlüsselt mit der Campus-API der Studierendenschaft. Technisch verarbeitet werden dabei insbesondere die IP-Adresse, Zeitpunkt und Ziel des Abrufs, übermittelte Abfrageparameter wie Zeitraum, Sprache oder ausgewählte Kursgruppe sowie übliche Verbindungsinformationen. Dies ist erforderlich, um die angeforderten Inhalte auszuliefern, Fehler zu erkennen und den Dienst gegen Missbrauch und Angriffe zu schützen. Rechtsgrundlage ist Art. 6 Abs. 1 Buchst. e DSGVO in Verbindung mit § 65 Abs. 1 HSG LSA. Die Campus-API führt keine Nutzerkonten, verwendet keine Werbe-, Analyse- oder Trackingdienste und erstellt keine Nutzungsprofile.",
+  "@privacyBackendBody": {},
+  "privacyBackendStorageTitle": "Speicherdauer im Campus-Backend",
+  "@privacyBackendStorageTitle": {},
+  "privacyBackendStorageBody": "Technische Verbindungsdaten können während eines Abrufs vorübergehend verarbeitet werden. Die serverseitigen Anwendungsprotokolle der Container werden größenbasiert rotiert. In der derzeitigen Standardkonfiguration werden je Container höchstens fünf Protokolldateien mit jeweils höchstens 10 MB vorgehalten. Sobald diese Grenze erreicht ist, wird die jeweils älteste Datei überschrieben. Eine feste kalendarische Speicherdauer besteht daher nicht; die tatsächliche Dauer hängt vom anfallenden Protokollvolumen ab. Daten zu einem konkreten Sicherheitsvorfall können bis zum Abschluss der Untersuchung und Abwehr sowie darüber hinaus aufbewahrt werden, soweit eine gesetzliche Pflicht dies verlangt. Die im Backend gespeicherten Campus-, Redaktions- und Synchronisationsdaten sind keine Nutzerprofile. Eine Zusammenführung mit den lokal gespeicherten App-Daten findet nicht statt.",
+  "@privacyBackendStorageBody": {},
+  "privacyHostingTitle": "Hosting durch Hostinger",
+  "@privacyHostingTitle": {},
+  "privacyHostingBody": "Das Campus-Backend wird auf einem VPS in Frankreich betrieben. Hosting-Dienstleister und Auftragsverarbeiter der Studierendenschaft ist Hostinger International Ltd., 61 Lordou Vironos Street, 6023 Larnaca, Zypern. Der primäre Serverstandort liegt damit innerhalb der Europäischen Union. Zwischen der Studierendenschaft und Hostinger besteht ein Auftragsverarbeitungsvertrag gemäß Art. 28 DSGVO. Hostinger verarbeitet die beim Hosting anfallenden Daten nach Weisung der Studierendenschaft und kann hierfür Unterauftragsverarbeiter einsetzen. Soweit dabei Daten außerhalb des Europäischen Wirtschaftsraums in ein Land ohne Angemessenheitsbeschluss der Europäischen Kommission übermittelt werden, sieht der Auftragsverarbeitungsvertrag die Standardvertragsklauseln gemäß Durchführungsbeschluss (EU) 2021/914 als geeignete Garantie vor. Informationen zu den eingesetzten Unterauftragsverarbeitern, möglichen Übermittlungen und den Garantien sind unter https://www.hostinger.com/legal/dpa abrufbar.",
+  "@privacyHostingBody": {},
+  "privacyLocalTitle": "Lokale Daten auf deinem Gerät",
+  "@privacyLocalTitle": {},
+  "privacyLocalBody": "Die App speichert Einstellungen, Sprache und Darstellung, ausgewählte Kanäle, Kalender und Kursgruppe, Mensaeinstellungen und Favoriten, gemerkte Veranstaltungen, selbst erstellte Aufgaben sowie zwischengespeicherte öffentliche Inhalte ausschließlich auf deinem Gerät. Diese Speicherung ist erforderlich, um die von dir gewählten App-Funktionen und die Offline-Nutzung bereitzustellen (§ 25 Abs. 2 Nr. 2 TDDDG). Soweit dabei personenbezogene Daten verarbeitet werden, erfolgt dies zur Bereitstellung der von dir ausdrücklich gewünschten App-Funktionen auf Grundlage von Art. 6 Abs. 1 Buchst. b DSGVO. Die eigenen App- und Campus-Backend-Funktionen setzen keine Cookies ein. Bei der direkten Anmeldung an den Prüfungsportalen können technisch notwendige Sitzungscookies verwendet werden. Diese werden ausschließlich vorübergehend im Arbeitsspeicher gehalten und nach Abschluss des Abrufs gelöscht. Es gibt keine Werbe-ID und kein geräteübergreifendes Tracking. Einstellungen und lokale Inhalte bleiben gespeichert, bis du sie in der App löschst oder zurücksetzt. Für Zugangsdaten und persönliche Caches stehen in den jeweiligen Bereichen eigene Löschfunktionen bereit; verwende diese vor einer Deinstallation, weil das Betriebssystem die Löschung sicher gespeicherter Schlüssel bei einer Deinstallation unterschiedlich handhaben kann.",
+  "@privacyLocalBody": {},
+  "privacyMailTitle": "Studentische E-Mail",
+  "@privacyMailTitle": {},
+  "privacyMailBody": "Wenn du die studentische E-Mail nutzt, verbindet sich dein Gerät über eine TLS-geschützte Verbindung direkt mit dem Mailserver der Hochschule Anhalt (mail.hs-anhalt.de). Campus-API, Strapi und Worker sind nicht beteiligt und erhalten weder deine Zugangsdaten noch deine E-Mails. E-Mail-Adresse und Passwort werden ausschließlich im sicheren Schlüsselspeicher deines Geräts abgelegt. Für die Offline-Nutzung speichert die App E-Mail-Kopfzeilen, Nachrichteninhalte, beteiligte Adressen und – falls aktiviert – Anhänge in einem verschlüsselten Cache auf diesem Gerät. Nach erfolgreichem „Account entfernen“ sind Zugangsdaten, lokaler Cache und dessen Verschlüsselungsschlüssel vom Gerät entfernt; deine E-Mails auf dem Hochschulserver bleiben unverändert.",
+  "@privacyMailBody": {},
+  "privacyGradesTitle": "Noten",
+  "@privacyGradesTitle": {},
+  "privacyGradesBody": "Wenn du die Noten nutzt, verbindet sich die App direkt und verschlüsselt mit dem für dein Konto ermittelten Prüfungsportal der Hochschule Anhalt: HIS-QIS unter service.ssc.hs-anhalt.de oder HISinOne unter sscportal.ssc.hs-anhalt.de. Es gibt keinen Zwischenserver: Weder Campus-Backend noch Hostinger erhalten deine Zugangsdaten oder Noten. Benutzername, Passwort und die Portalwahl werden ausschließlich im sicheren Schlüsselspeicher deines Geräts abgelegt; die Noten werden mit einem geräteeigenen Schlüssel verschlüsselt lokal zwischengespeichert. Ein automatischer Abruf erfolgt höchstens einmal in 24 Stunden, zusätzlich manuell auf deinen Wunsch. Über „Zugangsdaten und lokale Noten löschen“ werden Zugangsdaten, Portalwahl, Noten und Verschlüsselungsschlüssel vom Gerät gelöscht. Für die Verarbeitung auf den Prüfungsportalen ist die Hochschule Anhalt verantwortlich.",
+  "@privacyGradesBody": {},
+  "privacyMoodleTitle": "Moodle",
+  "@privacyMoodleTitle": {},
+  "privacyMoodleBody": "Wenn du Moodle verbindest, kommuniziert die App direkt und verschlüsselt mit moodle.hs-anhalt.de. Dein Passwort wird nur für die Anmeldung verwendet und nicht gespeichert. Das von Moodle ausgestellte Sitzungstoken, deine Moodle-Nutzerkennung sowie Kurse, Materialien, Aufgaben, Ankündigungen und Fristen werden sicher beziehungsweise verschlüsselt auf deinem Gerät gespeichert. Campus-Backend und Hostinger erhalten diese Daten nicht. Mit „Moodle-Verbindung entfernen“ werden Token, Nutzerkennung, Cache und zugehörige lokale Synchronisationsdaten gelöscht. Für die Verarbeitung auf Moodle ist die Hochschule Anhalt verantwortlich.",
+  "@privacyMoodleBody": {},
+  "privacyRequestsTitle": "Finanzanträge und Feedback",
+  "@privacyRequestsTitle": {},
+  "privacyRequestsBody": "Wenn du einen Finanzantrag oder Feedback absendest, übermittelt die App die Angaben direkt und verschlüsselt an das Antragsportal der Studierendenschaft unter https://antrag.sturahsa.de. Bei Finanzanträgen sind dies insbesondere Standort, Titel, Name der antragstellenden Person, Antragsdokument, Kopie des Studierendenausweises und optionale Anlagen; bei Feedback der gewählte Bereich, der Text und – nur wenn angegeben – der Name. Die Campus-API ist an dieser Übermittlung nicht beteiligt und erhält diese Daten nicht. Entwürfe, Anlagen, Idempotenzdaten und die geheimen Status- und Dokumentlinks werden verschlüsselt auf dem Gerät gespeichert. Nach erfolgreicher Übermittlung werden lokale Entwurfsanlagen entfernt; eingereichte Vorgänge bleiben lokal erhalten, bis du sie löschst. Für Bearbeitung, serverseitige Speicherung und Löschung der eingereichten Daten gelten die Datenschutzhinweise des Antragsportals. Die Studierendenschaft ist hierfür verantwortlich.",
+  "@privacyRequestsBody": {},
+  "privacyExternalServicesTitle": "Direkte Dienste und externe Links",
+  "@privacyExternalServicesTitle": {},
+  "privacyExternalServicesBody": "Bei studentischer E-Mail, Noten und Moodle stellt die App lediglich die direkte Verbindung zu den Systemen der Hochschule Anhalt her; für die dortige serverseitige Verarbeitung ist die Hochschule Anhalt verantwortlich. Externe Webseiten, Telefon- oder E-Mail-Links werden erst nach deiner Auswahl an das Betriebssystem übergeben. Für deren Verarbeitung gelten die Hinweise des jeweiligen Anbieters. Die App enthält keine Analyse-, Werbe- oder Crash-Reporting-SDKs. Apple und Google können beim Download und bei Nutzung ihrer App Stores Daten in eigener Verantwortung verarbeiten.",
+  "@privacyExternalServicesBody": {},
+  "privacyProvisionTitle": "Erforderlichkeit der Angaben",
+  "@privacyProvisionTitle": {},
+  "privacyProvisionBody": "Für öffentliche Inhalte ist keine Registrierung erforderlich. Die technisch anfallenden Verbindungsdaten sind für einen Online-Abruf unvermeidbar. Zugangsdaten und sonstige Angaben für E-Mail, Noten, Moodle, Finanzanträge oder Feedback stellst du freiwillig bereit; ohne sie kann die jeweils gewählte Funktion nicht oder nur eingeschränkt genutzt werden. Es findet keine automatisierte Entscheidungsfindung und kein Profiling statt.",
+  "@privacyProvisionBody": {},
+  "privacyRightsTitle": "Deine Rechte",
+  "@privacyRightsTitle": {},
+  "privacyRightsBody": "Soweit personenbezogene Daten durch einen der Verantwortlichen verarbeitet werden, hast du nach Maßgabe der DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Richte Anfragen zur App an erik@leviora.studio und Anfragen zum Campus-Backend, zu redaktionellen Inhalten oder zum Antragsportal an stura@hs-anhalt.de. Du kannst dich außerdem gemäß Art. 77 DSGVO bei einer Datenschutzaufsichtsbehörde beschweren, insbesondere bei der Landesbeauftragten für den Datenschutz Sachsen-Anhalt, Otto-von-Guericke-Straße 34a, 39104 Magdeburg, E-Mail: poststelle@lfd.sachsen-anhalt.de.",
+  "@privacyRightsBody": {},
+  "privacyChangesTitle": "Änderungen dieser Erklärung",
+  "@privacyChangesTitle": {},
+  "privacyChangesBody": "Diese Erklärung wird angepasst, wenn sich Funktionen, Empfänger oder rechtliche Anforderungen ändern. Die jeweils in der App angezeigte Fassung gilt für die dort beschriebenen Verarbeitungen.",
+  "@privacyChangesBody": {},
+  "moreTitle": "Mehr",
+  "@moreTitle": {},
+  "moreMail": "Studentische E-Mail",
+  "@moreMail": {},
+  "moreMailSubtitle": "Postfach der Hochschule Anhalt",
+  "@moreMailSubtitle": {},
+  "moreGrades": "Noten",
+  "@moreGrades": {},
+  "moreGradesSubtitle": "Notenspiegel aus dem Prüfungsportal",
+  "@moreGradesSubtitle": {},
+  "moreSettings": "Einstellungen",
+  "@moreSettings": {},
+  "mailTitle": "Studentische E-Mail",
+  "@mailTitle": {},
+  "mailSetupHeadline": "Mit dem Hochschulpostfach verbinden",
+  "@mailSetupHeadline": {},
+  "mailSetupIntro": "Die App verbindet dein Gerät über eine TLS-geschützte Verbindung direkt mit dem Mailserver der Hochschule Anhalt (mail.hs-anhalt.de). Es gibt keinen Zwischenserver.",
+  "@mailSetupIntro": {},
+  "mailSetupPrivacy": "Deine Zugangsdaten werden ausschließlich im sicheren Schlüsselspeicher dieses Geräts abgelegt und erreichen weder Campus-API, Strapi noch Worker. Für die Offline-Nutzung speichert die App E-Mail-Kopfzeilen, Nachrichteninhalte, beteiligte Adressen und – falls aktiviert – Anhänge in einem verschlüsselten Cache auf diesem Gerät. Nach erfolgreichem „Account entfernen“ sind Zugangsdaten, lokaler Cache und dessen Verschlüsselungsschlüssel vom Gerät entfernt; deine E-Mails auf dem Hochschulserver bleiben unverändert.",
+  "@mailSetupPrivacy": {},
+  "mailSetupEmailLabel": "E-Mail-Adresse",
+  "@mailSetupEmailLabel": {},
+  "mailSetupEmailHint": "vorname.nachname@hs-anhalt.de",
+  "@mailSetupEmailHint": {},
+  "mailSetupPasswordLabel": "Passwort",
+  "@mailSetupPasswordLabel": {},
+  "mailSetupNameLabel": "Anzeigename (optional)",
+  "@mailSetupNameLabel": {},
+  "mailSetupNameHint": "Wird Empfängern als Absendername angezeigt",
+  "@mailSetupNameHint": {},
+  "mailSetupSubmit": "Verbindung prüfen und anmelden",
+  "@mailSetupSubmit": {},
+  "mailSetupWebmailLink": "Webmail im Browser öffnen",
+  "@mailSetupWebmailLink": {},
+  "mailSetupInvalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
+  "@mailSetupInvalidEmail": {},
+  "mailSetupPasswordRequired": "Bitte gib dein Passwort ein.",
+  "@mailSetupPasswordRequired": {},
+  "mailInboxTitle": "Posteingang",
+  "@mailInboxTitle": {},
+  "mailInboxEmpty": "Keine Nachrichten in diesem Ordner.",
+  "@mailInboxEmpty": {},
+  "mailSyncFailedTitle": "Aktualisierung fehlgeschlagen",
+  "@mailSyncFailedTitle": {},
+  "mailLastSyncedAt": "Zuletzt aktualisiert: {timestamp}",
+  "@mailLastSyncedAt": {
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "mailFoldersRetry": "Ordner erneut laden",
+  "@mailFoldersRetry": {},
+  "mailAccountLoadFailedTitle": "Postfach konnte nicht geöffnet werden",
+  "@mailAccountLoadFailedTitle": {},
+  "mailAccountLoadFailedBody": "Deine Anmeldung ist weiterhin gespeichert, konnte aber gerade nicht gelesen werden.",
+  "@mailAccountLoadFailedBody": {},
+  "mailShowPassword": "Passwort anzeigen",
+  "@mailShowPassword": {},
+  "mailHidePassword": "Passwort verbergen",
+  "@mailHidePassword": {},
+  "mailUnreadSemantic": "Ungelesen",
+  "@mailUnreadSemantic": {},
+  "mailReadSemantic": "Gelesen",
+  "@mailReadSemantic": {},
+  "mailHasAttachmentSemantic": "Mit Anhang",
+  "@mailHasAttachmentSemantic": {},
+  "mailComposeDiscardTitle": "Entwurf verwerfen?",
+  "@mailComposeDiscardTitle": {},
+  "mailComposeDiscardBody": "Diese Nachricht wird nicht gespeichert. Die App führt keinen Entwürfe-Ordner.",
+  "@mailComposeDiscardBody": {},
+  "mailComposeDiscardConfirm": "Verwerfen",
+  "@mailComposeDiscardConfirm": {},
+  "mailComposeKeepEditing": "Weiter bearbeiten",
+  "@mailComposeKeepEditing": {},
+  "mailComposeSendingBlocksBack": "Die Nachricht wird gerade gesendet.",
+  "@mailComposeSendingBlocksBack": {},
+  "mailCacheDegradedTitle": "Offline-Speicherung nicht verfügbar",
+  "@mailCacheDegradedTitle": {},
+  "mailCacheDegradedBody": "Mails werden derzeit nur für diese Sitzung gespeichert. Suche und Offline-Zugriff sind eingeschränkt.",
+  "@mailCacheDegradedBody": {},
+  "mailFoldersTitle": "Ordner",
+  "@mailFoldersTitle": {},
+  "mailFoldersTooltip": "Ordner wählen",
+  "@mailFoldersTooltip": {},
+  "mailFolderInbox": "Posteingang",
+  "@mailFolderInbox": {},
+  "mailFolderSent": "Gesendet",
+  "@mailFolderSent": {},
+  "mailFolderDrafts": "Entwürfe",
+  "@mailFolderDrafts": {},
+  "mailFolderTrash": "Papierkorb",
+  "@mailFolderTrash": {},
+  "mailFolderJunk": "Spam",
+  "@mailFolderJunk": {},
+  "mailFolderArchive": "Archiv",
+  "@mailFolderArchive": {},
+  "mailAttachmentsTitle": "Anhänge",
+  "@mailAttachmentsTitle": {},
+  "mailComposeTooltip": "Neue Nachricht verfassen",
+  "@mailComposeTooltip": {},
+  "mailRefresh": "Aktualisieren",
+  "@mailRefresh": {},
+  "mailSync": "Synchronisieren",
+  "@mailSync": {},
+  "mailSearchTooltip": "Mails durchsuchen",
+  "@mailSearchTooltip": {},
+  "mailSearchHint": "Nach Absender oder Inhalt suchen",
+  "@mailSearchHint": {},
+  "mailSearchPrompt": "Durchsucht sofort die auf dem Gerät gespeicherten Mails — auch offline. Danach kannst du zusätzlich auf dem Server suchen.",
+  "@mailSearchPrompt": {},
+  "mailSearchEmptyTitle": "Keine Treffer",
+  "@mailSearchEmptyTitle": {},
+  "mailSearchEmpty": "Zu dieser Suche wurden keine Nachrichten gefunden.",
+  "@mailSearchEmpty": {},
+  "mailSearchLocalEmpty": "Auf dem Gerät wurde nichts gefunden. Du kannst zusätzlich auf dem Server suchen.",
+  "@mailSearchLocalEmpty": {},
+  "mailSearchLocalSection": "Auf dem Gerät gefunden",
+  "@mailSearchLocalSection": {},
+  "mailSearchLocalUnavailable": "Dieser Ordner wird nicht auf dem Gerät gespeichert. Suche darin direkt auf dem Server.",
+  "@mailSearchLocalUnavailable": {},
+  "mailSearchServerAction": "Zusätzlich auf dem Server suchen",
+  "@mailSearchServerAction": {},
+  "mailSearchServerRunning": "Der Server wird durchsucht …",
+  "@mailSearchServerRunning": {},
+  "mailSearchServerSection": "Weitere Treffer vom Server",
+  "@mailSearchServerSection": {},
+  "mailSearchServerEmpty": "Der Server hat keine weiteren Treffer geliefert.",
+  "@mailSearchServerEmpty": {},
+  "mailSearchServerFailedTitle": "Serversuche fehlgeschlagen",
+  "@mailSearchServerFailedTitle": {},
+  "mailAttachmentShare": "Teilen oder speichern",
+  "@mailAttachmentShare": {},
+  "mailAttachmentOpen": "Anhang öffnen",
+  "@mailAttachmentOpen": {},
+  "mailAttachmentLoadImage": "Bild laden",
+  "@mailAttachmentLoadImage": {},
+  "mailAttachmentPreviewUnavailable": "Für diesen Anhang ist keine Vorschau möglich.",
+  "@mailAttachmentPreviewUnavailable": {},
+  "mailAttachmentNotDownloaded": "Dieser Anhang wurde noch nicht geladen. Aktiviere „Anhänge herunterladen“ in den Einstellungen.",
+  "@mailAttachmentNotDownloaded": {},
+  "documentShare": "Teilen oder speichern",
+  "@documentShare": {},
+  "documentPreviewUnavailable": "Für diese Datei ist keine Vorschau möglich.",
+  "@documentPreviewUnavailable": {},
+  "mailRetry": "Erneut versuchen",
+  "@mailRetry": {},
+  "mailNoSubject": "(Kein Betreff)",
+  "@mailNoSubject": {},
+  "mailUnknownSender": "(Unbekannter Absender)",
+  "@mailUnknownSender": {},
+  "mailSignedInAs": "Angemeldet als {email}",
+  "@mailSignedInAs": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "mailAccountRemove": "Account entfernen",
+  "@mailAccountRemove": {},
+  "mailAccountRemoveConfirmTitle": "Account entfernen?",
+  "@mailAccountRemoveConfirmTitle": {},
+  "mailAccountRemoveConfirmBody": "Nach erfolgreichem Entfernen sind E-Mail-Adresse, Passwort, lokal offline gespeicherte Maildaten und deren Verschlüsselungsschlüssel von diesem Gerät entfernt. Deine E-Mails auf dem Hochschulserver bleiben unverändert.",
+  "@mailAccountRemoveConfirmBody": {},
+  "mailAccountRemoveConfirm": "Entfernen",
+  "@mailAccountRemoveConfirm": {},
+  "mailAccountRemoveIncomplete": "Die lokalen Maildaten konnten nicht vollständig gelöscht werden. Bitte versuche es erneut.",
+  "@mailAccountRemoveIncomplete": {},
+  "mailCancel": "Abbrechen",
+  "@mailCancel": {},
+  "mailReply": "Antworten",
+  "@mailReply": {},
+  "mailReplyAll": "Allen antworten",
+  "@mailReplyAll": {},
+  "mailReplyAttribution": "Am {date} schrieb {sender}:",
+  "@mailReplyAttribution": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "sender": {
+        "type": "String"
+      }
+    }
+  },
+  "mailMessageAttachmentsUnsupported": "Diese Nachricht enthält Anhänge. Anhänge werden in dieser App nicht angezeigt.",
+  "@mailMessageAttachmentsUnsupported": {},
+  "mailMessageRemoteImagesBlocked": "Bilder aus dem Internet werden zum Schutz deiner Privatsphäre nicht automatisch geladen.",
+  "@mailMessageRemoteImagesBlocked": {},
+  "mailComposeTitle": "Neue Nachricht",
+  "@mailComposeTitle": {},
+  "mailComposeFrom": "Von {email}",
+  "@mailComposeFrom": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "mailComposeTo": "An",
+  "@mailComposeTo": {},
+  "mailComposeCc": "Cc",
+  "@mailComposeCc": {},
+  "mailComposeRecipientsHint": "Mehrere Adressen mit Komma trennen",
+  "@mailComposeRecipientsHint": {},
+  "mailComposeSubject": "Betreff",
+  "@mailComposeSubject": {},
+  "mailComposeBody": "Nachricht",
+  "@mailComposeBody": {},
+  "mailComposeSend": "Senden",
+  "@mailComposeSend": {},
+  "mailComposeInvalidRecipient": "Bitte gib eine gültige Empfängeradresse ein.",
+  "@mailComposeInvalidRecipient": {},
+  "mailComposeSent": "Nachricht gesendet.",
+  "@mailComposeSent": {},
+  "mailComposeSentNoCopy": "Nachricht gesendet. Es konnte keine Kopie im Ordner „Gesendet“ abgelegt werden.",
+  "@mailComposeSentNoCopy": {},
+  "mailComposeAttach": "Datei anhängen",
+  "@mailComposeAttach": {
+    "description": "Tooltip/Label des Buttons zum Auswählen von Dateianhängen beim Verfassen."
+  },
+  "mailComposeAttachmentRemove": "Anhang entfernen",
+  "@mailComposeAttachmentRemove": {
+    "description": "Tooltip des Buttons, der einen ausgewählten Anhang vor dem Senden wieder entfernt."
+  },
+  "mailComposeAttachmentSemantics": "{filename}, {size}",
+  "@mailComposeAttachmentSemantics": {
+    "description": "Screenreader-Beschriftung eines ausgewählten Anhangs: Dateiname und formatierte Größe.",
+    "placeholders": {
+      "filename": {
+        "type": "String",
+        "example": "foto.png"
+      },
+      "size": {
+        "type": "String",
+        "example": "1.3 MB"
+      }
+    }
+  },
+  "mailComposeAttachmentUnreadable": "Eine ausgewählte Datei konnte nicht gelesen werden. Bitte prüfe sie und versuche es erneut.",
+  "@mailComposeAttachmentUnreadable": {
+    "description": "Fehlertext, wenn eine ausgewählte Datei beim Senden nicht mehr gelesen werden kann."
+  },
+  "mailErrorInvalidCredentials": "Anmeldung fehlgeschlagen. Bitte prüfe E-Mail-Adresse und Passwort.",
+  "@mailErrorInvalidCredentials": {},
+  "mailErrorNetwork": "Keine Verbindung zum Mailserver. Bitte prüfe deine Internetverbindung.",
+  "@mailErrorNetwork": {},
+  "mailErrorTimeout": "Zeitüberschreitung bei der Verbindung zum Mailserver.",
+  "@mailErrorTimeout": {},
+  "mailErrorTls": "Die gesicherte Verbindung zum Mailserver konnte nicht aufgebaut werden.",
+  "@mailErrorTls": {},
+  "mailErrorServerUnreachable": "Der Mailserver ist derzeit nicht erreichbar.",
+  "@mailErrorServerUnreachable": {},
+  "mailErrorProtocol": "Unerwartete Antwort vom Mailserver.",
+  "@mailErrorProtocol": {},
+  "mailErrorSessionClosed": "Das Postfach wurde in der Zwischenzeit getrennt.",
+  "@mailErrorSessionClosed": {},
+  "mailErrorSecureStorage": "Die sichere Ablage auf diesem Gerät ist nicht verfügbar. Die Zugangsdaten können nicht gespeichert werden.",
+  "@mailErrorSecureStorage": {},
+  "mailErrorGeneric": "Es ist ein Fehler aufgetreten. Bitte versuche es später erneut.",
+  "@mailErrorGeneric": {},
+  "gradesTitle": "Noten",
+  "@gradesTitle": {},
+  "gradesDeleteIncomplete": "Die lokalen Notendaten konnten nicht vollständig gelöscht werden. Bitte versuche es erneut.",
+  "@gradesDeleteIncomplete": {},
+  "gradesPortalSwitchFailed": "Der Portalwechsel wurde abgebrochen, weil die alten Noten nicht gelöscht werden konnten.",
+  "@gradesPortalSwitchFailed": {},
+  "gradesAccountLoadFailedTitle": "Notenspiegel konnte nicht geöffnet werden",
+  "@gradesAccountLoadFailedTitle": {},
+  "gradesAccountLoadFailedBody": "Deine Anmeldung ist weiterhin gespeichert, konnte aber gerade nicht gelesen werden.",
+  "@gradesAccountLoadFailedBody": {},
+  "gradesShowPassword": "Passwort anzeigen",
+  "@gradesShowPassword": {},
+  "gradesHidePassword": "Passwort verbergen",
+  "@gradesHidePassword": {},
+  "gradesReauthenticate": "Neu anmelden",
+  "@gradesReauthenticate": {},
+  "gradesReauthenticateTitle": "Neu anmelden",
+  "@gradesReauthenticateTitle": {},
+  "gradesReauthenticateBody": "Gib dein aktuelles Passwort ein. Deine bereits geladenen Noten bleiben auf dem Gerät erhalten.",
+  "@gradesReauthenticateBody": {},
+  "gradesOpenPortalLink": "Notenportal im Browser öffnen",
+  "@gradesOpenPortalLink": {},
+  "gradesPortalAutodetectHint": "Das passende Prüfungsportal wird bei der Anmeldung automatisch ermittelt.",
+  "@gradesPortalAutodetectHint": {},
+  "gradesSyncingSemantic": "Noten werden aktualisiert",
+  "@gradesSyncingSemantic": {},
+  "gradeSetupHeadline": "Mit dem Prüfungsportal verbinden",
+  "@gradeSetupHeadline": {},
+  "gradeSetupIntro": "Die App verbindet sich direkt und verschlüsselt mit dem für dein Konto passenden Prüfungsportal der Hochschule Anhalt: HIS-QIS (service.ssc.hs-anhalt.de) oder HISinOne (sscportal.ssc.hs-anhalt.de). Es gibt keinen Zwischenserver.",
+  "@gradeSetupIntro": {},
+  "gradeSetupPrivacy": "Weder das Campus-Backend noch Strapi erhalten deine Zugangsdaten oder Noten. Die Zugangsdaten liegen ausschließlich im sicheren Schlüsselspeicher dieses Geräts, die Noten werden verschlüsselt auf dem Gerät zwischengespeichert.",
+  "@gradeSetupPrivacy": {},
+  "gradeSetupConsent": "Ich stimme zu, dass meine Zugangsdaten lokal im sicheren Schlüsselspeicher dieses Geräts gespeichert werden.",
+  "@gradeSetupConsent": {},
+  "gradeSetupConsentRequired": "Bitte stimme der lokalen Speicherung zu.",
+  "@gradeSetupConsentRequired": {},
+  "gradeSetupUsernameLabel": "Benutzername",
+  "@gradeSetupUsernameLabel": {},
+  "gradeSetupPasswordLabel": "Passwort",
+  "@gradeSetupPasswordLabel": {},
+  "gradeSetupUsernameRequired": "Bitte gib deinen Benutzernamen ein.",
+  "@gradeSetupUsernameRequired": {},
+  "gradeSetupPasswordRequired": "Bitte gib dein Passwort ein.",
+  "@gradeSetupPasswordRequired": {},
+  "gradeSetupSubmit": "Anmelden und Noten laden",
+  "@gradeSetupSubmit": {},
+  "gradeSetupPortalLink": "Im Prüfungsportal öffnen",
+  "@gradeSetupPortalLink": {},
+  "gradesLastUpdated": "Zuletzt aktualisiert: {when}",
+  "@gradesLastUpdated": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "gradesNeverSynced": "Noch nicht aktualisiert",
+  "@gradesNeverSynced": {},
+  "gradesRefresh": "Aktualisieren",
+  "@gradesRefresh": {},
+  "gradesSyncing": "Noten werden geladen …",
+  "@gradesSyncing": {},
+  "gradesEmpty": "Es wurden noch keine Noten gefunden.",
+  "@gradesEmpty": {},
+  "gradesUpdateFailed": "Die Aktualisierung ist fehlgeschlagen. Es werden die zuletzt geladenen Noten angezeigt.",
+  "@gradesUpdateFailed": {},
+  "gradesRetry": "Erneut versuchen",
+  "@gradesRetry": {},
+  "gradesReenter": "Zugangsdaten ändern",
+  "@gradesReenter": {},
+  "gradesDeleteAction": "Zugangsdaten und lokale Noten löschen",
+  "@gradesDeleteAction": {},
+  "gradesSwitchPortalAction": "Prüfungsportal wechseln",
+  "@gradesSwitchPortalAction": {},
+  "gradesSwitchPortalTitle": "Prüfungsportal wechseln?",
+  "@gradesSwitchPortalTitle": {},
+  "gradesSwitchPortalBody": "Die App verbindet sich künftig mit {host}. Der lokal gespeicherte Notenspiegel wird verworfen und neu geladen.",
+  "@gradesSwitchPortalBody": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "gradesSwitchPortalConfirm": "Wechseln",
+  "@gradesSwitchPortalConfirm": {},
+  "gradesActivePortal": "Aktives Prüfungsportal: {host}",
+  "@gradesActivePortal": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "gradesDeleteConfirmTitle": "Wirklich löschen?",
+  "@gradesDeleteConfirmTitle": {},
+  "gradesDeleteConfirmBody": "Benutzername, Passwort und die lokal gespeicherten Noten werden vollständig vom Gerät entfernt.",
+  "@gradesDeleteConfirmBody": {},
+  "gradesDeleteConfirm": "Löschen",
+  "@gradesDeleteConfirm": {},
+  "gradesCancel": "Abbrechen",
+  "@gradesCancel": {},
+  "gradeNoGrade": "Keine Note",
+  "@gradeNoGrade": {},
+  "gradePassedUngraded": "Bestanden (unbenotet)",
+  "@gradePassedUngraded": {},
+  "gradeStatusPassed": "Bestanden",
+  "@gradeStatusPassed": {},
+  "gradeStatusFailed": "Nicht bestanden",
+  "@gradeStatusFailed": {},
+  "gradeStatusPresent": "Prüfung vorhanden",
+  "@gradeStatusPresent": {},
+  "gradeDetailTitle": "Prüfungsdetails",
+  "@gradeDetailTitle": {},
+  "gradeFieldExamNumber": "Prüfungsnummer",
+  "@gradeFieldExamNumber": {},
+  "gradeFieldModule": "Modulbezeichnung",
+  "@gradeFieldModule": {},
+  "gradeFieldGrade": "Note",
+  "@gradeFieldGrade": {},
+  "gradeFieldStatus": "Status",
+  "@gradeFieldStatus": {},
+  "gradeFieldAttempt": "Versuch",
+  "@gradeFieldAttempt": {},
+  "gradeFieldDate": "Prüfungsdatum",
+  "@gradeFieldDate": {},
+  "gradeFieldExaminer": "Prüfende Person",
+  "@gradeFieldExaminer": {},
+  "gradeFieldBonus": "Bonus",
+  "@gradeFieldBonus": {},
+  "gradeFieldPoints": "Punkte",
+  "@gradeFieldPoints": {},
+  "gradeErrorInvalidCredentials": "Anmeldung fehlgeschlagen. Bitte prüfe Benutzername und Passwort.",
+  "@gradeErrorInvalidCredentials": {},
+  "gradeErrorNetwork": "Keine Verbindung zum Prüfungsportal. Bitte prüfe deine Internetverbindung.",
+  "@gradeErrorNetwork": {},
+  "gradeErrorTimeout": "Zeitüberschreitung bei der Verbindung zum Prüfungsportal.",
+  "@gradeErrorTimeout": {},
+  "gradeErrorTls": "Die gesicherte Verbindung zum Prüfungsportal konnte nicht aufgebaut werden.",
+  "@gradeErrorTls": {},
+  "gradeErrorPortalUnavailable": "Das Prüfungsportal ist derzeit nicht erreichbar.",
+  "@gradeErrorPortalUnavailable": {},
+  "gradeErrorStructureChanged": "Das Prüfungsportal hat sich geändert. Die Noten konnten nicht gelesen werden.",
+  "@gradeErrorStructureChanged": {},
+  "gradeErrorSecureStorage": "Die sichere Ablage auf diesem Gerät ist nicht verfügbar. Die Zugangsdaten können nicht gespeichert werden.",
+  "@gradeErrorSecureStorage": {},
+  "gradeErrorCache": "Die lokal gespeicherten Noten konnten nicht geladen werden.",
+  "@gradeErrorCache": {},
+  "gradeErrorSessionExpired": "Die Sitzung ist abgelaufen. Bitte versuche es erneut.",
+  "@gradeErrorSessionExpired": {},
+  "gradeErrorGeneric": "Es ist ein Fehler aufgetreten. Bitte versuche es später erneut.",
+  "@gradeErrorGeneric": {},
+  "navCalendar": "Kalender",
+  "@navCalendar": {},
+  "moreMoodle": "Moodle",
+  "@moreMoodle": {},
+  "moreMoodleSubtitle": "Kurse, Materialien und Fristen direkt aus Moodle",
+  "@moreMoodleSubtitle": {},
+  "moodleTitle": "Moodle",
+  "@moodleTitle": {},
+  "moodleRefreshFailed": "Aktualisierung fehlgeschlagen",
+  "@moodleRefreshFailed": {},
+  "moodleRefreshing": "Kurs wird aktualisiert",
+  "@moodleRefreshing": {},
+  "moodleAccountLoadFailedTitle": "Moodle konnte nicht geöffnet werden",
+  "@moodleAccountLoadFailedTitle": {},
+  "moodleAccountLoadFailedBody": "Deine Verbindung ist weiterhin gespeichert, konnte aber gerade nicht gelesen werden.",
+  "@moodleAccountLoadFailedBody": {},
+  "moodleShowPassword": "Passwort anzeigen",
+  "@moodleShowPassword": {},
+  "moodleHidePassword": "Passwort verbergen",
+  "@moodleHidePassword": {},
+  "moodleSearchClose": "Suche schließen",
+  "@moodleSearchClose": {},
+  "moodleOverdue": "Überfällig",
+  "@moodleOverdue": {},
+  "moodleCourseFallbackName": "Kurs {id}",
+  "@moodleCourseFallbackName": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleDownloadProgress": "Wird geladen: {percent} %",
+  "@moodleDownloadProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleDownloadCancel": "Download abbrechen",
+  "@moodleDownloadCancel": {},
+  "moodleAnnouncementLinks": "Links in dieser Ankündigung",
+  "@moodleAnnouncementLinks": {},
+  "moodleAnnouncementAuthor": "Von {author}",
+  "@moodleAnnouncementAuthor": {
+    "placeholders": {
+      "author": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleSetupHeadline": "Mit Moodle verbinden",
+  "@moodleSetupHeadline": {},
+  "moodleSetupIntro": "Melde dich mit deinen Moodle-Zugangsdaten der Hochschule Anhalt an. Die Verbindung besteht direkt zu moodle.hs-anhalt.de; deine Moodle-Daten werden nicht an Server dieser App übertragen.",
+  "@moodleSetupIntro": {},
+  "moodleUsernameLabel": "Benutzername",
+  "@moodleUsernameLabel": {},
+  "moodlePasswordLabel": "Passwort",
+  "@moodlePasswordLabel": {},
+  "moodleConnectButton": "Verbinden",
+  "@moodleConnectButton": {},
+  "moodleConnecting": "Verbindung wird hergestellt …",
+  "@moodleConnecting": {},
+  "moodleUsernameRequired": "Bitte gib deinen Benutzernamen ein.",
+  "@moodleUsernameRequired": {},
+  "moodlePasswordRequired": "Bitte gib dein Passwort ein.",
+  "@moodlePasswordRequired": {},
+  "moodlePrivacyNote": "Deine Zugangsdaten werden nur zur direkten Anmeldung an Moodle verwendet. Es wird ausschließlich ein Sitzungs-Token sicher auf diesem Gerät gespeichert; dein Passwort wird nicht gespeichert.",
+  "@moodlePrivacyNote": {},
+  "moodleCoursesTitle": "Meine Kurse",
+  "@moodleCoursesTitle": {},
+  "moodleNoCoursesTitle": "Keine Kurse",
+  "@moodleNoCoursesTitle": {},
+  "moodleNoCoursesMessage": "In Moodle sind derzeit keine Kurse für dich sichtbar.",
+  "@moodleNoCoursesMessage": {},
+  "moodleCourseProgress": "{percent}% abgeschlossen",
+  "@moodleCourseProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "moodleLastUpdated": "Zuletzt aktualisiert: {time}",
+  "@moodleLastUpdated": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleNeverUpdated": "Noch nicht synchronisiert",
+  "@moodleNeverUpdated": {},
+  "moodleRefresh": "Aktualisieren",
+  "@moodleRefresh": {},
+  "moodleOfflineHint": "Offline-Ansicht der zuletzt geladenen Daten.",
+  "@moodleOfflineHint": {},
+  "moodleConnectedAs": "Verbunden als {name}",
+  "@moodleConnectedAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleDisconnect": "Moodle-Verbindung und lokale Daten löschen",
+  "@moodleDisconnect": {},
+  "moodleDisconnectConfirmTitle": "Verbindung trennen?",
+  "@moodleDisconnectConfirmTitle": {},
+  "moodleDisconnectConfirmMessage": "Token, lokale Moodle-Daten und heruntergeladene Dateien werden von diesem Gerät gelöscht.",
+  "@moodleDisconnectConfirmMessage": {},
+  "moodleDisconnectConfirm": "Löschen",
+  "@moodleDisconnectConfirm": {},
+  "moodleCancel": "Abbrechen",
+  "@moodleCancel": {},
+  "moodleTabContents": "Inhalte",
+  "@moodleTabContents": {},
+  "moodleTabAssignments": "Aufgaben",
+  "@moodleTabAssignments": {},
+  "moodleTabAnnouncements": "Ankündigungen",
+  "@moodleTabAnnouncements": {},
+  "moodleNoSections": "Keine Inhalte vorhanden.",
+  "@moodleNoSections": {},
+  "moodleNoAssignments": "Keine Aufgaben vorhanden.",
+  "@moodleNoAssignments": {},
+  "moodleNoAnnouncements": "Keine Ankündigungen vorhanden.",
+  "@moodleNoAnnouncements": {},
+  "moodleModuleUnsupported": "Dieser Inhaltstyp wird in der App nicht unterstützt.",
+  "@moodleModuleUnsupported": {},
+  "moodleOpenInBrowser": "In Moodle im Browser öffnen",
+  "@moodleOpenInBrowser": {},
+  "moodleHiddenModule": "Nicht verfügbar",
+  "@moodleHiddenModule": {},
+  "moodleAssignmentDue": "Fällig: {date}",
+  "@moodleAssignmentDue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleAssignmentNoDue": "Keine Frist",
+  "@moodleAssignmentNoDue": {},
+  "moodleSubmissionSubmitted": "Abgegeben",
+  "@moodleSubmissionSubmitted": {},
+  "moodleSubmissionDraft": "Entwurf",
+  "@moodleSubmissionDraft": {},
+  "moodleSubmissionNone": "Nicht abgegeben",
+  "@moodleSubmissionNone": {},
+  "moodleSubmissionUnknown": "Status unbekannt",
+  "@moodleSubmissionUnknown": {},
+  "moodleSubmissionLate": "Verspätet",
+  "@moodleSubmissionLate": {},
+  "moodleSubmissionGraded": "Bewertet: {grade}",
+  "@moodleSubmissionGraded": {
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      }
+    }
+  },
+  "moodleFileDownloading": "Datei wird geladen …",
+  "@moodleFileDownloading": {},
+  "moodleExternalLinkNotice": "Dieser Link führt aus Moodle heraus und wird ohne Anmeldedaten geöffnet.",
+  "@moodleExternalLinkNotice": {},
+  "moodleOpenLinkFailed": "Der Link konnte nicht geöffnet werden.",
+  "@moodleOpenLinkFailed": {},
+  "moodleErrorInvalidCredentials": "Anmeldung fehlgeschlagen. Bitte prüfe Benutzername und Passwort.",
+  "@moodleErrorInvalidCredentials": {},
+  "moodleErrorTokenRejected": "Die Moodle-Anmeldung wurde abgelehnt. Bitte verbinde dich erneut.",
+  "@moodleErrorTokenRejected": {},
+  "moodleErrorTokenExpired": "Die Moodle-Sitzung ist abgelaufen. Bitte verbinde dich erneut.",
+  "@moodleErrorTokenExpired": {},
+  "moodleErrorNetwork": "Keine Verbindung zu Moodle. Bitte prüfe deine Internetverbindung.",
+  "@moodleErrorNetwork": {},
+  "moodleErrorTimeout": "Zeitüberschreitung bei der Verbindung zu Moodle.",
+  "@moodleErrorTimeout": {},
+  "moodleErrorTls": "Die gesicherte Verbindung zu Moodle konnte nicht aufgebaut werden.",
+  "@moodleErrorTls": {},
+  "moodleErrorServiceUnavailable": "Moodle ist derzeit nicht erreichbar.",
+  "@moodleErrorServiceUnavailable": {},
+  "moodleErrorPermissionDenied": "Für diesen Inhalt fehlt die Berechtigung.",
+  "@moodleErrorPermissionDenied": {},
+  "moodleErrorInvalidResponse": "Die Antwort von Moodle konnte nicht gelesen werden.",
+  "@moodleErrorInvalidResponse": {},
+  "moodleErrorUnsupportedModule": "Dieser Inhaltstyp wird nicht unterstützt.",
+  "@moodleErrorUnsupportedModule": {},
+  "moodleErrorSecureStorage": "Die sichere Ablage auf diesem Gerät ist nicht verfügbar. Der Zugang kann nicht gespeichert werden.",
+  "@moodleErrorSecureStorage": {},
+  "moodleErrorCache": "Die lokal gespeicherten Moodle-Daten konnten nicht geladen werden.",
+  "@moodleErrorCache": {},
+  "moodleErrorFileTooLarge": "Die Datei ist zu groß für die Vorschau. Du kannst sie stattdessen teilen oder speichern.",
+  "@moodleErrorFileTooLarge": {},
+  "moodleErrorDownloadFailed": "Die Datei konnte nicht geladen werden.",
+  "@moodleErrorDownloadFailed": {},
+  "moodleErrorGeneric": "Es ist ein Fehler aufgetreten. Bitte versuche es später erneut.",
+  "@moodleErrorGeneric": {},
+  "calendarViewMonth": "Kalender",
+  "@calendarViewMonth": {},
+  "calendarViewList": "Liste",
+  "@calendarViewList": {},
+  "calendarViewToggleSemantic": "Ansicht wechseln",
+  "@calendarViewToggleSemantic": {},
+  "calendarSourceTimetable": "Stundenplan",
+  "@calendarSourceTimetable": {},
+  "calendarSourceMoodle": "Moodle",
+  "@calendarSourceMoodle": {},
+  "calendarSourceEvents": "Events",
+  "@calendarSourceEvents": {},
+  "calendarSourceVisible": "Sichtbar",
+  "@calendarSourceVisible": {},
+  "calendarSourceHidden": "Ausgeblendet",
+  "@calendarSourceHidden": {},
+  "calendarSourceNotConnected": "Nicht verbunden",
+  "@calendarSourceNotConnected": {},
+  "calendarSourceShowInCalendar": "Im Kalender anzeigen",
+  "@calendarSourceShowInCalendar": {},
+  "calendarSourceSavedEvents": "Meine gemerkten Events",
+  "@calendarSourceSavedEvents": {},
+  "calendarTimetableNoGroup": "Noch kein Kurs gewählt",
+  "@calendarTimetableNoGroup": {},
+  "calendarTimetableGroupLabel": "Kurs",
+  "@calendarTimetableGroupLabel": {},
+  "calendarConnectMoodle": "Moodle verbinden",
+  "@calendarConnectMoodle": {},
+  "calendarOpenMoodle": "Moodle öffnen",
+  "@calendarOpenMoodle": {},
+  "calendarWeekRangeWorkdays": "Mo–Fr",
+  "@calendarWeekRangeWorkdays": {
+    "description": "Kurzform der Lehrwoche auf dem Umschalter der Wochenansicht."
+  },
+  "calendarWeekRangeFull": "Mo–So",
+  "@calendarWeekRangeFull": {
+    "description": "Kurzform der vollen Woche auf dem Umschalter der Wochenansicht."
+  },
+  "calendarWeekRangeWorkdaysSemantic": "Montag bis Freitag",
+  "@calendarWeekRangeWorkdaysSemantic": {},
+  "calendarWeekRangeFullSemantic": "Montag bis Sonntag",
+  "@calendarWeekRangeFullSemantic": {},
+  "calendarSourcesLabel": "Quellen",
+  "@calendarSourcesLabel": {},
+  "calendarNoEntries": "Keine Einträge.",
+  "@calendarNoEntries": {},
+  "calendarNoEntriesForDay": "Keine Einträge an diesem Tag.",
+  "@calendarNoEntriesForDay": {},
+  "calendarToday": "Heute",
+  "@calendarToday": {},
+  "calendarMoodleUnavailable": "Moodle-Fristen konnten nicht geladen werden. Der Stundenplan wird trotzdem angezeigt.",
+  "@calendarMoodleUnavailable": {},
+  "calendarTimetableUnavailable": "Der Stundenplan konnte nicht geladen werden.",
+  "@calendarTimetableUnavailable": {},
+  "calendarConnectMoodleHint": "Verbinde Moodle unter „Mehr“, um deine Fristen hier zu sehen.",
+  "@calendarConnectMoodleHint": {},
+  "calendarSelectGroupHint": "Wähle im Stundenplan eine Gruppe, um Termine zu sehen.",
+  "@calendarSelectGroupHint": {},
+  "calendarManageTitle": "Kalender verwalten",
+  "@calendarManageTitle": {},
+  "calendarSectionPublic": "Öffentliche Kalender",
+  "@calendarSectionPublic": {},
+  "calendarSourcePublic": "Öffentlicher Kalender",
+  "@calendarSourcePublic": {},
+  "calendarNoPublicCalendars": "Zurzeit sind keine öffentlichen Kalender verfügbar.",
+  "@calendarNoPublicCalendars": {},
+  "calendarPublicUnavailable": "Öffentliche Kalender sind derzeit nicht verfügbar.",
+  "@calendarPublicUnavailable": {},
+  "calendarPreparing": "Kalender wird vorbereitet …",
+  "@calendarPreparing": {},
+  "calendarDataStale": "Veraltete Daten",
+  "@calendarDataStale": {},
+  "calendarLastUpdated": "Zuletzt aktualisiert: {time}",
+  "@calendarLastUpdated": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarOpenInGoogle": "In Google Kalender öffnen",
+  "@calendarOpenInGoogle": {},
+  "calendarOpenSelectedInGoogle": "Ausgewählte in Google Kalender öffnen",
+  "@calendarOpenSelectedInGoogle": {},
+  "calendarSelectAtLeastOne": "Wähle mindestens einen öffentlichen Kalender aus.",
+  "@calendarSelectAtLeastOne": {},
+  "calendarGoogleCombinedNote": "Nur öffentliche Google-Kalender können gemeinsam geöffnet werden. Stundenplan und Moodle gehören nicht dazu.",
+  "@calendarGoogleCombinedNote": {},
+  "calendarSelectedCountLabel": "{count, plural, =0{Keine Kalender ausgewählt} =1{1 Kalender ausgewählt} other{{count} Kalender ausgewählt}}",
+  "@calendarSelectedCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "calendarGoogleLinkFailed": "Der Google-Link konnte nicht geöffnet werden.",
+  "@calendarGoogleLinkFailed": {},
+  "moreTodos": "Aufgaben",
+  "@moreTodos": {},
+  "moreTodosSubtitle": "Lokale To-do-Liste, nur auf diesem Gerät",
+  "@moreTodosSubtitle": {},
+  "todosTitle": "Aufgaben",
+  "@todosTitle": {},
+  "todoAddHint": "Neue Aufgabe …",
+  "@todoAddHint": {},
+  "todoAdd": "Hinzufügen",
+  "@todoAdd": {},
+  "todoDelete": "Löschen",
+  "@todoDelete": {},
+  "todoDeletedUndo": "Aufgabe gelöscht",
+  "@todoDeletedUndo": {},
+  "todoUndo": "Rückgängig",
+  "@todoUndo": {},
+  "todoCompletedCleared": "Erledigte Aufgaben entfernt",
+  "@todoCompletedCleared": {},
+  "todoFolderOptions": "Ordneroptionen",
+  "@todoFolderOptions": {},
+  "todoRename": "Aufgabe umbenennen",
+  "@todoRename": {},
+  "todoRenameTitle": "Aufgabe umbenennen",
+  "@todoRenameTitle": {},
+  "todoClearCompleted": "Erledigte entfernen",
+  "@todoClearCompleted": {},
+  "todoEmptyTitle": "Keine Aufgaben",
+  "@todoEmptyTitle": {},
+  "todoEmptyMessage": "Füge oben deine erste Aufgabe hinzu. Die Liste bleibt nur lokal auf diesem Gerät.",
+  "@todoEmptyMessage": {},
+  "todoAddEmptyError": "Bitte gib einen Aufgabentext ein.",
+  "@todoAddEmptyError": {},
+  "todoAddUnavailableError": "Nicht gespeichert: Die Aufgabenliste konnte nicht geladen werden. Deine Eingabe bleibt stehen.",
+  "@todoAddUnavailableError": {},
+  "todoFolderAllLabel": "Alle",
+  "@todoFolderAllLabel": {},
+  "todoFolderUnfiledLabel": "Ohne Ordner",
+  "@todoFolderUnfiledLabel": {},
+  "todoFolderAddTooltip": "Ordner hinzufügen",
+  "@todoFolderAddTooltip": {},
+  "todoFolderCreateTitle": "Neuer Ordner",
+  "@todoFolderCreateTitle": {},
+  "todoFolderNameHint": "Ordnername",
+  "@todoFolderNameHint": {},
+  "todoFolderCreateAction": "Erstellen",
+  "@todoFolderCreateAction": {},
+  "todoFolderRenameTitle": "Ordner umbenennen",
+  "@todoFolderRenameTitle": {},
+  "todoFolderRenameAction": "Umbenennen",
+  "@todoFolderRenameAction": {},
+  "todoFolderOptionsTitle": "Ordneroptionen",
+  "@todoFolderOptionsTitle": {},
+  "todoFolderDeleteAction": "Löschen",
+  "@todoFolderDeleteAction": {},
+  "todoFolderDeleteConfirmTitle": "Ordner löschen?",
+  "@todoFolderDeleteConfirmTitle": {},
+  "todoFolderDeleteEmptyMessage": "Dieser Ordner ist leer und wird gelöscht.",
+  "@todoFolderDeleteEmptyMessage": {},
+  "todoFolderDeleteNonEmptyMessage": "Dieser Ordner enthält Aufgaben. Wähle, was mit ihnen passieren soll.",
+  "@todoFolderDeleteNonEmptyMessage": {},
+  "todoFolderDeleteMoveAction": "Aufgaben nach „Ohne Ordner“ verschieben",
+  "@todoFolderDeleteMoveAction": {},
+  "todoFolderDeleteRemoveTasksAction": "Ordner mit Aufgaben löschen",
+  "@todoFolderDeleteRemoveTasksAction": {},
+  "todoFolderEmptyMessage": "In diesem Ordner sind noch keine Aufgaben.",
+  "@todoFolderEmptyMessage": {},
+  "todoMoveToFolder": "Ordner ändern",
+  "@todoMoveToFolder": {},
+  "todoMoveToFolderTitle": "Ordner wählen",
+  "@todoMoveToFolderTitle": {},
+  "moreCampusMap": "Lageplan",
+  "@moreCampusMap": {
+    "description": "Eintrag „Lageplan\" im Mehr-Bereich."
+  },
+  "moreCampusMapSubtitle": "Gebäudepläne mit interaktiver Raumsuche",
+  "@moreCampusMapSubtitle": {
+    "description": "Untertitel des Lageplan-Eintrags im Mehr-Bereich."
+  },
+  "moreContactsSubtitle": "Ansprechstellen und Beratungsangebote",
+  "@moreContactsSubtitle": {
+    "description": "Untertitel des Kontakte-Eintrags im Mehr-Bereich."
+  },
+  "campusMapTitle": "Lageplan",
+  "@campusMapTitle": {
+    "description": "Titel des Lageplan-Bildschirms."
+  },
+  "campusMapSearchLabel": "Raum suchen",
+  "@campusMapSearchLabel": {
+    "description": "Label des Suchfelds."
+  },
+  "campusMapSearchHint": "z. B. 216 oder 223",
+  "@campusMapSearchHint": {
+    "description": "Hilfetext im Suchfeld."
+  },
+  "campusMapSearchClear": "Suche zurücksetzen",
+  "@campusMapSearchClear": {
+    "description": "Tooltip zum Leeren des Suchfelds."
+  },
+  "campusMapNoResults": "Kein Raum gefunden",
+  "@campusMapNoResults": {
+    "description": "Leerzustand der Suche."
+  },
+  "campusMapNoResultsHint": "Prüfe die Schreibweise. Raumnummern funktionieren mit und ohne Punkt.",
+  "@campusMapNoResultsHint": {
+    "description": "Hilfetext im Leerzustand der Suche."
+  },
+  "calendarDetailWhen": "Wann",
+  "@calendarDetailWhen": {
+    "description": "Feldbeschriftung Zeitpunkt in der Termin-Detailansicht."
+  },
+  "calendarDetailSource": "Quelle",
+  "@calendarDetailSource": {
+    "description": "Feldbeschriftung Quelle in der Termin-Detailansicht."
+  },
+  "calendarDetailLocation": "Ort",
+  "@calendarDetailLocation": {
+    "description": "Feldbeschriftung Ort in der Termin-Detailansicht."
+  },
+  "calendarDetailTitle": "Termindetails",
+  "@calendarDetailTitle": {
+    "description": "Titel der Termin-Detailansicht (Screenreader)."
+  },
+  "timetableTypeLabel": "Art",
+  "@timetableTypeLabel": {
+    "description": "Feldbeschriftung Terminart."
+  },
+  "timetableGroupsLabel": "Gruppen",
+  "@timetableGroupsLabel": {
+    "description": "Feldbeschriftung Gruppen eines Stundenplantermins."
+  },
+  "moodleCourseLabel": "Kurs",
+  "@moodleCourseLabel": {
+    "description": "Feldbeschriftung Moodle-Kurs."
+  },
+  "timetableEntryDetailsTooltip": "Details anzeigen",
+  "@timetableEntryDetailsTooltip": {
+    "description": "Aktion, die die Detailansicht eines Termins öffnet."
+  },
+  "campusMapShowRoom": "Raum {room} auf dem Plan",
+  "@campusMapShowRoom": {
+    "description": "Beschriftung des kompakten Raum-Links in Detailansichten.",
+    "placeholders": {
+      "room": {
+        "type": "String",
+        "example": "B.202"
+      }
+    }
+  },
+  "campusMapRoomResultTitle": "{roomNumber} · Gebäude {buildingNumber} · {buildingName}",
+  "@campusMapRoomResultTitle": {
+    "description": "Eindeutige Titelzeile eines Raumsuchergebnisses mit Gebäudenummer.",
+    "placeholders": {
+      "roomNumber": { "type": "String", "example": "216" },
+      "buildingNumber": { "type": "String", "example": "23" },
+      "buildingName": { "type": "String", "example": "Ratke-Gebäude" }
+    }
+  },
+  "campusMapResultVia": "Gefunden über {contact}",
+  "@campusMapResultVia": {
+    "description": "Zusatzzeile in der Raum-Suche, wenn ein Raum über eine Person oder Anlaufstelle gefunden wurde.",
+    "placeholders": {
+      "contact": {
+        "type": "String",
+        "example": "Max Mustermann · Prüfungsamt"
+      }
+    }
+  },
+  "campusMapBuildingLabel": "Gebäude",
+  "@campusMapBuildingLabel": {
+    "description": "Feldbeschriftung Gebäude."
+  },
+  "campusMapFloorLabel": "Etage",
+  "@campusMapFloorLabel": {
+    "description": "Feldbeschriftung Etage."
+  },
+  "campusMapRoomLabel": "Raum",
+  "@campusMapRoomLabel": {
+    "description": "Feldbeschriftung Raum."
+  },
+  "campusMapRoomTypeLabel": "Raumart",
+  "@campusMapRoomTypeLabel": {
+    "description": "Feldbeschriftung Raumart."
+  },
+  "campusMapRoomTypeRoom": "Raum",
+  "@campusMapRoomTypeRoom": {
+    "description": "Neutrale Raumart, wenn aus dem Plan keine genauere Nutzung hervorgeht."
+  },
+  "campusMapRoomTypeLecture": "Hörsaal",
+  "@campusMapRoomTypeLecture": {
+    "description": "Raumart lecture."
+  },
+  "campusMapRoomTypeSeminar": "Seminarraum",
+  "@campusMapRoomTypeSeminar": {
+    "description": "Raumart seminar."
+  },
+  "campusMapRoomTypeOffice": "Büro",
+  "@campusMapRoomTypeOffice": {
+    "description": "Raumart office."
+  },
+  "campusMapRoomTypeLab": "Labor",
+  "@campusMapRoomTypeLab": {
+    "description": "Raumart lab."
+  },
+  "campusMapRoomTypeMeeting": "Besprechungsraum",
+  "@campusMapRoomTypeMeeting": {
+    "description": "Raumart meeting."
+  },
+  "campusMapRoomTypeService": "Service und Technik",
+  "@campusMapRoomTypeService": {
+    "description": "Raumart service."
+  },
+  "campusMapRoomTypeUnknown": "Sonstiger Raum",
+  "@campusMapRoomTypeUnknown": {
+    "description": "Raumart, die diese App-Version noch nicht kennt."
+  },
+  "campusMapLegendTitle": "Legende",
+  "@campusMapLegendTitle": {
+    "description": "Überschrift der Kartenlegende."
+  },
+  "campusMapSelectedRoom": "Ausgewählt: {room}",
+  "@campusMapSelectedRoom": {
+    "description": "Textliche Kennzeichnung des ausgewählten Raums, zusätzlich zur farblichen Hervorhebung.",
+    "placeholders": {
+      "room": {
+        "type": "String"
+      }
+    }
+  },
+  "campusMapShowWholeFloor": "Gesamte Etage anzeigen",
+  "@campusMapShowWholeFloor": {
+    "description": "Aktion, um die Auswahl aufzuheben und die Etage komplett zu zeigen."
+  },
+  "campusMapResetZoom": "Ansicht zurücksetzen",
+  "@campusMapResetZoom": {
+    "description": "Tooltip zum Zurücksetzen von Zoom und Verschiebung."
+  },
+  "campusMapRoomNotOnMap": "Dieser Raum ist im mitgelieferten Plan nicht enthalten.",
+  "@campusMapRoomNotOnMap": {
+    "description": "Hinweis bei einem roomKey ohne Geometrie im lokalen Kartenasset."
+  },
+  "campusMapVersionMismatch": "Der mitgelieferte Plan passt nicht zur aktuellen Raumliste. Räume werden als Liste angezeigt; ein App-Update bringt den passenden Plan.",
+  "@campusMapVersionMismatch": {
+    "description": "Hinweis bei abweichender mapVersion zwischen API und lokalem Asset."
+  },
+  "campusMapUnavailable": "Der Lageplan konnte nicht geladen werden.",
+  "@campusMapUnavailable": {
+    "description": "Fehlerzustand des Kartenassets."
+  },
+  "campusMapEmpty": "Es sind noch keine Räume veröffentlicht.",
+  "@campusMapEmpty": {
+    "description": "Leerzustand, wenn die API keine Räume liefert."
+  },
+  "campusMapSemanticMap": "Etagenplan, zoombar und verschiebbar",
+  "@campusMapSemanticMap": {
+    "description": "Screenreader-Beschreibung der Karte."
+  },
+  "campusMapSemanticSelectedRoom": "Raum {room} ist ausgewählt und auf dem Plan hervorgehoben",
+  "@campusMapSemanticSelectedRoom": {
+    "description": "Screenreader-Ansage für den ausgewählten Raum.",
+    "placeholders": {
+      "room": {
+        "type": "String"
+      }
+    }
+  },
+  "campusMapOpenRoom": "Auf dem Lageplan zeigen",
+  "@campusMapOpenRoom": {
+    "description": "Aktion in Kontaktdetails, die den Lageplan mit dem Raum öffnet."
+  },
+  "contactRoomsLabel": "Räume",
+  "@contactRoomsLabel": {
+    "description": "Überschrift der Raumzeilen in Kontaktdetails."
+  },
+  "contactRoomSummary": "{building}, {floor}, Raum {room}",
+  "@contactRoomSummary": {
+    "description": "Verständliche Textdarstellung einer Raumreferenz.",
+    "placeholders": {
+      "building": {
+        "type": "String"
+      },
+      "floor": {
+        "type": "String"
+      },
+      "room": {
+        "type": "String"
+      }
+    }
+  },
+  "contactRoomSummaryWithBuildingNumber": "{room} · Gebäude {buildingNumber} · {building}, {floor}",
+  "@contactRoomSummaryWithBuildingNumber": {
+    "description": "Eindeutige Raumreferenz mit Gebäudenummer.",
+    "placeholders": {
+      "room": { "type": "String", "example": "216" },
+      "buildingNumber": { "type": "String", "example": "23" },
+      "building": { "type": "String", "example": "Ratke-Gebäude" },
+      "floor": { "type": "String", "example": "1. Obergeschoss" }
+    }
+  },
+  "campusMapBuildingSelectorSemantic": "Gebäude auswählen, aktuell {building}",
+  "@campusMapBuildingSelectorSemantic": {
+    "placeholders": {
+      "building": {
+        "type": "String",
+        "example": "Name of the building currently shown"
+      }
+    }
+  },
+  "campusMapFloorSelectorSemantic": "Etage auswählen, aktuell {floor}",
+  "@campusMapFloorSelectorSemantic": {
+    "placeholders": {
+      "floor": {
+        "type": "String",
+        "example": "Name of the floor currently shown"
+      }
+    }
+  },
+  "campusMapSingleFloorSemantic": "Einzige Ebene: {floor}",
+  "@campusMapSingleFloorSemantic": {
+    "placeholders": {
+      "floor": {
+        "type": "String",
+        "example": "Name of the only available level"
+      }
+    }
+  },
+  "todayGreetingMorning": "Guten Morgen",
+  "todayGreetingDay": "Hallo",
+  "todayGreetingEvening": "Guten Abend",
+  "todayTomorrowHint": "Vorschau auf morgen",
+  "todayNowLabel": "Gerade jetzt",
+  "todayNextLabel": "Als Nächstes",
+  "todayNothingToday": "Für heute ist nichts eingetragen.",
+  "todayAgendaTitle": "Dein Tag",
+  "todayCanteenTitle": "Mensa heute",
+  "todayTasksTitle": "Aufgaben",
+  "todayTasksOpen": "{count, plural, =0{Nichts offen} =1{1 offene Aufgabe} other{{count} offene Aufgaben}}",
+  "@todayTasksOpen": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "todayQuickActionsTitle": "Schnellzugriff",
+  "todayFindRoom": "Raum suchen",
+  "todayFindContact": "Kontakt finden",
+  "todayRefresh": "Aktualisieren",
+  "todayEmptyDashboard": "Alle Karten sind ausgeblendet. In den Einstellungen kannst du sie wieder einschalten.",
+  "todayNoMoreToday": "Für heute ist nichts mehr eingetragen.",
+  "todayAllDayLabel": "Ganztägig",
+  "todaySourceTimetable": "Stundenplan",
+  "todaySourceMoodle": "Moodle",
+  "todaySourcePublic": "Kalender",
+  "todayMoreEntries": "{count, plural, =1{1 weiterer Termin} other{{count} weitere Termine}}",
+  "@todayMoreEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "calendarViewDay": "Tag",
+  "calendarPreviousDay": "Vorheriger Tag",
+  "calendarNextDay": "Nächster Tag",
+  "calendarPreviousWeek": "Vorherige Woche",
+  "calendarNextWeek": "Nächste Woche",
+  "calendarWeekStripSemantic": "Woche, {day} ausgewählt",
+  "@calendarWeekStripSemantic": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarDayHasEntries": "{count, plural, =1{1 Termin} other{{count} Termine}}",
+  "@calendarDayHasEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsSectionPersonalisation": "Personalisierung",
+  "settingsReducedMotion": "Bewegung reduzieren",
+  "settingsReducedMotionSubtitle": "Blendet Animationen aus. Die Systemeinstellung wird ohnehin beachtet.",
+  "settingsNavigation": "Navigationsleiste",
+  "settingsNavigationSubtitle": "Die vier Module der Leiste wählen",
+  "settingsNavigationHint": "Mehr ist fest. Wähle genau vier Module davor und ordne sie per Ziehen.",
+  "settingsDefaultBuilding": "Standardgebäude",
+  "settingsDefaultBuildingNone": "Nicht festgelegt",
+  "settingsSectionData": "App-Daten",
+  "settingsReset": "Lokale App-Daten zurücksetzen",
+  "settingsRequestsWipe": "Lokale Antragsdaten und Nachweise löschen",
+  "@settingsRequestsWipe": {},
+  "settingsRequestsWipeSubtitle": "Entwürfe, Anhänge und der Zugang zu bereits eingereichten Vorgängen",
+  "@settingsRequestsWipeSubtitle": {},
+  "settingsRequestsWipeConfirmTitle": "Antragsdaten löschen?",
+  "@settingsRequestsWipeConfirmTitle": {},
+  "settingsRequestsWipeConfirmMessage": "Entwürfe, hochgeladene Nachweise einschließlich der Kopie des Studierendenausweises und die Statuslinks bereits eingereichter Vorgänge werden von diesem Gerät gelöscht. Der Statuslink ist der einzige Zugang zu einem Vorgang und lässt sich nicht wiederherstellen. Bereits eingereichte Anträge bleiben beim Gremiensystem bestehen.",
+  "@settingsRequestsWipeConfirmMessage": {},
+  "settingsRequestsWipeConfirmAction": "Endgültig löschen",
+  "@settingsRequestsWipeConfirmAction": {},
+  "settingsRequestsWipeDone": "Antragsdaten wurden von diesem Gerät gelöscht.",
+  "@settingsRequestsWipeDone": {},
+  "settingsRequestsWipeFailed": "Die Antragsdaten konnten nicht vollständig gelöscht werden. Bitte versuche es erneut.",
+  "@settingsRequestsWipeFailed": {},
+  "settingsResetKeepsOnboarding": "Der Einführungsablauf und deine Antragsdaten bleiben erhalten.",
+  "@settingsResetKeepsOnboarding": {},
+  "settingsResetSubtitle": "Setzt Darstellung und Präferenzen zurück. Mail-, Noten- und Moodle-Konten bleiben unberührt.",
+  "settingsResetConfirmTitle": "Zurücksetzen?",
+  "settingsResetConfirmMessage": "Sprache, Darstellung, Navigationsleiste sowie deine gewählte Mensa, Stundenplangruppe und dein Standardgebäude werden zurückgesetzt. Deine Konten und lokalen Aufgaben bleiben erhalten.",
+  "settingsResetConfirmAction": "Zurücksetzen",
+  "settingsResetDone": "Zurückgesetzt.",
+  "settingsResetIncomplete": "Nicht alle Einstellungen konnten zurückgesetzt werden. Bitte versuche es erneut.",
+  "@settingsResetIncomplete": {},
+  "settingsSectionAccounts": "Konten",
+  "settingsSignOutEverywhere": "Überall abmelden",
+  "settingsSignOutEverywhereSubtitle": "{count, plural, =0{Nirgends angemeldet} =1{Bei 1 Dienst angemeldet} other{Bei {count} Diensten angemeldet}}",
+  "@settingsSignOutEverywhereSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsSignOutEverywhereConfirmTitle": "Überall abmelden?",
+  "settingsSignOutEverywhereConfirmMessage": "Meldet dich ab bei: {services}. Lokal gespeicherte Zugangsdaten und die zugehörigen Caches dieser Dienste werden gelöscht. Nach dem nächsten Start musst du dich bei jedem wieder anmelden. Deine App-Einstellungen, Kanal-Abos, Mensafavoriten und Aufgaben bleiben erhalten.",
+  "@settingsSignOutEverywhereConfirmMessage": {
+    "placeholders": {
+      "services": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSignOutEverywhereConfirmAction": "Abmelden",
+  "settingsSignOutEverywhereSuccess": "Überall abgemeldet.",
+  "settingsSignOutEverywherePartialTitle": "Teilweise abgemeldet",
+  "settingsSignOutEverywherePartialMessage": "Diese Dienste konnten nicht abgemeldet werden: {services}. Bereits erfolgreich abgemeldete Dienste bleiben abgemeldet — du kannst es für die verbleibenden erneut versuchen.",
+  "@settingsSignOutEverywherePartialMessage": {
+    "placeholders": {
+      "services": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSignOutEverywhereRetry": "Erneut versuchen",
+  "settingsCardMoveUp": "Nach oben",
+  "settingsCardMoveDown": "Nach unten",
+  "settingsSelectExactlyFour": "Genau vier Module wählen",
+  "settingsNavigationActive": "In der Leiste",
+  "settingsNavigationAvailable": "Verfügbar",
+  "settingsNavigationAdd": "Zur Leiste hinzufügen",
+  "settingsNavigationRemove": "Aus der Leiste entfernen",
+  "settingsNavigationReorder": "Ziehen zum Umsortieren",
+  "onboardingWelcomeTitle": "Willkommen",
+  "onboardingWelcomeBody": "Richte die App in ein paar Schritten für dich ein. Du kannst jeden Schritt überspringen und alles später in den Einstellungen ändern.",
+  "onboardingSkip": "Überspringen",
+  "onboardingSkipAll": "Alles überspringen",
+  "onboardingBack": "Zurück",
+  "onboardingNext": "Weiter",
+  "onboardingStepOf": "Schritt {current} von {total}",
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardingCampusTitle": "Dein Campus",
+  "onboardingCampusBody": "Damit Mensa, Stundenplan und Lageplan gleich das Richtige zeigen.",
+  "onboardingContentTitle": "Inhalte",
+  "onboardingContentBody": "Welche Meldungen und öffentlichen Kalender dich interessieren.",
+  "onboardingNotificationsTitle": "Benachrichtigungen",
+  "onboardingNotificationsBody": "Lass dich passend zu deinem Campus-Alltag erinnern.",
+  "onboardingNotificationsDailySummary": "Tagesübersicht um 08:00 Uhr mit Vorlesungen, Terminen, Fristen und Mensa",
+  "onboardingNotificationsEvents": "Erinnerungen an gemerkte Events – 24 Stunden vorher",
+  "onboardingNotificationsCanteen": "Hinweise zu deinen Mensa-Favoriten um 11:00 Uhr",
+  "onboardingNotificationsEnable": "Benachrichtigungen aktivieren",
+  "onboardingNotificationsEnableHint": "Beim Fortfahren fragt dein Betriebssystem nach der Erlaubnis.",
+  "onboardingNotificationsPrivacy": "Alles wird ausschließlich auf deinem Smartphone geplant – ohne Tracking, Server oder Nutzerkonto.",
+  "onboardingSourceUnavailable": "Derzeit nicht verfügbar. Du kannst das später in den Einstellungen nachholen.",
+  "onboardingChooseLaterHint": "Du kannst das später in den Einstellungen wählen.",
+  "@onboardingChooseLaterHint": {},
+  "onboardingNoCanteens": "Es sind noch keine Mensen hinterlegt.",
+  "onboardingRestart": "Onboarding erneut starten",
+  "onboardingRestartSubtitle": "Führt dich noch einmal durch die Einrichtung.",
+  "onboardingOpenChannels": "News-Kanäle wählen",
+  "onboardingOpenCalendars": "Öffentliche Kalender wählen",
+  "canteenFilterTitle": "Filter",
+  "canteenFilterMustContain": "Muss enthalten",
+  "@canteenFilterMustContain": {},
+  "canteenFilterMustNotContain": "Darf nicht enthalten",
+  "@canteenFilterMustNotContain": {},
+  "canteenFilterAllergenPartial": "{allergen} (teilweise ausgewählt)",
+  "@canteenFilterAllergenPartial": {
+    "description": "Zeigt an, dass nur einzelne Unterpunkte eines Allergen-Oberpunkts ausgewählt sind, nicht der Oberpunkt selbst.",
+    "placeholders": {
+      "allergen": {
+        "type": "String"
+      }
+    }
+  },
+  "canteenPriceGroupSection": "Preisgruppe",
+  "@canteenPriceGroupSection": {},
+  "canteenPriceForGroupMissing": "Für diese Preisgruppe ist kein Preis hinterlegt.",
+  "@canteenPriceForGroupMissing": {},
+  "canteenPriceOverviewTitle": "Preisübersicht",
+  "@canteenPriceOverviewTitle": {},
+  "canteenPriceOverviewOpenSemantic": "Preise für {meal} anzeigen",
+  "@canteenPriceOverviewOpenSemantic": {
+    "placeholders": {
+      "meal": {
+        "type": "String"
+      }
+    }
+  },
+  "canteenPriceOverviewSelectedLabel": "Ausgewählt",
+  "@canteenPriceOverviewSelectedLabel": {},
+  "canteenPriceOverviewUnavailable": "nicht verfügbar",
+  "@canteenPriceOverviewUnavailable": {},
+  "canteenTraitVegetarian": "Vegetarisch",
+  "@canteenTraitVegetarian": {},
+  "canteenTraitVegan": "Vegan",
+  "@canteenTraitVegan": {},
+  "canteenTraitMeatless": "Fleischlos",
+  "@canteenTraitMeatless": {},
+  "canteenTraitSprint": "Sprintmenü",
+  "@canteenTraitSprint": {},
+  "canteenAllergenGluten": "Enthält glutenhaltige Getreide",
+  "@canteenAllergenGluten": {},
+  "canteenAllergenGlutenWheat": "Weizen",
+  "@canteenAllergenGlutenWheat": {},
+  "canteenAllergenGlutenRye": "Roggen",
+  "@canteenAllergenGlutenRye": {},
+  "canteenAllergenGlutenOats": "Hafer",
+  "@canteenAllergenGlutenOats": {},
+  "canteenAllergenGlutenBarley": "Gerste",
+  "@canteenAllergenGlutenBarley": {},
+  "canteenAllergenGlutenSpelt": "Dinkel",
+  "@canteenAllergenGlutenSpelt": {},
+  "canteenAllergenCrustaceans": "Enthält Krebstiere",
+  "@canteenAllergenCrustaceans": {},
+  "canteenAllergenEgg": "Enthält Ei",
+  "@canteenAllergenEgg": {},
+  "canteenAllergenPeanuts": "Enthält Erdnüsse",
+  "@canteenAllergenPeanuts": {},
+  "canteenAllergenSoy": "Enthält Soja",
+  "@canteenAllergenSoy": {},
+  "canteenAllergenMilk": "Enthält Milch (Laktose)",
+  "@canteenAllergenMilk": {},
+  "canteenAllergenNuts": "Enthält Schalenfrüchte",
+  "@canteenAllergenNuts": {},
+  "canteenAllergenNutsHazelnut": "Haselnuss",
+  "@canteenAllergenNutsHazelnut": {},
+  "canteenAllergenNutsAlmond": "Mandeln",
+  "@canteenAllergenNutsAlmond": {},
+  "canteenAllergenNutsWalnut": "Walnuss",
+  "@canteenAllergenNutsWalnut": {},
+  "canteenAllergenNutsCashew": "Cashewkerne",
+  "@canteenAllergenNutsCashew": {},
+  "canteenAllergenNutsPecan": "Pekannüsse",
+  "@canteenAllergenNutsPecan": {},
+  "canteenAllergenNutsPistachio": "Pistazien",
+  "@canteenAllergenNutsPistachio": {},
+  "canteenAllergenNutsMacadamia": "Macadamianuss",
+  "@canteenAllergenNutsMacadamia": {},
+  "canteenAllergenCelery": "Enthält Sellerie",
+  "@canteenAllergenCelery": {},
+  "canteenAllergenMustard": "Enthält Senf",
+  "@canteenAllergenMustard": {},
+  "canteenAllergenSesame": "Enthält Sesam",
+  "@canteenAllergenSesame": {},
+  "canteenAllergenSulphites": "Enthält SO₂/Sulfit",
+  "@canteenAllergenSulphites": {},
+  "canteenAllergenLupin": "Enthält Lupine",
+  "@canteenAllergenLupin": {},
+  "canteenAllergenMolluscs": "Enthält Weichtiere",
+  "@canteenAllergenMolluscs": {},
+  "canteenAllergenFish": "Enthält Fisch",
+  "@canteenAllergenFish": {},
+  "canteenFilterTooltip": "Filter und Favoriten",
+  "canteenNoMealsAfterFilterMessage": "Lockere den Filter oder sieh dir einen anderen Tag an.",
+  "@canteenNoMealsAfterFilterMessage": {},
+  "canteenFilterClear": "Filter zurücksetzen",
+  "canteenFilterActive": "Filter aktiv",
+  "canteenNoMealsAfterFilter": "Kein Gericht passt zu deinem Filter.",
+  "canteenFavouriteAdd": "Zu Favoriten",
+  "canteenFavouriteRemove": "Aus Favoriten entfernen",
+  "canteenUnhideMeal": "Wieder einblenden",
+  "canteenFavouriteSemantic": "Favorit",
+  "requestsSubtitle": "Finanzantrag stellen oder Feedback geben",
+  "requestsFinanceTitle": "Finanzantrag",
+  "requestsFeedbackTitle": "Feedback",
+  "requestsDrafts": "Entwürfe",
+  "requestsNoDrafts": "Noch keine Entwürfe.",
+  "requestsDeleteDraft": "Entwurf löschen",
+  "requestsDeleteConfirm": "Diesen Entwurf löschen?",
+  "requestsFieldApplicant": "Antragstellende Person",
+  "requestsFieldLocation": "Standort",
+  "@requestsFieldLocation": {
+    "description": "Auswahl des Gremiums, an das der Antrag geht."
+  },
+  "requestsLocationsLoading": "Standorte werden geladen …",
+  "requestsLocationsUnavailable": "Die Standorte konnten nicht geladen werden.",
+  "requestsLocationsEmpty": "Zurzeit steht kein Standort zur Auswahl.",
+  "requestsErrorLocationMissing": "Bitte einen Standort wählen.",
+  "requestsErrorApplicantMissing": "Bitte einen Namen angeben.",
+  "requestsSlotFinanceRequest": "Finanzantrag",
+  "requestsSlotStudentCard": "Studierendenausweis",
+  "requestsSlotAnnexA": "Anlage A",
+  "requestsSlotAnnexB": "Anlage B",
+  "requestsSlotRequired": "Pflicht",
+  "requestsSlotOptional": "Optional",
+  "requestsSlotFormats": "Erlaubt: {formats}",
+  "@requestsSlotFormats": {
+    "placeholders": {
+      "formats": {
+        "type": "String",
+        "example": "PDF"
+      }
+    }
+  },
+  "requestsSlotChoose": "Datei wählen",
+  "requestsSlotReplace": "Ersetzen",
+  "requestsSlotWrongType": "Dieser Dateityp passt nicht in dieses Feld.",
+  "requestsSlotTooLarge": "Die Datei ist größer als 25 MB.",
+  "requestsStudentCardPrivacy": "Der Ausweis wird nur intern verarbeitet und erscheint nicht auf der öffentlichen Statusseite.",
+  "requestsSubmitting": "Wird übermittelt …",
+  "requestsSubmitConflict": "Dieser Entwurf wurde bereits mit anderen Daten eingereicht. Für eine neue Einreichung bitte einen neuen Entwurf anlegen.",
+  "requestsSubmitTooLarge": "Die Dateien sind zu groß. Höchstens 25 MB je Datei.",
+  "requestsSubmitRateLimited": "Zu viele Einreichungen in kurzer Zeit. Bitte später erneut versuchen.",
+  "requestsSubmitFailed": "Die Einreichung ist fehlgeschlagen.",
+  "requestsSubmitRejected": "Die Angaben wurden nicht akzeptiert.",
+  "requestsSubmitRejectedHint": "Bitte prüfe deine Angaben und versuche es erneut.",
+  "requestsActionApplication": "Finanzantrag stellen",
+  "requestsActionApplicationHint": "Mittel für ein Vorhaben beantragen",
+  "requestsActionFeedback": "Feedback geben",
+  "requestsActionFeedbackHint": "Rückmeldung an das Gremium",
+  "requestsSubmissions": "Meine Einreichungen",
+  "requestsNoSubmissions": "Noch nichts eingereicht.",
+  "requestsRefresh": "Aktualisieren",
+  "requestsNotConnectedTitle": "Keine Empfangsstelle hinterlegt",
+  "requestsNotConnectedBody": "Diese Fassung wurde ohne Adresse des Gremiensystems gebaut. Entwürfe bleiben auf dem Gerät, eingereicht werden kann nichts.",
+  "requestsApplicationFormTitle": "Finanzantrag",
+  "requestsFieldTitle": "Antragsgegenstand",
+  "requestsFieldTitleHint": "z. B. Grillabend am FB5",
+  "requestsFieldApplicantHint": "z. B. Max Mustermann",
+  "requestsSubmitApplication": "Antrag einreichen",
+  "requestsFeedbackFormTitle": "Feedback",
+  "requestsFieldArea": "Bereich",
+  "requestsAreasLoading": "Bereiche werden geladen …",
+  "requestsAreasUnavailable": "Die Bereiche konnten nicht geladen werden.",
+  "requestsAreasEmpty": "Zurzeit steht kein Bereich zur Auswahl.",
+  "requestsFieldSubmitterName": "Dein Name (optional)",
+  "requestsFieldSubmitterNameHint": "Leer lassen für „Anonym“",
+  "requestsSubmitterNameNote": "Lässt du das Feld leer, erscheint dein Feedback als „Anonym“.",
+  "requestsFieldFeedback": "Dein Feedback",
+  "requestsFieldFeedbackHint": "Was möchtest du dem Gremium mitteilen?",
+  "requestsFeedbackCounter": "Bis zu 10.000 Zeichen.",
+  "requestsSubmitFeedback": "Feedback absenden",
+  "requestsRequiredMark": "Pflichtfeld",
+  "requestsErrorTitleMissing": "Bitte einen Antragsgegenstand angeben.",
+  "requestsErrorTitleTooLong": "Höchstens 200 Zeichen.",
+  "requestsErrorApplicantTooLong": "Höchstens 200 Zeichen.",
+  "requestsErrorAreaMissing": "Bitte einen Bereich wählen.",
+  "requestsErrorSubmitterNameTooLong": "Höchstens 200 Zeichen.",
+  "requestsErrorFeedbackMissing": "Bitte Feedback eingeben.",
+  "requestsErrorFeedbackTooLong": "Höchstens 10.000 Zeichen.",
+  "requestsErrorFileMissing": "Diese Datei fehlt noch.",
+  "requestsErrorFileWrongType": "Dieser Dateityp passt nicht in dieses Feld.",
+  "requestsErrorFileTooLarge": "Die Datei ist größer als 25 MB.",
+  "requestsErrorRejectedField": "Bitte prüfe diese Angabe.",
+  "requestsSubmitTargetGone": "Die gewählte Stelle steht nicht mehr zur Verfügung. Bitte wähle eine andere.",
+  "requestsSubmitUnsupportedMedia": "Die Einreichung wurde im falschen Format gesendet. Bitte melde diesen Fehler.",
+  "requestsSubmitOutcomeUnknown": "Ob die Einreichung angekommen ist, ließ sich nicht feststellen. Nichts geht verloren: Der Entwurf bleibt unverändert erhalten und ein erneuter Versuch legt keinen zweiten Vorgang an.",
+  "requestsSubmitStoreFailed": "Der Vorgang wurde angenommen, konnte auf diesem Gerät aber nicht gespeichert werden. Der Entwurf bleibt erhalten — versuche es gleich noch einmal, damit der Statuslink nicht verloren geht.",
+  "requestsFrozenTitle": "Ausgang unklar",
+  "requestsPickFailed": "Die Datei konnte nicht übernommen werden.",
+  "@requestsPickFailed": {},
+  "requestsResubmitAsNewTitle": "Als neuen Vorgang senden?",
+  "@requestsResubmitAsNewTitle": {},
+  "requestsResubmitAsNewBody": "Der bisherige Vorgang kann bereits eingegangen sein. Ein neuer Versand kann zu einer doppelten Einreichung führen.",
+  "@requestsResubmitAsNewBody": {},
+  "requestsFrozenEditBlocked": "Dieser Entwurf ist eingefroren und kann nicht mehr geändert werden.",
+  "@requestsFrozenEditBlocked": {},
+  "requestsIssuesTitle": "Die Einreichung wurde nicht angenommen",
+  "@requestsIssuesTitle": {},
+  "requestsLoadFailedTitle": "Vorgänge konnten nicht geladen werden",
+  "@requestsLoadFailedTitle": {},
+  "requestsReviewTitle": "Angaben prüfen",
+  "@requestsReviewTitle": {},
+  "requestsReviewIntro": "Nach dem Absenden kann der Antrag nicht mehr geändert werden.",
+  "@requestsReviewIntro": {},
+  "requestsReviewSend": "Verbindlich absenden",
+  "@requestsReviewSend": {},
+  "requestsReviewBack": "Zurück zum Formular",
+  "@requestsReviewBack": {},
+  "requestsReviewFiles": "Anhänge",
+  "@requestsReviewFiles": {},
+  "requestsReviewNoFiles": "Keine Anhänge",
+  "@requestsReviewNoFiles": {},
+  "requestsSuccessTitle": "Vorgang eingereicht",
+  "@requestsSuccessTitle": {},
+  "requestsSuccessOnlyOnThisDevice": "Der Zugang zu diesem Vorgang liegt ausschließlich auf diesem Gerät. Notiere dir die Vorgangsnummer und öffne die Eingangsbestätigung.",
+  "@requestsSuccessOnlyOnThisDevice": {},
+  "requestsDeleteFrozenWarning": "Mit dem Entwurf wird auch der Schlüssel gelöscht, mit dem ein bereits eingegangener Vorgang wiedererkannt würde. Ein späterer Versand kann dann doppelt ankommen.",
+  "@requestsDeleteFrozenWarning": {},
+  "requestsReceiptFilename": "eingangsbestaetigung.pdf",
+  "@requestsReceiptFilename": {},
+  "requestsFrozenBody": "Dieser Entwurf wartet auf das Ergebnis eines Sendeversuchs und kann bis dahin nicht bearbeitet werden — nur unveränderte Daten dürfen unter demselben Schlüssel erneut gesendet werden.",
+  "requestsKeyExpiredTitle": "Schutz vor Doppeleinreichung abgelaufen",
+  "requestsKeyExpiredBody": "Der erste Versuch liegt mehr als 30 Tage zurück. Ein erneutes Senden kann jetzt einen zweiten Vorgang anlegen. Prüfe zuerst unter „Meine Einreichungen“, ob der Vorgang schon existiert.",
+  "requestsKeyExpiredSendAnyway": "Trotzdem als neuen Vorgang senden",
+  "requestsPayloadChanged": "Die Daten dieses Entwurfs haben sich seit dem Sendeversuch geändert. Aus Sicherheitsgründen wurde nichts gesendet.",
+  "requestsReplayNotice": "Dieser Vorgang lag bereits vor. Es wurde nichts doppelt eingereicht.",
+  "requestsCaseApplication": "Finanzantrag",
+  "requestsCaseFeedback": "Feedback",
+  "requestsStatusUnknownName": "Status nicht angegeben",
+  "requestsStatusLoading": "Status wird geladen …",
+  "requestsStatusRetry": "Erneut laden",
+  "requestsStatusUnavailable": "Der Status konnte nicht geladen werden.",
+  "requestsStatusNotFound": "Zu diesem Statuslink wurde kein Vorgang gefunden. Der Eintrag bleibt auf dem Gerät erhalten.",
+  "requestsStatusLinkInvalid": "Der gespeicherte Statuslink passt nicht zu dieser Empfangsstelle. Der Eintrag bleibt erhalten.",
+  "requestsStatusRateLimited": "Zu viele Abfragen. Der Status wird gleich wieder abgerufen.",
+  "requestsStatusOffline": "Offline wird kein Status angezeigt, damit kein alter Stand als aktuell erscheint.",
+  "requestsSubmittedAt": "Eingereicht: {when}",
+  "@requestsSubmittedAt": {
+    "placeholders": {
+      "when": {
+        "type": "String",
+        "example": "4. August 2026, 10:15"
+      }
+    }
+  },
+  "requestsUpdatedAt": "Zuletzt geändert: {when}",
+  "@requestsUpdatedAt": {
+    "placeholders": {
+      "when": {
+        "type": "String",
+        "example": "5. August 2026, 08:30"
+      }
+    }
+  },
+  "requestsResubmittedAt": "Nachgereicht: {when}",
+  "@requestsResubmittedAt": {
+    "placeholders": {
+      "when": {
+        "type": "String",
+        "example": "6. August 2026, 09:00"
+      }
+    }
+  },
+  "requestsArchivedLabel": "Abgeschlossen",
+  "requestsPublicNote": "Hinweis des Gremiums",
+  "requestsDocuments": "Dokumente",
+  "requestsNoDocuments": "Für diesen Vorgang liegen keine öffentlichen Dokumente vor.",
+  "requestsReceipt": "Eingangsbestätigung (PDF)",
+  "requestsDocumentLoading": "Dokument wird geladen …",
+  "requestsDocumentRefused": "Dieses Dokument liegt nicht bei der hinterlegten Empfangsstelle und wurde deshalb nicht geladen.",
+  "requestsDocumentTooLarge": "Das Dokument ist zu groß für die Anzeige in der App.",
+  "requestsDocumentUnavailable": "Das Dokument konnte nicht geladen werden.",
+  "requestsActionsTitle": "Verfügbare Aktionen",
+  "requestsActionsResubmission": "Nachreichung möglich",
+  "requestsActionsReceipt": "Quittung kann eingereicht werden",
+  "requestsActionsNone": "Zurzeit ist keine Nachreichung vorgesehen.",
+  "requestsActionsWebOnly": "Das Einreichen weiterer Dateien bietet das Gremiensystem bisher nur über seine Weboberfläche an; sobald es dafür eine öffentliche Schnittstelle gibt, geschieht es direkt hier.",
+  "requestsFeedbackTextLabel": "Dein Feedback",
+  "requestsFeedbackAreaLabel": "Bereich",
+  "requestsFeedbackSubmitterLabel": "Eingereicht von",
+  "requestsApplicantLabel": "Antragstellende Person",
+  "requestsNumberLabel": "Nummer {number}",
+  "@requestsNumberLabel": {
+    "placeholders": {
+      "number": {
+        "type": "String",
+        "example": "A_0042_2026"
+      }
+    }
+  },
+  "requestsNoNumber": "Ohne Nummer",
+  "requestsSecretLinkNotice": "Der Statuslink ist der einzige Zugang zu diesem Vorgang. Er bleibt verschlüsselt auf dem Gerät und wird weder angezeigt noch geteilt.",
+  "requestsForgetCase": "Vorgang vom Gerät entfernen",
+  "requestsForgetCaseConfirm": "Der Statuslink ist der einzige Zugang zu diesem Vorgang und lässt sich nicht wiederherstellen — auch nicht durch das Gremium. Wirklich entfernen?",
+  "requestsForgetCaseAction": "Entfernen",
+  "requestsCancel": "Abbrechen",
+  "requestsCancelUpload": "Übertragung abbrechen",
+  "@requestsCancelUpload": {},
+  "navMailShort": "E-Mail",
+  "@navMailShort": {
+    "description": "Kurzer Name der E-Mail für die Navigationsleiste. Der volle Modultitel bleibt „Studentische E-Mail“."
+  },
+  "moduleCampusMapTitle": "Lageplan & Räume",
+  "moduleContactsTitle": "Anlaufstellen & Kontakte",
+  "moduleCategoryStudy": "Studium",
+  "moduleCategoryCampus": "Campus",
+  "moduleCategoryApp": "App",
+  "newsFeedTitle": "Campus News",
+  "newsShowMore": "Mehr anzeigen",
+  "@newsShowMore": {},
+  "newsShowLess": "Weniger anzeigen",
+  "@newsShowLess": {},
+  "newsFilterTooltip": "Filter",
+  "@newsFilterTooltip": {},
+  "newsFilterTitle": "Filter",
+  "@newsFilterTitle": {},
+  "newsLoadMoreFailed": "Weitere Beiträge konnten nicht geladen werden.",
+  "@newsLoadMoreFailed": {},
+  "newsLoadMoreRetry": "Erneut versuchen",
+  "@newsLoadMoreRetry": {},
+  "newsNoContent": "Für diesen Beitrag liegt kein Text vor.",
+  "@newsNoContent": {},
+  "newsAgeJustNow": "gerade eben",
+  "newsAgeMinutes": "vor {count} min",
+  "@newsAgeMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newsAgeHours": "vor {count} h",
+  "@newsAgeHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newsAgeDays": "{count, plural, =1{vor 1 Tag} other{vor {count} Tagen}}",
+  "@newsAgeDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newsAgeWeeks": "{count, plural, =1{vor 1 Woche} other{vor {count} Wochen}}",
+  "@newsAgeWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    },
+    "description": "Ab etwa einem Monat wechselt die Anzeige auf ein kurzes Datum."
+  },
+  "moodleSearchTooltip": "Kurse durchsuchen",
+  "moodleSearchLabel": "Kurs suchen",
+  "moodleSearchHint": "Name, Kurzname oder Beschreibung",
+  "moodleSearchClear": "Suche leeren",
+  "moodleSearchEmptyTitle": "Kein passender Kurs",
+  "moodleSearchEmptyMessage": "Kein geladener Kurs passt zur Suche. Prüfe die Schreibweise oder aktualisiere die Kursliste.",
+  "@moodleSearchEmptyMessage": {
+    "description": "Die Suche läuft ausschließlich über die bereits geladenen Kurse; deshalb der Hinweis aufs Aktualisieren."
+  },
+  "gradesAverageLabel": "Durchschnitt",
+  "@gradesAverageLabel": {
+    "description": "Anzeigename der HIS-QIS-Zeile „Credit-Sammelkonto“. Der Wert stammt unverändert von dort und wird nicht selbst berechnet."
+  },
+  "commonCopy": "Kopieren",
+  "commonCopied": "In die Zwischenablage kopiert.",
+  "requestsCategoryTravel": "Fahrtkosten",
+  "requestsCategoryApp": "App",
+  "requestsCategoryCampus": "Campus",
+  "searchTitle": "Suche",
+  "searchTooltip": "Suchen",
+  "searchHint": "Bereiche, Räume, News, Kontakte, Gerichte",
+  "searchClear": "Eingabe löschen",
+  "searchStartTyping": "Tippe, um zu suchen.",
+  "searchScopeHint": "Durchsucht werden nur öffentliche Inhalte. Mail, Noten und Moodle bleiben außen vor und haben ihre eigene Suche.",
+  "searchNoResults": "Nichts gefunden",
+  "searchNoResultsHint": "Prüfe die Schreibweise. Gesucht wird in den bereits geladenen Inhalten.",
+  "searchCategorySection": "Bereiche",
+  "searchCategoryNews": "News",
+  "searchCategoryEvent": "Termine",
+  "searchCategoryTimetable": "Stundenplan",
+  "searchCategoryRoom": "Räume",
+  "searchCategoryContact": "Kontakte",
+  "searchCategoryMeal": "Mensa",
+  "searchResultCount": "{count, plural, =1{1 Treffer} other{{count} Treffer}}",
+  "@searchResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "canteenNextOpenDay": "Nächster Tag mit Angebot",
+  "canteenShowingToday": "Heute",
+  "canteenJumpToNextOpen": "Zum nächsten Angebot",
+  "todayMailStatusUnread": "{count, plural, =0{Keine ungelesenen Nachrichten} =1{1 ungelesene Nachricht} other{{count} ungelesene Nachrichten}}",
+  "@todayMailStatusUnread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "todayGradesChecked": "Zuletzt geprüft: {when}",
+  "@todayGradesChecked": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "todayGradesNeverChecked": "Noch nicht abgerufen",
+  "todayGradesPrivacyHint": "Noten werden hier nicht angezeigt.",
+  "todayTasksMoodleDue": "{count, plural, =1{1 Abgabe in den nächsten 7 Tagen} other{{count} Abgaben in den nächsten 7 Tagen}}",
+  "@todayTasksMoodleDue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "requestsAddAttachment": "Datei hinzufügen",
+  "requestsRemoveAttachment": "Anhang entfernen",
+  "requestsNoAttachments": "Keine Anhänge.",
+  "calendarViewWeek": "Woche",
+  "calendarWeekAllDay": "Ganztägig",
+  "calendarWeekSemantic": "{title}, {start} bis {end}",
+  "@calendarWeekSemantic": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsNotifications": "Benachrichtigungen",
+  "@settingsNotifications": {},
+  "settingsNotificationsSubtitle": "Lokale Erinnerungen auf diesem Gerät",
+  "@settingsNotificationsSubtitle": {},
+  "notificationsTitle": "Benachrichtigungen",
+  "@notificationsTitle": {},
+  "notificationsMasterSwitch": "Benachrichtigungen aktivieren",
+  "@notificationsMasterSwitch": {},
+  "notificationsMasterSwitchSubtitle": "Lokale Erinnerungen auf diesem Gerät empfangen",
+  "@notificationsMasterSwitchSubtitle": {},
+  "notificationsSectionCategories": "Themen & Kategorien",
+  "@notificationsSectionCategories": {},
+  "notificationsSectionStatus": "Status",
+  "@notificationsSectionStatus": {},
+  "notificationsCategoryDailySummary": "Morgendliche Tagesübersicht",
+  "@notificationsCategoryDailySummary": {},
+  "notificationsCategoryDailySummarySubtitle": "Täglich um 08:00 Uhr: Vorlesungen, relevante Events, Moodle-Abgabefristen und Speiseplan",
+  "@notificationsCategoryDailySummarySubtitle": {},
+  "notificationsCategoryEvents": "Gemerkte & öffentliche Events",
+  "@notificationsCategoryEvents": {},
+  "notificationsCategoryEventsSubtitle": "Genau eine Erinnerung 24 Stunden vor Beginn, zugestellt zwischen 07:00 und 20:00 Uhr",
+  "@notificationsCategoryEventsSubtitle": {},
+  "notificationsCategoryCanteen": "Favorisierte Mensagerichte",
+  "@notificationsCategoryCanteen": {},
+  "notificationsCategoryCanteenSubtitle": "Einzelhinweis um 11:00 Uhr am Angebotstag",
+  "@notificationsCategoryCanteenSubtitle": {},
+  "notificationsTimetableMoodleNoticeTitle": "Stundenplan und Moodle",
+  "@notificationsTimetableMoodleNoticeTitle": {},
+  "notificationsTimetableMoodleNotice": "Lehrveranstaltungen und Moodle-Fristen erscheinen in der Tagesübersicht um 08:00 Uhr und erzeugen keine zusätzlichen Einzelerinnerungen.",
+  "@notificationsTimetableMoodleNotice": {},
+  "notificationsFreshnessTitle": "Hinweis zur Aktualität",
+  "@notificationsFreshnessTitle": {},
+  "notificationsFreshnessNotice": "Erinnerungen beruhen auf dem letzten Stand, den die App kennt. Öffne die App regelmäßig, damit Termine und Speisepläne aktuell bleiben. Änderungen, die entstehen, während die App geschlossen ist, können nicht gemeldet werden.",
+  "@notificationsFreshnessNotice": {},
+  "notificationsPermissionBlockedTitle": "Mitteilungen sind deaktiviert",
+  "@notificationsPermissionBlockedTitle": {},
+  "notificationsPermissionBlockedMessage": "Mitteilungen sind in den Systemeinstellungen deaktiviert. Ohne diese Berechtigung wird nichts zugestellt.",
+  "@notificationsPermissionBlockedMessage": {},
+  "notificationsOpenSystemSettings": "Zu den Systemeinstellungen",
+  "@notificationsOpenSystemSettings": {},
+  "notificationsCategoryMuted": "In den Systemeinstellungen stummgeschaltet.",
+  "@notificationsCategoryMuted": {},
+  "notificationsPendingCount": "{count, plural, =0{Aktuell sind keine Erinnerungen vorgemerkt} =1{1 Erinnerung ist vorgemerkt} other{{count} Erinnerungen sind vorgemerkt}}",
+  "@notificationsPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsSwitchStateOn": "Aktiviert",
+  "@notificationsSwitchStateOn": {},
+  "notificationsSwitchStateOff": "Deaktiviert",
+  "@notificationsSwitchStateOff": {},
+  "notificationsSwitchHintEnable": "Doppeltippen zum Einschalten",
+  "@notificationsSwitchHintEnable": {},
+  "notificationsSwitchHintDisable": "Doppeltippen zum Ausschalten",
+  "@notificationsSwitchHintDisable": {},
+  "notificationsPrePromptTitle": "Lokale Benachrichtigungen aktivieren?",
+  "@notificationsPrePromptTitle": {},
+  "notificationsPrePromptBody": "Erhalte morgens um 08:00 Uhr deine Tagesübersicht mit Vorlesungen, Terminen, Fristen und Mensa sowie rechtzeitige Hinweise zu gemerkten Events (24 Stunden vorher) und Mensa-Favoriten (11:00 Uhr). Alle Benachrichtigungen werden rein lokal auf deinem Smartphone geplant – ohne Tracking, ohne Server und ohne Nutzerkonto.",
+  "@notificationsPrePromptBody": {},
+  "notificationsPrePromptPrivacy": "100 % geräteseitig: Deine Daten und Einstellungen verlassen niemals dein Smartphone.",
+  "@notificationsPrePromptPrivacy": {},
+  "notificationsPrePromptAllow": "Erinnerungen erlauben",
+  "@notificationsPrePromptAllow": {},
+  "notificationsPrePromptNotNow": "Nicht jetzt",
+  "@notificationsPrePromptNotNow": {},
+  "notificationsEntryUnavailable": "Der aufgerufene Eintrag ist nicht mehr vorhanden.",
+  "@notificationsEntryUnavailable": {},
+  "notificationEventReminderTitleTomorrow": "Morgen: {title}",
+  "@notificationEventReminderTitleTomorrow": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "notificationEventReminderTitleToday": "Heute: {title}",
+  "@notificationEventReminderTitleToday": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "notificationEventReminderWhenTomorrow": "Morgen um {time} Uhr",
+  "@notificationEventReminderWhenTomorrow": {
+    "placeholders": { "time": { "type": "String" } }
+  },
+  "notificationEventReminderWhenToday": "Heute um {time} Uhr",
+  "@notificationEventReminderWhenToday": {
+    "placeholders": { "time": { "type": "String" } }
+  },
+  "notificationEventReminderWhenTomorrowAllDay": "Morgen, ganztägig",
+  "@notificationEventReminderWhenTomorrowAllDay": {},
+  "notificationEventReminderWhenTodayAllDay": "Heute, ganztägig",
+  "@notificationEventReminderWhenTodayAllDay": {},
+  "notificationEventReminderBody": "{when}.",
+  "@notificationEventReminderBody": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "notificationEventReminderBodyWithLocation": "{when}, {location}.",
+  "@notificationEventReminderBodyWithLocation": {
+    "placeholders": {
+      "when": { "type": "String" },
+      "location": { "type": "String" }
+    }
+  },
+  "notificationChannelDailySummaryName": "Tagesübersicht",
+  "@notificationChannelDailySummaryName": {},
+  "notificationChannelDailySummaryDescription": "Die morgendliche Übersicht über Vorlesungen, Termine, Fristen und Mensa.",
+  "@notificationChannelDailySummaryDescription": {},
+  "notificationChannelEventsName": "Event-Erinnerungen",
+  "@notificationChannelEventsName": {},
+  "notificationChannelEventsDescription": "Erinnerungen an gemerkte Events und Termine aus aktivierten Kalendern.",
+  "@notificationChannelEventsDescription": {},
+  "notificationChannelCanteenName": "Mensa-Favoriten",
+  "@notificationChannelCanteenName": {},
+  "notificationChannelCanteenDescription": "Hinweise, wenn ein favorisiertes Gericht auf dem Speiseplan steht.",
+  "@notificationChannelCanteenDescription": {},
+  "notificationCanteenFavouriteTitle": "Heute dein Lieblingsgericht in der Mensa",
+  "@notificationCanteenFavouriteTitle": {},
+  "notificationCanteenFavouriteTitleMultiple": "Heute deine Lieblingsgerichte in der Mensa",
+  "@notificationCanteenFavouriteTitleMultiple": {},
+  "notificationCanteenFavouriteBody": "In der {canteen} gibt es heute laut Speiseplan »{dish}«.",
+  "@notificationCanteenFavouriteBody": {
+    "placeholders": {
+      "canteen": { "type": "String" },
+      "dish": { "type": "String" }
+    }
+  },
+  "notificationCanteenFavouriteBodyWithPrice": "In der {canteen} gibt es heute laut Speiseplan »{dish}« ({price}).",
+  "@notificationCanteenFavouriteBodyWithPrice": {
+    "placeholders": {
+      "canteen": { "type": "String" },
+      "dish": { "type": "String" },
+      "price": { "type": "String" }
+    }
+  },
+  "notificationCanteenFavouriteBodyMore": "In der {canteen} gibt es heute laut Speiseplan »{dish}« {more, plural, =1{und einen weiteren Favoriten} other{und {more} weitere Favoriten}}.",
+  "@notificationCanteenFavouriteBodyMore": {
+    "placeholders": {
+      "canteen": { "type": "String" },
+      "dish": { "type": "String" },
+      "more": { "type": "int" }
+    }
+  },
+  "canteenHighlightedByNotification": "Aus deiner Benachrichtigung",
+  "@canteenHighlightedByNotification": {},
+  "notificationDailySummaryTitle": "Guten Morgen! Dein Tag am Campus",
+  "@notificationDailySummaryTitle": {},
+  "notificationDailySummaryBody": "Heute {items}.",
+  "@notificationDailySummaryBody": {
+    "placeholders": {
+      "items": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationDailySummaryJoin": "{head} und {last}",
+  "@notificationDailySummaryJoin": {
+    "placeholders": {
+      "head": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationDailySummaryLectures": "{count, plural, =1{1 Vorlesung} other{{count} Vorlesungen}}",
+  "@notificationDailySummaryLectures": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationDailySummaryLecturesFirstAt": "{lectures} (erste um {time} Uhr)",
+  "@notificationDailySummaryLecturesFirstAt": {
+    "placeholders": {
+      "lectures": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationDailySummaryEvents": "{count, plural, =1{1 Termin} other{{count} Termine}}",
+  "@notificationDailySummaryEvents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationDailySummaryEventAt": "\u00bb{title}\u00ab um {time} Uhr",
+  "@notificationDailySummaryEventAt": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationDailySummaryEventAllDay": "\u00bb{title}\u00ab",
+  "@notificationDailySummaryEventAllDay": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationDailySummaryMoodle": "{count, plural, =1{1 Moodle-Abgabefrist} other{{count} Moodle-Abgabefristen}}",
+  "@notificationDailySummaryMoodle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationDailySummaryCanteenFavourite": "\u00bb{meal}\u00ab in der Mensa",
+  "@notificationDailySummaryCanteenFavourite": {
+    "placeholders": {
+      "meal": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationDailySummaryCanteenMenu": "Speiseplan verf\u00fcgbar",
+  "@notificationDailySummaryCanteenMenu": {},
+  "privacyNotificationsTitle": "Benachrichtigungen",
+  "@privacyNotificationsTitle": {},
+  "privacyNotificationsBody": "Benachrichtigungen werden ausschließlich auf diesem Gerät geplant. Die App fragt die Berechtigung des Betriebssystems erst, nachdem du sie ausdrücklich aktiviert hast, und wertet dafür nur Daten aus, die ohnehin schon lokal gespeichert sind – Termine, Stundenplan, Moodle-Fristen, Speiseplan und deine Favoriten. Es gibt keinen Push-Dienst, keine Gerätekennung, kein Nutzerkonto und keinen Empfänger: Zu keinem Zeitpunkt verlassen dafür Daten dein Gerät. Deine Einstellungen kannst du jederzeit unter Mehr → Einstellungen → Benachrichtigungen ändern oder alles wieder abschalten.",
+  "@privacyNotificationsBody": {}
+}

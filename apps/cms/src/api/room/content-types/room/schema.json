@@ -1,0 +1,78 @@
+{
+  "kind": "collectionType",
+  "collectionName": "rooms",
+  "info": {
+    "singularName": "room",
+    "pluralName": "rooms",
+    "displayName": "Room",
+    "description": "An editorial overlay for a room in packages/campus-map. roomKey, editorLabel and catalogActive are maintained by 'pnpm --filter @campus/cms rooms:sync'. Display names, descriptions, visibility and contact relations are maintained here and never touched by the sync."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": false
+    }
+  },
+  "attributes": {
+    "editorLabel": {
+      "type": "string",
+      "required": true,
+      "maxLength": 200,
+      "description": "CATALOGUE — human readable label used in relation pickers."
+    },
+    "roomKey": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 120,
+      "regex": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "CATALOGUE — stable technical identifier. Never edit; the map catalogue owns it."
+    },
+    "catalogActive": {
+      "type": "boolean",
+      "required": true,
+      "default": true,
+      "description": "CATALOGUE — false once the room disappeared from the catalogue. The sync deactivates rather than deletes, so editorial work is never lost."
+    },
+    "displayNameDe": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "EDITORIAL — optional German display name shown instead of the bare room number."
+    },
+    "displayNameEn": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "EDITORIAL — optional English display name."
+    },
+    "descriptionDe": {
+      "type": "text",
+      "maxLength": 600,
+      "description": "EDITORIAL — optional short German description."
+    },
+    "descriptionEn": {
+      "type": "text",
+      "maxLength": 600,
+      "description": "EDITORIAL — optional short English description."
+    },
+    "isVisible": {
+      "type": "boolean",
+      "required": true,
+      "default": true,
+      "description": "EDITORIAL — hide a room from the public API without touching the catalogue."
+    },
+    "contactPersons": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::contact-person.contact-person",
+      "mappedBy": "rooms"
+    },
+    "contactAreas": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::contact-area.contact-area",
+      "mappedBy": "rooms"
+    }
+  }
+}

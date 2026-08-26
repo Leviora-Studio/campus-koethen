@@ -1,0 +1,55 @@
+# Campus Köthen — gitleaks configuration
+#
+# Extends the upstream default ruleset; this file only records deliberate,
+# justified exceptions. Every entry names WHY it is not a secret, so the
+# allowlist stays auditable instead of becoming a place to silence findings.
+
+[extend]
+useDefault = true
+
+[[rules]]
+# Keep the default generic-api-key rule, but teach it about this repository's
+# known-safe placeholder vocabulary. A secret keyword must start at a field or
+# word boundary: otherwise public identifiers such as `roomKey` are parsed as
+# `key = <room identifier>` and every sufficiently long room key becomes a
+# false positive.
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(?:^|[^0-9a-z])(?:key|api|token|secret|client|passwd|password|auth|access)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\||:|<=|=>|:=)(?:'|\"|\s|=|\x60){0,5}([0-9a-z\-_.=]{10,150})(?:['|\"|\n|\r|\s|\x60|;]|$)'''
+keywords = ["key", "api", "token", "secret", "client", "passwd", "password", "auth", "access"]
+
+[rules.allowlist]
+regexTarget = "match"
+regexes = [
+  # Placeholders in committed .env.example templates. Real values exist only in
+  # git-ignored .env files and on the server.
+  '''REPLACE_ME[A-Z_]*''',
+  '''(?i)(build-only|ci)[-_]?placeholder[-_0-9a-z]*''',
+  '''ci_only_not_a_secret''',
+  '''tobemodified''',
+  '''toBeModified[0-9]*''',
+  # Synthetic Moodle token in a parser unit test, not a credential.
+  #
+  # `parseToken` has to be tested against a token-shaped string, so the fixture
+  # looks like one. That it is synthetic is provable rather than asserted: the
+  # value is 16 characters long and uses each of the 16 hex digits EXACTLY once.
+  # A real Moodle webservice token is a 32-character MD5, and a genuine one
+  # would essentially never be a permutation of the hex alphabet.
+  #
+  # Scoped to the value, not to the file: a real credential accidentally
+  # committed to that same test file must still be caught.
+  '''abcdef0123456789''',
+]
+
+[allowlist]
+description = "Paths with justified, verified exceptions"
+
+paths = [
+  # Lockfiles contain integrity hashes, not credentials.
+  '''pnpm-lock\.yaml''',
+  '''apps/mobile/pubspec\.lock''',
+  # Generated Prisma client: embeds the schema text, no secrets.
+  '''apps/backend/src/generated/.*''',
+  # This file necessarily contains the patterns it allows.
+  '''\.gitleaks\.toml''',
+]

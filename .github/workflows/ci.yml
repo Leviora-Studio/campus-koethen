@@ -1,0 +1,307 @@
+# Campus Köthen — continuous integration
+#
+# Tests code on every branch push and pull request. After every gate passes,
+# main and version tags call images.yml. Nothing in CI performs a deployment.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['*']
+  pull_request:
+
+# Least privilege: CI only ever needs to read the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.23.1'
+  FLUTTER_VERSION: '3.44.7'
+
+jobs:
+  backend:
+    name: Backend — lint, typecheck, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # The synchronisation guarantees ("an empty or failed upstream response
+      # never deletes stored data") are assertions about database state, so the
+      # integration tests need a real PostgreSQL, not a mock.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: campus_app
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: campus_app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U campus_app -d campus_app_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://campus_app:ci_only_not_a_secret@localhost:5432/campus_app_test?schema=public
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: pnpm/action-setup@08c4be7e2e672a47d11bd04269e27e5f3e8529cb # v6.0.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Generate Prisma client
+        run: pnpm --filter @campus/backend exec prisma generate
+
+      - name: Apply migrations
+        run: pnpm --filter @campus/backend exec prisma migrate deploy
+
+      - name: Lint
+        run: pnpm --filter @campus/backend lint
+
+      - name: Typecheck
+        run: pnpm --filter @campus/backend typecheck
+
+      - name: Unit and integration tests
+        run: pnpm --filter @campus/backend test
+
+      - name: Build
+        run: pnpm --filter @campus/backend build
+
+      - name: OpenAPI contract is up to date
+        # The published contract must never silently drift from the code.
+        run: |
+          pnpm --filter @campus/backend openapi:generate
+          if ! git diff --exit-code -- packages/openapi/openapi.json; then
+            echo "::error::packages/openapi/openapi.json is out of date. Run 'pnpm openapi:generate' and commit the result."
+            exit 1
+          fi
+
+  map:
+    name: Campus map — validate catalogue and generated assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: pnpm/action-setup@08c4be7e2e672a47d11bd04269e27e5f3e8529cb # v6.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validator and generator tests
+        run: pnpm --filter @campus/map test
+
+      - name: Catalogue matches the canonical SVG
+        run: pnpm --filter @campus/map validate
+
+      - name: Generated Flutter assets are up to date
+        # `check` never writes: a branch that edits the canonical catalogue or
+        # the SVG without regenerating fails here instead of shipping a map
+        # whose geometry no longer matches the room keys.
+        run: pnpm --filter @campus/map check
+
+  cms:
+    name: CMS — typecheck, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: pnpm/action-setup@08c4be7e2e672a47d11bd04269e27e5f3e8529cb # v6.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @campus/cms typecheck
+
+      - name: Tests
+        # Room field protection and the sync planner, both without a database.
+        run: pnpm --filter @campus/cms test
+
+      - name: Build the admin panel
+        # Needs no database and no real secret — these placeholders exist only
+        # so the config loader is satisfied.
+        env:
+          NODE_ENV: production
+          APP_KEYS: ci-placeholder-1,ci-placeholder-2
+          API_TOKEN_SALT: ci-placeholder
+          ADMIN_JWT_SECRET: ci-placeholder
+          TRANSFER_TOKEN_SALT: ci-placeholder
+          JWT_SECRET: ci-placeholder
+          ENCRYPTION_KEY: ci-placeholder
+        run: pnpm --filter @campus/cms build
+
+      - name: Content-type schemas are valid JSON and keep slugs non-localised
+        # A slug that becomes localised would let the stable identifier diverge
+        # per locale and silently break the app's channel subscriptions.
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          failures = []
+          for schema in pathlib.Path('apps/cms/src/api').glob('*/content-types/*/schema.json'):
+              data = json.loads(schema.read_text())
+              slug = data.get('attributes', {}).get('slug')
+              if slug is None:
+                  continue
+              localized = slug.get('pluginOptions', {}).get('i18n', {}).get('localized')
+              if localized is not False:
+                  failures.append(f'{schema}: slug must set i18n.localized = false')
+              if not slug.get('unique'):
+                  failures.append(f'{schema}: slug must be unique')
+          for line in failures:
+              print(f'::error::{line}')
+          sys.exit(1 if failures else 0)
+          PY
+
+  flutter:
+    name: Flutter — format, analyze, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/mobile
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Generate localisations
+        run: flutter gen-l10n
+
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        # Treat every finding as blocking, not just errors.
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      - name: Test
+        # TZ pinned because a runner in UTC
+        # cannot tell a correct local-day mapping in the calendar from a wrong
+        # one, so those tests would pass on exactly the bug they exist to catch.
+        env:
+          TZ: Europe/Berlin
+        run: flutter test
+
+      - name: No user-visible string bypasses localisation
+        # The app must never hardcode UI text; everything goes through l10n.
+        run: |
+          if grep -rnE "Text\(\s*'[A-Za-zÄÖÜäöüß]{4,}" lib/ --include='*.dart' \
+             | grep -v 'l10n\.' ; then
+            echo "::error::Hardcoded user-visible string found. Use AppLocalizations instead."
+            exit 1
+          fi
+
+      - name: Audit Dart dependencies
+        # The Node side has `pnpm audit --audit-level high`; the Dart side had
+        # nothing, although `enough_mail`, `dio`, `flutter_secure_storage`,
+        # `hive_ce` and `url_launcher` are exactly the packages that touch
+        # credentials and personal content. Same HIGH/CRITICAL threshold, and
+        # a failed audit fails the job rather than passing quietly.
+        run: dart run tool/audit_dependencies.dart
+
+  security:
+    name: Security — secret scan and dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # gitleaks scans history, which needs more than a shallow clone.
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          echo "${GITLEAKS_SHA256}  /tmp/${archive}" | sha256sum --check --strict
+          tar -xzf "/tmp/${archive}" -C /tmp gitleaks
+          /tmp/gitleaks version
+
+      - name: Secret scan
+        run: /tmp/gitleaks detect --source . --redact --no-banner --config .gitleaks.toml
+
+      - uses: pnpm/action-setup@08c4be7e2e672a47d11bd04269e27e5f3e8529cb # v6.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit (high and critical)
+        # Reported honestly: the job fails on a real high/critical finding
+        # rather than piping the result to `true`.
+        run: pnpm audit --audit-level high
+
+      - name: No image is ever served from the canteen source
+        # A regression here would reintroduce third-party image use, which this
+        # project deliberately does not do.
+        #
+        # Scoped deliberately: the generated Prisma client embeds the schema
+        # (comments included), and prose explaining WHY the field is dropped is
+        # not a usage. Only real references outside the parser count — the
+        # parser accepts the field precisely so it can discard it.
+        run: |
+          hits=$(grep -rn --include='*.ts' --include='*.dart' "image_url" \
+                   apps/backend/src apps/mobile/lib 2>/dev/null \
+                 | grep -v '/generated/' \
+                 | grep -v 'meine-mensa.schema.ts' \
+                 | grep -vE ':\s*(//|\*|/\*)' || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::food.image_url must not be stored or served."
+            exit 1
+          fi
+          echo "OK: image_url appears only where it is parsed and discarded."
+
+  images:
+    name: Publish verified images
+    needs: [backend, map, cms, flutter, security]
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/images.yml

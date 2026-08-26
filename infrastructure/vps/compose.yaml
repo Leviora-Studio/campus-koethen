@@ -1,0 +1,347 @@
+# Campus Koethen - portable VPS deployment
+#
+# This stack pulls immutable images from a container registry. It deliberately
+# has no build section and no bind mounts into a source checkout: compose.yaml
+# plus a filled .env are sufficient on the target host.
+
+name: ${COMPOSE_PROJECT_NAME:-campus-koethen}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '${DOCKER_LOG_MAX_SIZE:-10m}'
+    max-file: '${DOCKER_LOG_MAX_FILES:-5}'
+
+x-backend-image: &backend-image
+  image: ${BACKEND_IMAGE_REPOSITORY:-ghcr.io/leviora-studio/campus-koethen/backend}:${CAMPUS_IMAGE_TAG:?Set CAMPUS_IMAGE_TAG to an immutable sha- tag}
+  platform: ${CONTAINER_PLATFORM:-linux/amd64}
+
+x-backend-environment: &backend-environment
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: ${API_CONTAINER_PORT:-3000}
+  DATABASE_URL: postgresql://${APP_DATABASE_USERNAME:?Set APP_DATABASE_USERNAME}:${APP_DATABASE_PASSWORD:?Set APP_DATABASE_PASSWORD}@db:${POSTGRES_CONTAINER_PORT:-5432}/${APP_DATABASE_NAME:?Set APP_DATABASE_NAME}?schema=${APP_DATABASE_SCHEMA:-public}
+  STRAPI_BASE_URL: ${BACKEND_STRAPI_BASE_URL:-http://cms:1337}
+  STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
+  STRAPI_TIMEOUT_MS: ${STRAPI_TIMEOUT_MS:-10000}
+  STRAPI_RETRY_ATTEMPTS: ${STRAPI_RETRY_ATTEMPTS:-2}
+  WORKER_TIME_ZONE: ${WORKER_TIME_ZONE:-UTC}
+  USER_TEST_DATA_ENABLED: '${USER_TEST_DATA_ENABLED:-false}'
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS to an explicit comma-separated allowlist}
+  # ON by deliberate decision (Erik, LEVIORA-180): the API is a public
+  # read-only contract, so publishing the page that documents it is the point,
+  # not an oversight. The code default stays conservative (off in production) —
+  # this line is where the project overrides it, so the choice is versioned and
+  # attributable rather than implicit.
+  DOCS_ENABLED: '${DOCS_ENABLED:-true}'
+  CANTEEN_SOURCE_URL: ${CANTEEN_SOURCE_URL:-https://meine-mensa.de/api/food_plans}
+  CANTEEN_HTTP_TIMEOUT_MS: ${CANTEEN_HTTP_TIMEOUT_MS:-15000}
+  CANTEEN_RETRY_ATTEMPTS: ${CANTEEN_RETRY_ATTEMPTS:-3}
+  CANTEEN_MAX_RESPONSE_BYTES: ${CANTEEN_MAX_RESPONSE_BYTES:-8000000}
+  CANTEEN_REQUEST_SPACING_MS: ${CANTEEN_REQUEST_SPACING_MS:-1000}
+  CANTEEN_SYNC_CRON: '${CANTEEN_SYNC_CRON:-0 */2 * * *}'
+  CANTEEN_SYNC_ON_BOOT: '${CANTEEN_SYNC_ON_BOOT:-true}'
+  CANTEEN_STALE_AFTER_MINUTES: ${CANTEEN_STALE_AFTER_MINUTES:-240}
+  CANTEEN_SYNC_DAYS_AHEAD: ${CANTEEN_SYNC_DAYS_AHEAD:-14}
+  WEBUNTIS_ENABLED: '${WEBUNTIS_ENABLED:-false}'
+  WEBUNTIS_BASE_URL: ${WEBUNTIS_BASE_URL:-https://hsa.webuntis.com/WebUntis/api/rest/view/v1}
+  WEBUNTIS_ANONYMOUS_SCHOOL: ${WEBUNTIS_ANONYMOUS_SCHOOL:-hsa}
+  WEBUNTIS_HTTP_TIMEOUT_MS: ${WEBUNTIS_HTTP_TIMEOUT_MS:-20000}
+  WEBUNTIS_RETRY_ATTEMPTS: ${WEBUNTIS_RETRY_ATTEMPTS:-3}
+  WEBUNTIS_REQUEST_SPACING_MS: ${WEBUNTIS_REQUEST_SPACING_MS:-1500}
+  WEBUNTIS_MAX_RESPONSE_BYTES: ${WEBUNTIS_MAX_RESPONSE_BYTES:-16000000}
+  WEBUNTIS_GROUP_SYNC_CRON: '${WEBUNTIS_GROUP_SYNC_CRON:-0 * * * *}'
+  WEBUNTIS_ENTRY_SYNC_CRON: '${WEBUNTIS_ENTRY_SYNC_CRON:-0 * * * *}'
+  WEBUNTIS_SYNC_ON_BOOT: '${WEBUNTIS_SYNC_ON_BOOT:-true}'
+  WEBUNTIS_LOOKBACK_DAYS: ${WEBUNTIS_LOOKBACK_DAYS:-7}
+  WEBUNTIS_LOOKAHEAD_DAYS: ${WEBUNTIS_LOOKAHEAD_DAYS:-28}
+  WEBUNTIS_STALE_AFTER_MINUTES: ${WEBUNTIS_STALE_AFTER_MINUTES:-180}
+  PUBLIC_CALENDAR_ENABLED: '${PUBLIC_CALENDAR_ENABLED:-false}'
+  PUBLIC_CALENDAR_HTTP_TIMEOUT_MS: ${PUBLIC_CALENDAR_HTTP_TIMEOUT_MS:-}
+  PUBLIC_CALENDAR_RETRY_ATTEMPTS: ${PUBLIC_CALENDAR_RETRY_ATTEMPTS:-}
+  PUBLIC_CALENDAR_REQUEST_SPACING_MS: ${PUBLIC_CALENDAR_REQUEST_SPACING_MS:-}
+  PUBLIC_CALENDAR_CATALOG_SYNC_CRON: '${PUBLIC_CALENDAR_CATALOG_SYNC_CRON:-}'
+  PUBLIC_CALENDAR_EVENT_SYNC_CRON: '${PUBLIC_CALENDAR_EVENT_SYNC_CRON:-}'
+  PUBLIC_CALENDAR_SYNC_ON_BOOT: '${PUBLIC_CALENDAR_SYNC_ON_BOOT:-true}'
+  PUBLIC_CALENDAR_MAX_FEED_BYTES: ${PUBLIC_CALENDAR_MAX_FEED_BYTES:-}
+  PUBLIC_CALENDAR_MAX_EVENTS: ${PUBLIC_CALENDAR_MAX_EVENTS:-}
+  PUBLIC_CALENDAR_MAX_OCCURRENCES: ${PUBLIC_CALENDAR_MAX_OCCURRENCES:-}
+  PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT: ${PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT:-}
+  PUBLIC_CALENDAR_MAX_SCANNED_OCCURRENCES: ${PUBLIC_CALENDAR_MAX_SCANNED_OCCURRENCES:-}
+  PUBLIC_CALENDAR_MAX_TEXT_LENGTH: ${PUBLIC_CALENDAR_MAX_TEXT_LENGTH:-}
+  PUBLIC_CALENDAR_LOOKBACK_DAYS: ${PUBLIC_CALENDAR_LOOKBACK_DAYS:-}
+  PUBLIC_CALENDAR_LOOKAHEAD_DAYS: ${PUBLIC_CALENDAR_LOOKAHEAD_DAYS:-}
+  PUBLIC_CALENDAR_STALE_AFTER_MINUTES: ${PUBLIC_CALENDAR_STALE_AFTER_MINUTES:-}
+  PUBLIC_CALENDAR_FALLBACK_TIME_ZONE: ${PUBLIC_CALENDAR_FALLBACK_TIME_ZONE:-}
+  PUBLIC_CALENDAR_USER_AGENT: ${PUBLIC_CALENDAR_USER_AGENT:-}
+  PUBLIC_CALENDAR_API_MAX_CALENDARS: ${PUBLIC_CALENDAR_API_MAX_CALENDARS:-}
+  PUBLIC_CALENDAR_API_MAX_RANGE_DAYS: ${PUBLIC_CALENDAR_API_MAX_RANGE_DAYS:-}
+  PUBLIC_CALENDAR_API_MAX_EVENTS: ${PUBLIC_CALENDAR_API_MAX_EVENTS:-}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  LOG_PRETTY: '${LOG_PRETTY:-false}'
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USERNAME:-campus_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_ADMIN_DATABASE:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -p ${POSTGRES_CONTAINER_PORT:-5432}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  # Idempotently creates the two isolated, non-superuser application roles and
+  # databases. Keeping this inside Compose removes the last runtime dependency
+  # on a cloned repository or a separately copied init script.
+  db-init:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: 'no'
+    user: postgres
+    environment:
+      PGHOST: db
+      PGPORT: ${POSTGRES_CONTAINER_PORT:-5432}
+      PGUSER: ${POSTGRES_ADMIN_USERNAME:-campus_admin}
+      PGPASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}
+      PGDATABASE: ${POSTGRES_ADMIN_DATABASE:-postgres}
+      CMS_DATABASE_NAME: ${CMS_DATABASE_NAME:?Set CMS_DATABASE_NAME}
+      CMS_DATABASE_USERNAME: ${CMS_DATABASE_USERNAME:?Set CMS_DATABASE_USERNAME}
+      CMS_DATABASE_PASSWORD: ${CMS_DATABASE_PASSWORD:?Set CMS_DATABASE_PASSWORD}
+      APP_DATABASE_NAME: ${APP_DATABASE_NAME:?Set APP_DATABASE_NAME}
+      APP_DATABASE_USERNAME: ${APP_DATABASE_USERNAME:?Set APP_DATABASE_USERNAME}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:?Set APP_DATABASE_PASSWORD}
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        if [ "$$CMS_DATABASE_USERNAME" = "$$PGUSER" ] || [ "$$APP_DATABASE_USERNAME" = "$$PGUSER" ]; then
+          echo 'Application database users must differ from the PostgreSQL admin user.' >&2
+          exit 1
+        fi
+        if [ "$$CMS_DATABASE_USERNAME" = "$$APP_DATABASE_USERNAME" ] || [ "$$CMS_DATABASE_NAME" = "$$APP_DATABASE_NAME" ]; then
+          echo 'CMS and app database users and names must be distinct.' >&2
+          exit 1
+        fi
+        psql --set=ON_ERROR_STOP=1 \
+          --set=cms_database="$$CMS_DATABASE_NAME" \
+          --set=cms_username="$$CMS_DATABASE_USERNAME" \
+          --set=cms_password="$$CMS_DATABASE_PASSWORD" \
+          --set=app_database="$$APP_DATABASE_NAME" \
+          --set=app_username="$$APP_DATABASE_USERNAME" \
+          --set=app_password="$$APP_DATABASE_PASSWORD" <<'SQL'
+        SELECT format(
+          'CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L',
+          :'cms_username', :'cms_password'
+        ) WHERE NOT EXISTS (
+          SELECT 1 FROM pg_roles WHERE rolname = :'cms_username'
+        )
+        \gexec
+        SELECT format(
+          'ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L',
+          :'cms_username', :'cms_password'
+        )
+        \gexec
+        SELECT format(
+          'CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L',
+          :'app_username', :'app_password'
+        ) WHERE NOT EXISTS (
+          SELECT 1 FROM pg_roles WHERE rolname = :'app_username'
+        )
+        \gexec
+        SELECT format(
+          'ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L',
+          :'app_username', :'app_password'
+        )
+        \gexec
+        SELECT format('CREATE DATABASE %I OWNER %I', :'cms_database', :'cms_username')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'cms_database')
+        \gexec
+        SELECT format('CREATE DATABASE %I OWNER %I', :'app_database', :'app_username')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_database')
+        \gexec
+        SQL
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  cms:
+    image: ${CMS_IMAGE_REPOSITORY:-ghcr.io/leviora-studio/campus-koethen/cms}:${CAMPUS_IMAGE_TAG:?Set CAMPUS_IMAGE_TAG to an immutable sha- tag}
+    platform: ${CONTAINER_PLATFORM:-linux/amd64}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    labels:
+      dev.campus-koethen.public-url: ${CMS_PUBLIC_URL:?Set CMS_PUBLIC_URL}
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: ${CMS_CONTAINER_PORT:-1337}
+      PUBLIC_URL: ${CMS_PUBLIC_URL:?Set CMS_PUBLIC_URL}
+      # Explicit browser origin allowlist for the CMS admin. Left empty, the CMS
+      # falls back to its own PUBLIC_URL, which is the origin the admin panel is
+      # actually served from. A wildcard is refused when NODE_ENV=production.
+      CORS_ALLOWED_ORIGINS: ${CMS_CORS_ALLOWED_ORIGINS:-}
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: db
+      DATABASE_PORT: ${POSTGRES_CONTAINER_PORT:-5432}
+      DATABASE_NAME: ${CMS_DATABASE_NAME:?Set CMS_DATABASE_NAME}
+      DATABASE_USERNAME: ${CMS_DATABASE_USERNAME:?Set CMS_DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${CMS_DATABASE_PASSWORD:?Set CMS_DATABASE_PASSWORD}
+      DATABASE_SCHEMA: ${CMS_DATABASE_SCHEMA:-public}
+      DATABASE_SSL: 'false'
+      DATABASE_POOL_MIN: ${CMS_DATABASE_POOL_MIN:-2}
+      DATABASE_POOL_MAX: ${CMS_DATABASE_POOL_MAX:-10}
+      DATABASE_CONNECTION_TIMEOUT: ${CMS_DATABASE_CONNECTION_TIMEOUT:-60000}
+      APP_KEYS: ${STRAPI_APP_KEYS:?Set STRAPI_APP_KEYS}
+      API_TOKEN_SALT: ${STRAPI_API_TOKEN_SALT:?Set STRAPI_API_TOKEN_SALT}
+      ADMIN_JWT_SECRET: ${STRAPI_ADMIN_JWT_SECRET:?Set STRAPI_ADMIN_JWT_SECRET}
+      TRANSFER_TOKEN_SALT: ${STRAPI_TRANSFER_TOKEN_SALT:?Set STRAPI_TRANSFER_TOKEN_SALT}
+      ENCRYPTION_KEY: ${STRAPI_ENCRYPTION_KEY:?Set STRAPI_ENCRYPTION_KEY}
+      STRAPI_DEFAULT_LOCALE: ${STRAPI_DEFAULT_LOCALE:-de}
+      STRAPI_TELEMETRY_DISABLED: '${STRAPI_TELEMETRY_DISABLED:-true}'
+      SEED_DEMO_CONTENT: '${SEED_DEMO_CONTENT:-false}'
+      # Unset would mean the plugin default of 1 GB per file against a volume
+      # with no quota; the editor role is the lower of the two roles.
+      UPLOAD_SIZE_LIMIT_BYTES: ${UPLOAD_SIZE_LIMIT_BYTES:-26214400}
+    ports:
+      - '${CMS_BIND_ADDRESS:-127.0.0.1}:${CMS_HOST_PORT:-3020}:${CMS_CONTAINER_PORT:-1337}'
+    volumes:
+      - strapi_uploads:/opt/app/public/uploads
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+(process.env.PORT||1337)+'/_health').then(r=>process.exit(r.status<400?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  migrate:
+    <<: *backend-image
+    restart: 'no'
+    profiles: ['migrate']
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${APP_DATABASE_USERNAME:?Set APP_DATABASE_USERNAME}:${APP_DATABASE_PASSWORD:?Set APP_DATABASE_PASSWORD}@db:${POSTGRES_CONTAINER_PORT:-5432}/${APP_DATABASE_NAME:?Set APP_DATABASE_NAME}?schema=${APP_DATABASE_SCHEMA:-public}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  # Deliberate, one-off user-test dataset management. The fixed entrypoint
+  # means compose-run arguments can only select preview/removal; writing still
+  # requires USER_TEST_DATA_ENABLED=true inside the deployment environment.
+  user-test-data:
+    <<: *backend-image
+    restart: 'no'
+    profiles: ['user-test-seed']
+    entrypoint: ['node', 'dist/cli/seed-user-test-data.js']
+    command: []
+    environment:
+      <<: *backend-environment
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  api:
+    <<: *backend-image
+    restart: ${RESTART_POLICY:-unless-stopped}
+    labels:
+      dev.campus-koethen.public-url: ${API_PUBLIC_URL:?Set API_PUBLIC_URL}
+    environment:
+      <<: *backend-environment
+    ports:
+      - '${API_BIND_ADDRESS:-127.0.0.1}:${API_HOST_PORT:-3021}:${API_CONTAINER_PORT:-3000}'
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      cms:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  worker:
+    <<: *backend-image
+    restart: ${RESTART_POLICY:-unless-stopped}
+    command: ['node', 'dist/worker.js']
+    stop_grace_period: 30s
+    healthcheck:
+      disable: true
+    environment:
+      <<: *backend-environment
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      cms:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+networks:
+  campus_internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  strapi_uploads:

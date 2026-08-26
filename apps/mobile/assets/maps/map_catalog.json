@@ -1,0 +1,5831 @@
+{
+  "schemaVersion": 1,
+  "mapVersion": "campus-koethen-2026-08-26-buildings-01-02-03",
+  "generator": "@campus/map",
+  "buildings": [
+    {
+      "buildingKey": "ratke-gebaeude",
+      "buildingNumber": "23",
+      "nameDe": "Ratke-Gebäude",
+      "nameEn": "Ratke Building",
+      "planKind": "schematic",
+      "sourceAttributionDe": "Hochschule Anhalt",
+      "sourceAttributionEn": "Hochschule Anhalt",
+      "sortOrder": 10
+    },
+    {
+      "buildingKey": "koethen-01",
+      "buildingNumber": "01",
+      "nameDe": "Rotes Gebäude",
+      "nameEn": "Red Building",
+      "planKind": "schematic",
+      "sourceAttributionDe": "Hochschule Anhalt",
+      "sourceAttributionEn": "Hochschule Anhalt",
+      "sortOrder": 20
+    },
+    {
+      "buildingKey": "koethen-02",
+      "buildingNumber": "02",
+      "nameDe": "Grünes Gebäude",
+      "nameEn": "Green Building",
+      "planKind": "schematic",
+      "sourceAttributionDe": "Hochschule Anhalt",
+      "sourceAttributionEn": "Hochschule Anhalt",
+      "sortOrder": 30
+    },
+    {
+      "buildingKey": "koethen-03",
+      "buildingNumber": "03",
+      "nameDe": "Weißes Gebäude",
+      "nameEn": "White Building",
+      "planKind": "schematic",
+      "sourceAttributionDe": "Hochschule Anhalt",
+      "sourceAttributionEn": "Hochschule Anhalt",
+      "sortOrder": 40
+    },
+    {
+      "buildingKey": "koethen-campus-overview",
+      "nameDe": "Campus Köthen – Übersicht",
+      "nameEn": "Campus Köthen – Overview",
+      "planKind": "schematic",
+      "sortOrder": 100
+    }
+  ],
+  "floors": [
+    {
+      "floorKey": "koethen-01-basement",
+      "buildingKey": "koethen-01",
+      "level": -1,
+      "nameDe": "Kellergeschoss",
+      "nameEn": "Basement",
+      "svgAsset": "assets/maps/koethen-01/basement.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 10
+    },
+    {
+      "floorKey": "koethen-02-basement",
+      "buildingKey": "koethen-02",
+      "level": -1,
+      "nameDe": "Kellergeschoss",
+      "nameEn": "Basement",
+      "svgAsset": "assets/maps/koethen-02/basement.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 10
+    },
+    {
+      "floorKey": "koethen-03-ground-floor",
+      "buildingKey": "koethen-03",
+      "level": 0,
+      "nameDe": "Erdgeschoss",
+      "nameEn": "Ground floor",
+      "svgAsset": "assets/maps/koethen-03/ground-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 10
+    },
+    {
+      "floorKey": "koethen-campus-overview-level",
+      "buildingKey": "koethen-campus-overview",
+      "level": 0,
+      "nameDe": "Campusübersicht",
+      "nameEn": "Campus overview",
+      "svgAsset": "assets/maps/campus/koethen-overview.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1748,
+        "height": 900
+      },
+      "sortOrder": 10
+    },
+    {
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "buildingKey": "ratke-gebaeude",
+      "level": 0,
+      "nameDe": "Erdgeschoss",
+      "nameEn": "Ground floor",
+      "svgAsset": "assets/maps/ratke-gebaeude/ground-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 10
+    },
+    {
+      "floorKey": "koethen-01-first-floor",
+      "buildingKey": "koethen-01",
+      "level": 1,
+      "nameDe": "1. Obergeschoss",
+      "nameEn": "First floor",
+      "svgAsset": "assets/maps/koethen-01/first-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 20
+    },
+    {
+      "floorKey": "koethen-02-ground-floor",
+      "buildingKey": "koethen-02",
+      "level": 0,
+      "nameDe": "Erdgeschoss",
+      "nameEn": "Ground floor",
+      "svgAsset": "assets/maps/koethen-02/ground-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 20
+    },
+    {
+      "floorKey": "koethen-03-first-floor",
+      "buildingKey": "koethen-03",
+      "level": 1,
+      "nameDe": "1. Obergeschoss",
+      "nameEn": "First floor",
+      "svgAsset": "assets/maps/koethen-03/first-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 20
+    },
+    {
+      "floorKey": "ratke-gebaeude-first-floor",
+      "buildingKey": "ratke-gebaeude",
+      "level": 1,
+      "nameDe": "1. Obergeschoss",
+      "nameEn": "First floor",
+      "svgAsset": "assets/maps/ratke-gebaeude/first-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 20
+    },
+    {
+      "floorKey": "koethen-01-second-floor",
+      "buildingKey": "koethen-01",
+      "level": 2,
+      "nameDe": "2. Obergeschoss",
+      "nameEn": "Second floor",
+      "svgAsset": "assets/maps/koethen-01/second-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 30
+    },
+    {
+      "floorKey": "koethen-02-first-floor",
+      "buildingKey": "koethen-02",
+      "level": 1,
+      "nameDe": "1. Obergeschoss",
+      "nameEn": "First floor",
+      "svgAsset": "assets/maps/koethen-02/first-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 30
+    },
+    {
+      "floorKey": "koethen-03-second-floor",
+      "buildingKey": "koethen-03",
+      "level": 2,
+      "nameDe": "2. Obergeschoss",
+      "nameEn": "Second floor",
+      "svgAsset": "assets/maps/koethen-03/second-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 30
+    },
+    {
+      "floorKey": "koethen-01-third-floor",
+      "buildingKey": "koethen-01",
+      "level": 3,
+      "nameDe": "3. Obergeschoss",
+      "nameEn": "Third floor",
+      "svgAsset": "assets/maps/koethen-01/third-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 40
+    },
+    {
+      "floorKey": "koethen-02-second-floor",
+      "buildingKey": "koethen-02",
+      "level": 2,
+      "nameDe": "2. Obergeschoss",
+      "nameEn": "Second floor",
+      "svgAsset": "assets/maps/koethen-02/second-floor.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 40
+    },
+    {
+      "floorKey": "koethen-01-roof",
+      "buildingKey": "koethen-01",
+      "level": 4,
+      "nameDe": "Dachgeschoss",
+      "nameEn": "Attic floor",
+      "svgAsset": "assets/maps/koethen-01/roof.svg",
+      "viewBox": {
+        "minX": 0,
+        "minY": 0,
+        "width": 1600,
+        "height": 1000
+      },
+      "sortOrder": 50
+    }
+  ],
+  "rooms": [
+    {
+      "roomKey": "koethen-01-basement-k18-1",
+      "roomNumber": "K18-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k18-1",
+      "focus": {
+        "x": 240,
+        "y": 300
+      },
+      "bounds": {
+        "x": 160,
+        "y": 220,
+        "width": 160,
+        "height": 160
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-01-first-floor-124-1",
+      "roomNumber": "124-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-124-1",
+      "focus": {
+        "x": 235,
+        "y": 300
+      },
+      "bounds": {
+        "x": 160,
+        "y": 220,
+        "width": 150,
+        "height": 160
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-01-roof-419-2",
+      "roomNumber": "419-2",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-419-2",
+      "focus": {
+        "x": 205,
+        "y": 260
+      },
+      "bounds": {
+        "x": 160,
+        "y": 220,
+        "width": 90,
+        "height": 80
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-01-second-floor-214-0",
+      "roomNumber": "214-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-214-0",
+      "focus": {
+        "x": 232.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 160,
+        "y": 220,
+        "width": 145,
+        "height": 160
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-01-third-floor-314-0",
+      "roomNumber": "314-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-314-0",
+      "focus": {
+        "x": 265,
+        "y": 300
+      },
+      "bounds": {
+        "x": 160,
+        "y": 220,
+        "width": 210,
+        "height": 160
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-09",
+      "roomNumber": "-1.09",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-09",
+      "focus": {
+        "x": 160,
+        "y": 300
+      },
+      "bounds": {
+        "x": 100,
+        "y": 220,
+        "width": 120,
+        "height": 160
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-04",
+      "roomNumber": "1.04",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-04",
+      "focus": {
+        "x": 210,
+        "y": 410
+      },
+      "bounds": {
+        "x": 100,
+        "y": 220,
+        "width": 220,
+        "height": 380
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-07",
+      "roomNumber": "0.07",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-07",
+      "focus": {
+        "x": 210,
+        "y": 410
+      },
+      "bounds": {
+        "x": 100,
+        "y": 220,
+        "width": 220,
+        "height": 380
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-09",
+      "roomNumber": "2.09",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-09",
+      "focus": {
+        "x": 160,
+        "y": 275
+      },
+      "bounds": {
+        "x": 100,
+        "y": 220,
+        "width": 120,
+        "height": 110
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-03-first-floor-103",
+      "roomNumber": "103",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-103",
+      "focus": {
+        "x": 305,
+        "y": 310
+      },
+      "bounds": {
+        "x": 240,
+        "y": 210,
+        "width": 130,
+        "height": 200
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-003",
+      "roomNumber": "003",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "lecture",
+      "svgElementId": "room-koethen-03-ground-floor-003",
+      "focus": {
+        "x": 395,
+        "y": 305
+      },
+      "bounds": {
+        "x": 240,
+        "y": 210,
+        "width": 310,
+        "height": 190
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-03-second-floor-203",
+      "roomNumber": "203",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-203",
+      "focus": {
+        "x": 315,
+        "y": 310
+      },
+      "bounds": {
+        "x": 240,
+        "y": 210,
+        "width": 150,
+        "height": 200
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-101",
+      "roomNumber": "101",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-101",
+      "focus": {
+        "x": 696.5,
+        "y": 806
+      },
+      "bounds": {
+        "x": 629,
+        "y": 756,
+        "width": 135,
+        "height": 100
+      },
+      "sortOrder": 10
+    },
+    {
+      "roomKey": "koethen-01-basement-k18-0",
+      "roomNumber": "K18-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k18-0",
+      "focus": {
+        "x": 382.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 320,
+        "y": 220,
+        "width": 125,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-01-first-floor-125-0",
+      "roomNumber": "125-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-125-0",
+      "focus": {
+        "x": 377.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 310,
+        "y": 220,
+        "width": 135,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-01-roof-419-1",
+      "roomNumber": "419-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-419-1",
+      "focus": {
+        "x": 205,
+        "y": 340
+      },
+      "bounds": {
+        "x": 160,
+        "y": 300,
+        "width": 90,
+        "height": 80
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-01-second-floor-216-0",
+      "roomNumber": "216-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-216-0",
+      "focus": {
+        "x": 415,
+        "y": 300
+      },
+      "bounds": {
+        "x": 305,
+        "y": 220,
+        "width": 220,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-01-third-floor-315-0",
+      "roomNumber": "315-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-315-0",
+      "focus": {
+        "x": 465,
+        "y": 300
+      },
+      "bounds": {
+        "x": 370,
+        "y": 220,
+        "width": 190,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-10",
+      "roomNumber": "-1.10",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-10",
+      "focus": {
+        "x": 260,
+        "y": 300
+      },
+      "bounds": {
+        "x": 220,
+        "y": 220,
+        "width": 80,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-05",
+      "roomNumber": "1.05",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-05",
+      "focus": {
+        "x": 387.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 320,
+        "y": 220,
+        "width": 135,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-08",
+      "roomNumber": "0.08",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-08",
+      "focus": {
+        "x": 390,
+        "y": 300
+      },
+      "bounds": {
+        "x": 320,
+        "y": 220,
+        "width": 140,
+        "height": 160
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-08",
+      "roomNumber": "2.08",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-second-floor-2-08",
+      "focus": {
+        "x": 135,
+        "y": 355
+      },
+      "bounds": {
+        "x": 100,
+        "y": 330,
+        "width": 70,
+        "height": 50
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-03-first-floor-104",
+      "roomNumber": "104",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-first-floor-104",
+      "focus": {
+        "x": 410,
+        "y": 310
+      },
+      "bounds": {
+        "x": 370,
+        "y": 210,
+        "width": 80,
+        "height": 200
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-004",
+      "roomNumber": "004",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-03-ground-floor-004",
+      "focus": {
+        "x": 635,
+        "y": 305
+      },
+      "bounds": {
+        "x": 550,
+        "y": 210,
+        "width": 170,
+        "height": 190
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-03-second-floor-204",
+      "roomNumber": "204",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-204",
+      "focus": {
+        "x": 435,
+        "y": 310
+      },
+      "bounds": {
+        "x": 390,
+        "y": 210,
+        "width": 90,
+        "height": 200
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-102",
+      "roomNumber": "102",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-102",
+      "focus": {
+        "x": 549.5,
+        "y": 806
+      },
+      "bounds": {
+        "x": 482,
+        "y": 756,
+        "width": 135,
+        "height": 100
+      },
+      "sortOrder": 20
+    },
+    {
+      "roomKey": "koethen-01-basement-k19-0",
+      "roomNumber": "K19-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k19-0",
+      "focus": {
+        "x": 507.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 445,
+        "y": 220,
+        "width": 125,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-01-first-floor-126-0",
+      "roomNumber": "126-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-126-0",
+      "focus": {
+        "x": 512.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 445,
+        "y": 220,
+        "width": 135,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-01-roof-419-0",
+      "roomNumber": "419-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-419-0",
+      "focus": {
+        "x": 307.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 250,
+        "y": 220,
+        "width": 115,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-01-second-floor-217-0",
+      "roomNumber": "217-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-217-0",
+      "focus": {
+        "x": 582.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 525,
+        "y": 220,
+        "width": 115,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-01-third-floor-316-0",
+      "roomNumber": "316-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-316-0",
+      "focus": {
+        "x": 632.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 560,
+        "y": 220,
+        "width": 145,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-11",
+      "roomNumber": "-1.11",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-11",
+      "focus": {
+        "x": 355,
+        "y": 300
+      },
+      "bounds": {
+        "x": 300,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-06",
+      "roomNumber": "1.06",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-06",
+      "focus": {
+        "x": 540,
+        "y": 300
+      },
+      "bounds": {
+        "x": 455,
+        "y": 220,
+        "width": 170,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-09",
+      "roomNumber": "0.09",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-09",
+      "focus": {
+        "x": 592.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 460,
+        "y": 220,
+        "width": 265,
+        "height": 160
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-07",
+      "roomNumber": "2.07",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-second-floor-2-07",
+      "focus": {
+        "x": 195,
+        "y": 355
+      },
+      "bounds": {
+        "x": 170,
+        "y": 330,
+        "width": 50,
+        "height": 50
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-03-first-floor-105",
+      "roomNumber": "105",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-105",
+      "focus": {
+        "x": 525,
+        "y": 310
+      },
+      "bounds": {
+        "x": 450,
+        "y": 210,
+        "width": 150,
+        "height": 200
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-005",
+      "roomNumber": "005",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-ground-floor-005",
+      "focus": {
+        "x": 800,
+        "y": 305
+      },
+      "bounds": {
+        "x": 720,
+        "y": 210,
+        "width": 160,
+        "height": 190
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-03-second-floor-205",
+      "roomNumber": "205",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-205",
+      "focus": {
+        "x": 520,
+        "y": 310
+      },
+      "bounds": {
+        "x": 480,
+        "y": 210,
+        "width": 80,
+        "height": 200
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-103",
+      "roomNumber": "103",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-103",
+      "focus": {
+        "x": 400,
+        "y": 806
+      },
+      "bounds": {
+        "x": 330,
+        "y": 756,
+        "width": 140,
+        "height": 100
+      },
+      "sortOrder": 30
+    },
+    {
+      "roomKey": "koethen-01-basement-k20-0",
+      "roomNumber": "K20-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k20-0",
+      "focus": {
+        "x": 632.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 570,
+        "y": 220,
+        "width": 125,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-01-first-floor-127-0",
+      "roomNumber": "127-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-127-0",
+      "focus": {
+        "x": 647.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 580,
+        "y": 220,
+        "width": 135,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-01-roof-420-0",
+      "roomNumber": "420-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-420-0",
+      "focus": {
+        "x": 422.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 365,
+        "y": 220,
+        "width": 115,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-01-second-floor-218-0",
+      "roomNumber": "218-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-218-0",
+      "focus": {
+        "x": 707.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 640,
+        "y": 220,
+        "width": 135,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-01-third-floor-317-0",
+      "roomNumber": "317-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-317-0",
+      "focus": {
+        "x": 975,
+        "y": 300
+      },
+      "bounds": {
+        "x": 895,
+        "y": 220,
+        "width": 160,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-12",
+      "roomNumber": "-1.12",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-12",
+      "focus": {
+        "x": 470,
+        "y": 300
+      },
+      "bounds": {
+        "x": 410,
+        "y": 220,
+        "width": 120,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-07",
+      "roomNumber": "1.07",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-07",
+      "focus": {
+        "x": 682.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 625,
+        "y": 220,
+        "width": 115,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-10",
+      "roomNumber": "0.10",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-10",
+      "focus": {
+        "x": 925,
+        "y": 300
+      },
+      "bounds": {
+        "x": 875,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-10",
+      "roomNumber": "2.10",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-10",
+      "focus": {
+        "x": 275,
+        "y": 300
+      },
+      "bounds": {
+        "x": 220,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-03-first-floor-106",
+      "roomNumber": "106",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-first-floor-106",
+      "focus": {
+        "x": 640,
+        "y": 310
+      },
+      "bounds": {
+        "x": 600,
+        "y": 210,
+        "width": 80,
+        "height": 200
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-006",
+      "roomNumber": "006",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-03-ground-floor-006",
+      "focus": {
+        "x": 965,
+        "y": 305
+      },
+      "bounds": {
+        "x": 880,
+        "y": 210,
+        "width": 170,
+        "height": 190
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-03-second-floor-206",
+      "roomNumber": "206",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-206",
+      "focus": {
+        "x": 605,
+        "y": 310
+      },
+      "bounds": {
+        "x": 560,
+        "y": 210,
+        "width": 90,
+        "height": 200
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-105",
+      "roomNumber": "105",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-105",
+      "focus": {
+        "x": 215,
+        "y": 816
+      },
+      "bounds": {
+        "x": 140,
+        "y": 756,
+        "width": 150,
+        "height": 120
+      },
+      "sortOrder": 40
+    },
+    {
+      "roomKey": "koethen-01-basement-k21-0",
+      "roomNumber": "K21-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k21-0",
+      "focus": {
+        "x": 745,
+        "y": 300
+      },
+      "bounds": {
+        "x": 695,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-01-first-floor-128-0",
+      "roomNumber": "128-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-128-0",
+      "focus": {
+        "x": 775,
+        "y": 300
+      },
+      "bounds": {
+        "x": 715,
+        "y": 220,
+        "width": 120,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-01-roof-421-0",
+      "roomNumber": "421-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-421-0",
+      "focus": {
+        "x": 537.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 480,
+        "y": 220,
+        "width": 115,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-01-second-floor-219-0",
+      "roomNumber": "219-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-219-0",
+      "focus": {
+        "x": 825,
+        "y": 300
+      },
+      "bounds": {
+        "x": 775,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-01-third-floor-318-0",
+      "roomNumber": "318-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-01-third-floor-318-0",
+      "focus": {
+        "x": 1120,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1055,
+        "y": 220,
+        "width": 130,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-13",
+      "roomNumber": "-1.13",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-13",
+      "focus": {
+        "x": 575,
+        "y": 300
+      },
+      "bounds": {
+        "x": 530,
+        "y": 220,
+        "width": 90,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-08",
+      "roomNumber": "1.08",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-08",
+      "focus": {
+        "x": 795,
+        "y": 300
+      },
+      "bounds": {
+        "x": 740,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-12",
+      "roomNumber": "0.12",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-12",
+      "focus": {
+        "x": 1025,
+        "y": 300
+      },
+      "bounds": {
+        "x": 975,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-11",
+      "roomNumber": "2.11",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-11",
+      "focus": {
+        "x": 425,
+        "y": 300
+      },
+      "bounds": {
+        "x": 330,
+        "y": 220,
+        "width": 190,
+        "height": 160
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-03-first-floor-107",
+      "roomNumber": "107",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "meeting",
+      "svgElementId": "room-koethen-03-first-floor-107",
+      "focus": {
+        "x": 805,
+        "y": 310
+      },
+      "bounds": {
+        "x": 680,
+        "y": 210,
+        "width": 250,
+        "height": 200
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-007",
+      "roomNumber": "007",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-ground-floor-007",
+      "focus": {
+        "x": 1365,
+        "y": 305
+      },
+      "bounds": {
+        "x": 1220,
+        "y": 210,
+        "width": 290,
+        "height": 190
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-03-second-floor-207",
+      "roomNumber": "207",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-207",
+      "focus": {
+        "x": 720,
+        "y": 310
+      },
+      "bounds": {
+        "x": 650,
+        "y": 210,
+        "width": 140,
+        "height": 200
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-106",
+      "roomNumber": "106",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-106",
+      "focus": {
+        "x": 243.5,
+        "y": 634.5
+      },
+      "bounds": {
+        "x": 165,
+        "y": 587,
+        "width": 157,
+        "height": 95
+      },
+      "sortOrder": 50
+    },
+    {
+      "roomKey": "koethen-01-basement-k22-0",
+      "roomNumber": "K22-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-basement-k22-0",
+      "focus": {
+        "x": 827.5,
+        "y": 340
+      },
+      "bounds": {
+        "x": 795,
+        "y": 300,
+        "width": 65,
+        "height": 80
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-01-first-floor-110-0",
+      "roomNumber": "110-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-110-0",
+      "focus": {
+        "x": 897.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 835,
+        "y": 220,
+        "width": 125,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-01-roof-422-0",
+      "roomNumber": "422-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-422-0",
+      "focus": {
+        "x": 665,
+        "y": 300
+      },
+      "bounds": {
+        "x": 595,
+        "y": 220,
+        "width": 140,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-01-second-floor-220-0",
+      "roomNumber": "220-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-220-0",
+      "focus": {
+        "x": 942.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 875,
+        "y": 220,
+        "width": 135,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-01-third-floor-319-0",
+      "roomNumber": "319-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-01-third-floor-319-0",
+      "focus": {
+        "x": 1247.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1185,
+        "y": 220,
+        "width": 125,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-14",
+      "roomNumber": "-1.14",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-14",
+      "focus": {
+        "x": 655,
+        "y": 300
+      },
+      "bounds": {
+        "x": 620,
+        "y": 220,
+        "width": 70,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-09",
+      "roomNumber": "1.09",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-09",
+      "focus": {
+        "x": 905,
+        "y": 300
+      },
+      "bounds": {
+        "x": 850,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-13",
+      "roomNumber": "0.13",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-13",
+      "focus": {
+        "x": 1150,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1075,
+        "y": 220,
+        "width": 150,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-12",
+      "roomNumber": "2.12",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-12",
+      "focus": {
+        "x": 580,
+        "y": 300
+      },
+      "bounds": {
+        "x": 520,
+        "y": 220,
+        "width": 120,
+        "height": 160
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-03-first-floor-108",
+      "roomNumber": "108",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "meeting",
+      "svgElementId": "room-koethen-03-first-floor-108",
+      "focus": {
+        "x": 1000,
+        "y": 310
+      },
+      "bounds": {
+        "x": 930,
+        "y": 210,
+        "width": 140,
+        "height": 200
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-018",
+      "roomNumber": "018",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-ground-floor-018",
+      "focus": {
+        "x": 165,
+        "y": 700
+      },
+      "bounds": {
+        "x": 90,
+        "y": 650,
+        "width": 150,
+        "height": 100
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-03-second-floor-208",
+      "roomNumber": "208",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-208",
+      "focus": {
+        "x": 855,
+        "y": 310
+      },
+      "bounds": {
+        "x": 790,
+        "y": 210,
+        "width": 130,
+        "height": 200
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-107",
+      "roomNumber": "107",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-107",
+      "focus": {
+        "x": 243.5,
+        "y": 515
+      },
+      "bounds": {
+        "x": 165,
+        "y": 455,
+        "width": 157,
+        "height": 120
+      },
+      "sortOrder": 60
+    },
+    {
+      "roomKey": "koethen-01-basement-k23-0",
+      "roomNumber": "K23-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-basement-k23-0",
+      "focus": {
+        "x": 892.5,
+        "y": 340
+      },
+      "bounds": {
+        "x": 860,
+        "y": 300,
+        "width": 65,
+        "height": 80
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-01-first-floor-111-0",
+      "roomNumber": "111-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "lecture",
+      "svgElementId": "room-koethen-01-first-floor-111-0",
+      "focus": {
+        "x": 1090,
+        "y": 300
+      },
+      "bounds": {
+        "x": 960,
+        "y": 220,
+        "width": 260,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-01-roof-423-0",
+      "roomNumber": "423-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-423-0",
+      "focus": {
+        "x": 805,
+        "y": 300
+      },
+      "bounds": {
+        "x": 735,
+        "y": 220,
+        "width": 140,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-01-second-floor-221-0",
+      "roomNumber": "221-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-221-0",
+      "focus": {
+        "x": 1095,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1010,
+        "y": 220,
+        "width": 170,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-01-third-floor-320-0",
+      "roomNumber": "320-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-01-third-floor-320-0",
+      "focus": {
+        "x": 1375,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1310,
+        "y": 220,
+        "width": 130,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-15",
+      "roomNumber": "-1.15",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-15",
+      "focus": {
+        "x": 725,
+        "y": 300
+      },
+      "bounds": {
+        "x": 690,
+        "y": 220,
+        "width": 70,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-10",
+      "roomNumber": "1.10",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-10",
+      "focus": {
+        "x": 1085,
+        "y": 300
+      },
+      "bounds": {
+        "x": 960,
+        "y": 220,
+        "width": 250,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-14",
+      "roomNumber": "0.14",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-14",
+      "focus": {
+        "x": 1415,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1330,
+        "y": 220,
+        "width": 170,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-13",
+      "roomNumber": "2.13",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-13",
+      "focus": {
+        "x": 700,
+        "y": 300
+      },
+      "bounds": {
+        "x": 640,
+        "y": 220,
+        "width": 120,
+        "height": 160
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-03-first-floor-109",
+      "roomNumber": "109",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-03-first-floor-109",
+      "focus": {
+        "x": 1390,
+        "y": 310
+      },
+      "bounds": {
+        "x": 1280,
+        "y": 210,
+        "width": 220,
+        "height": 200
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-017",
+      "roomNumber": "017",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-03-ground-floor-017",
+      "focus": {
+        "x": 355,
+        "y": 640
+      },
+      "bounds": {
+        "x": 240,
+        "y": 530,
+        "width": 230,
+        "height": 220
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-03-second-floor-209",
+      "roomNumber": "209",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-209",
+      "focus": {
+        "x": 985,
+        "y": 310
+      },
+      "bounds": {
+        "x": 920,
+        "y": 210,
+        "width": 130,
+        "height": 200
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-108",
+      "roomNumber": "108",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-108",
+      "focus": {
+        "x": 243.5,
+        "y": 388
+      },
+      "bounds": {
+        "x": 165,
+        "y": 333,
+        "width": 157,
+        "height": 110
+      },
+      "sortOrder": 70
+    },
+    {
+      "roomKey": "koethen-01-basement-k24-0",
+      "roomNumber": "K24-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-basement-k24-0",
+      "focus": {
+        "x": 957.5,
+        "y": 340
+      },
+      "bounds": {
+        "x": 925,
+        "y": 300,
+        "width": 65,
+        "height": 80
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-01-first-floor-112-1",
+      "roomNumber": "112-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-112-1",
+      "focus": {
+        "x": 1330,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1220,
+        "y": 220,
+        "width": 220,
+        "height": 160
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-01-roof-424-0",
+      "roomNumber": "424-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-424-0",
+      "focus": {
+        "x": 945,
+        "y": 300
+      },
+      "bounds": {
+        "x": 875,
+        "y": 220,
+        "width": 140,
+        "height": 160
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-01-second-floor-222-0",
+      "roomNumber": "222-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-222-0",
+      "focus": {
+        "x": 1310,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1180,
+        "y": 220,
+        "width": 260,
+        "height": 160
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-01-third-floor-312-0",
+      "roomNumber": "312-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-312-0",
+      "focus": {
+        "x": 410,
+        "y": 556.5
+      },
+      "bounds": {
+        "x": 340,
+        "y": 500,
+        "width": 140,
+        "height": 113
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-18",
+      "roomNumber": "-1.18",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-18",
+      "focus": {
+        "x": 810,
+        "y": 300
+      },
+      "bounds": {
+        "x": 760,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-11",
+      "roomNumber": "1.11",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-11",
+      "focus": {
+        "x": 1407.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1315,
+        "y": 220,
+        "width": 185,
+        "height": 160
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-06",
+      "roomNumber": "0.06",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-06",
+      "focus": {
+        "x": 372.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 320,
+        "y": 480,
+        "width": 105,
+        "height": 120
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-15",
+      "roomNumber": "2.15",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-15",
+      "focus": {
+        "x": 815,
+        "y": 300
+      },
+      "bounds": {
+        "x": 760,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-03-first-floor-125",
+      "roomNumber": "125",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-first-floor-125",
+      "focus": {
+        "x": 170,
+        "y": 720
+      },
+      "bounds": {
+        "x": 100,
+        "y": 680,
+        "width": 140,
+        "height": 80
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-016",
+      "roomNumber": "016",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-ground-floor-016",
+      "focus": {
+        "x": 540,
+        "y": 640
+      },
+      "bounds": {
+        "x": 470,
+        "y": 530,
+        "width": 140,
+        "height": 220
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-03-second-floor-210",
+      "roomNumber": "210",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-210",
+      "focus": {
+        "x": 1115,
+        "y": 310
+      },
+      "bounds": {
+        "x": 1050,
+        "y": 210,
+        "width": 130,
+        "height": 200
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-109",
+      "roomNumber": "109",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-109",
+      "focus": {
+        "x": 232,
+        "y": 199
+      },
+      "bounds": {
+        "x": 142,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 80
+    },
+    {
+      "roomKey": "koethen-01-basement-k25-0",
+      "roomNumber": "K25-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k25-0",
+      "focus": {
+        "x": 1045,
+        "y": 300
+      },
+      "bounds": {
+        "x": 990,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-01-first-floor-121-0",
+      "roomNumber": "121-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "lecture",
+      "svgElementId": "room-koethen-01-first-floor-121-0",
+      "focus": {
+        "x": 250,
+        "y": 670
+      },
+      "bounds": {
+        "x": 160,
+        "y": 500,
+        "width": 180,
+        "height": 340
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-01-roof-425-0",
+      "roomNumber": "425-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-425-0",
+      "focus": {
+        "x": 1060,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1015,
+        "y": 220,
+        "width": 90,
+        "height": 160
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-10",
+      "roomNumber": "213-10",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-10",
+      "focus": {
+        "x": 250,
+        "y": 534
+      },
+      "bounds": {
+        "x": 160,
+        "y": 500,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-01-third-floor-312-1",
+      "roomNumber": "312-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-312-1",
+      "focus": {
+        "x": 410,
+        "y": 670
+      },
+      "bounds": {
+        "x": 340,
+        "y": 613,
+        "width": 140,
+        "height": 114
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-20",
+      "roomNumber": "-1.20",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-20",
+      "focus": {
+        "x": 910,
+        "y": 300
+      },
+      "bounds": {
+        "x": 860,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-03",
+      "roomNumber": "1.03",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-03",
+      "focus": {
+        "x": 387.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 320,
+        "y": 480,
+        "width": 135,
+        "height": 120
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-04",
+      "roomNumber": "0.04",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-04",
+      "focus": {
+        "x": 477.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 425,
+        "y": 480,
+        "width": 105,
+        "height": 120
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-16",
+      "roomNumber": "2.16",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-16",
+      "focus": {
+        "x": 970,
+        "y": 300
+      },
+      "bounds": {
+        "x": 870,
+        "y": 220,
+        "width": 200,
+        "height": 160
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-03-first-floor-124",
+      "roomNumber": "124",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-124",
+      "focus": {
+        "x": 310,
+        "y": 640
+      },
+      "bounds": {
+        "x": 240,
+        "y": 520,
+        "width": 140,
+        "height": 240
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-015",
+      "roomNumber": "015",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-ground-floor-015",
+      "focus": {
+        "x": 680,
+        "y": 640
+      },
+      "bounds": {
+        "x": 610,
+        "y": 530,
+        "width": 140,
+        "height": 220
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-03-second-floor-211",
+      "roomNumber": "211",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-211",
+      "focus": {
+        "x": 1350,
+        "y": 310
+      },
+      "bounds": {
+        "x": 1300,
+        "y": 210,
+        "width": 100,
+        "height": 200
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-110",
+      "roomNumber": "110",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-110",
+      "focus": {
+        "x": 512,
+        "y": 199
+      },
+      "bounds": {
+        "x": 422,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 90
+    },
+    {
+      "roomKey": "koethen-01-basement-k26-0",
+      "roomNumber": "K26-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k26-0",
+      "focus": {
+        "x": 1155,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1100,
+        "y": 220,
+        "width": 110,
+        "height": 160
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-01-first-floor-112-3",
+      "roomNumber": "112-3",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-112-3",
+      "focus": {
+        "x": 1350,
+        "y": 585
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 500,
+        "width": 180,
+        "height": 170
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-01-roof-426-0",
+      "roomNumber": "426-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-426-0",
+      "focus": {
+        "x": 1150,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1105,
+        "y": 220,
+        "width": 90,
+        "height": 160
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-9",
+      "roomNumber": "213-9",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-9",
+      "focus": {
+        "x": 250,
+        "y": 602
+      },
+      "bounds": {
+        "x": 160,
+        "y": 568,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-01-third-floor-312-2",
+      "roomNumber": "312-2",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-312-2",
+      "focus": {
+        "x": 410,
+        "y": 783.5
+      },
+      "bounds": {
+        "x": 340,
+        "y": 727,
+        "width": 140,
+        "height": 113
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-22",
+      "roomNumber": "-1.22",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-22",
+      "focus": {
+        "x": 1007.5,
+        "y": 260
+      },
+      "bounds": {
+        "x": 960,
+        "y": 220,
+        "width": 95,
+        "height": 80
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-02",
+      "roomNumber": "1.02",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-02",
+      "focus": {
+        "x": 512.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 455,
+        "y": 480,
+        "width": 115,
+        "height": 120
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-02",
+      "roomNumber": "0.02",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-02",
+      "focus": {
+        "x": 575,
+        "y": 540
+      },
+      "bounds": {
+        "x": 530,
+        "y": 480,
+        "width": 90,
+        "height": 120
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-17",
+      "roomNumber": "2.17",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-17",
+      "focus": {
+        "x": 1135,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1070,
+        "y": 220,
+        "width": 130,
+        "height": 160
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-03-first-floor-123",
+      "roomNumber": "123",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-123",
+      "focus": {
+        "x": 420,
+        "y": 640
+      },
+      "bounds": {
+        "x": 380,
+        "y": 520,
+        "width": 80,
+        "height": 240
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-014",
+      "roomNumber": "014",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-ground-floor-014",
+      "focus": {
+        "x": 820,
+        "y": 640
+      },
+      "bounds": {
+        "x": 750,
+        "y": 530,
+        "width": 140,
+        "height": 220
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-03-second-floor-212",
+      "roomNumber": "212",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-212",
+      "focus": {
+        "x": 1450,
+        "y": 310
+      },
+      "bounds": {
+        "x": 1400,
+        "y": 210,
+        "width": 100,
+        "height": 200
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-111",
+      "roomNumber": "111",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-111",
+      "focus": {
+        "x": 499.5,
+        "y": 324
+      },
+      "bounds": {
+        "x": 422,
+        "y": 282,
+        "width": 155,
+        "height": 84
+      },
+      "sortOrder": 100
+    },
+    {
+      "roomKey": "koethen-01-basement-k27-0",
+      "roomNumber": "K27-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k27-0",
+      "focus": {
+        "x": 1260,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1210,
+        "y": 220,
+        "width": 100,
+        "height": 160
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-01-first-floor-112-5",
+      "roomNumber": "112-5",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-first-floor-112-5",
+      "focus": {
+        "x": 1350,
+        "y": 755
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 670,
+        "width": 180,
+        "height": 170
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-01-roof-427-0",
+      "roomNumber": "427-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-427-0",
+      "focus": {
+        "x": 1240,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1195,
+        "y": 220,
+        "width": 90,
+        "height": 160
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-8",
+      "roomNumber": "213-8",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-8",
+      "focus": {
+        "x": 250,
+        "y": 670
+      },
+      "bounds": {
+        "x": 160,
+        "y": 636,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-01-third-floor-321-0",
+      "roomNumber": "321-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-third-floor-321-0",
+      "focus": {
+        "x": 1350,
+        "y": 547.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 500,
+        "width": 180,
+        "height": 95
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-23",
+      "roomNumber": "-1.23",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-23",
+      "focus": {
+        "x": 1102.5,
+        "y": 260
+      },
+      "bounds": {
+        "x": 1055,
+        "y": 220,
+        "width": 95,
+        "height": 80
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-01",
+      "roomNumber": "1.01",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-01",
+      "focus": {
+        "x": 640,
+        "y": 540
+      },
+      "bounds": {
+        "x": 570,
+        "y": 480,
+        "width": 140,
+        "height": 120
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-01",
+      "roomNumber": "0.01",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-01",
+      "focus": {
+        "x": 660,
+        "y": 540
+      },
+      "bounds": {
+        "x": 620,
+        "y": 480,
+        "width": 80,
+        "height": 120
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-18",
+      "roomNumber": "2.18",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-18",
+      "focus": {
+        "x": 1402.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1305,
+        "y": 220,
+        "width": 195,
+        "height": 160
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-03-first-floor-122",
+      "roomNumber": "122",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-122",
+      "focus": {
+        "x": 500,
+        "y": 640
+      },
+      "bounds": {
+        "x": 460,
+        "y": 520,
+        "width": 80,
+        "height": 240
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-013",
+      "roomNumber": "013",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-ground-floor-013",
+      "focus": {
+        "x": 950,
+        "y": 640
+      },
+      "bounds": {
+        "x": 890,
+        "y": 530,
+        "width": 120,
+        "height": 220
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-03-second-floor-228",
+      "roomNumber": "228",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-03-second-floor-228",
+      "focus": {
+        "x": 170,
+        "y": 705
+      },
+      "bounds": {
+        "x": 100,
+        "y": 650,
+        "width": 140,
+        "height": 110
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-112",
+      "roomNumber": "112",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-112",
+      "focus": {
+        "x": 499.5,
+        "y": 414
+      },
+      "bounds": {
+        "x": 422,
+        "y": 378,
+        "width": 155,
+        "height": 72
+      },
+      "sortOrder": 110
+    },
+    {
+      "roomKey": "koethen-01-basement-k28-0",
+      "roomNumber": "K28-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k28-0",
+      "focus": {
+        "x": 1342.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1310,
+        "y": 220,
+        "width": 65,
+        "height": 160
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-01-roof-428-1",
+      "roomNumber": "428-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-428-1",
+      "focus": {
+        "x": 1324,
+        "y": 260
+      },
+      "bounds": {
+        "x": 1285,
+        "y": 220,
+        "width": 78,
+        "height": 80
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-7",
+      "roomNumber": "213-7",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-7",
+      "focus": {
+        "x": 250,
+        "y": 738
+      },
+      "bounds": {
+        "x": 160,
+        "y": 704,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-01-third-floor-322-1",
+      "roomNumber": "322-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-01-third-floor-322-1",
+      "focus": {
+        "x": 1350,
+        "y": 656.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 595,
+        "width": 180,
+        "height": 123
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-21",
+      "roomNumber": "-1.21",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-21",
+      "focus": {
+        "x": 1055,
+        "y": 340
+      },
+      "bounds": {
+        "x": 960,
+        "y": 300,
+        "width": 190,
+        "height": 80
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-17",
+      "roomNumber": "1.17",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-first-floor-1-17",
+      "focus": {
+        "x": 940,
+        "y": 540
+      },
+      "bounds": {
+        "x": 890,
+        "y": 480,
+        "width": 100,
+        "height": 120
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-21",
+      "roomNumber": "0.21",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-ground-floor-0-21",
+      "focus": {
+        "x": 950,
+        "y": 540
+      },
+      "bounds": {
+        "x": 900,
+        "y": 480,
+        "width": 100,
+        "height": 120
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-06",
+      "roomNumber": "2.06",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-06",
+      "focus": {
+        "x": 160,
+        "y": 540
+      },
+      "bounds": {
+        "x": 100,
+        "y": 480,
+        "width": 120,
+        "height": 120
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-03-first-floor-121",
+      "roomNumber": "121",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-121",
+      "focus": {
+        "x": 580,
+        "y": 640
+      },
+      "bounds": {
+        "x": 540,
+        "y": 520,
+        "width": 80,
+        "height": 240
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-012",
+      "roomNumber": "012",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-ground-floor-012",
+      "focus": {
+        "x": 1072.5,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1010,
+        "y": 530,
+        "width": 125,
+        "height": 220
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-03-second-floor-227",
+      "roomNumber": "227",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-227",
+      "focus": {
+        "x": 300,
+        "y": 640
+      },
+      "bounds": {
+        "x": 240,
+        "y": 520,
+        "width": 120,
+        "height": 240
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-113",
+      "roomNumber": "113",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-113",
+      "focus": {
+        "x": 499.5,
+        "y": 517
+      },
+      "bounds": {
+        "x": 422,
+        "y": 462,
+        "width": 155,
+        "height": 110
+      },
+      "sortOrder": 120
+    },
+    {
+      "roomKey": "koethen-01-basement-k29-0",
+      "roomNumber": "K29-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k29-0",
+      "focus": {
+        "x": 1407.5,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1375,
+        "y": 220,
+        "width": 65,
+        "height": 160
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-01-roof-428-3",
+      "roomNumber": "428-3",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-428-3",
+      "focus": {
+        "x": 1401.5,
+        "y": 260
+      },
+      "bounds": {
+        "x": 1363,
+        "y": 220,
+        "width": 77,
+        "height": 80
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-6",
+      "roomNumber": "213-6",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-6",
+      "focus": {
+        "x": 250,
+        "y": 806
+      },
+      "bounds": {
+        "x": 160,
+        "y": 772,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-01-third-floor-322-0",
+      "roomNumber": "322-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-third-floor",
+      "roomType": "seminar",
+      "svgElementId": "room-koethen-01-third-floor-322-0",
+      "focus": {
+        "x": 1350,
+        "y": 779
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 718,
+        "width": 180,
+        "height": 122
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-25",
+      "roomNumber": "-1.25",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-25",
+      "focus": {
+        "x": 1190,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1150,
+        "y": 220,
+        "width": 80,
+        "height": 160
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-14",
+      "roomNumber": "1.14",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-14",
+      "focus": {
+        "x": 1050,
+        "y": 540
+      },
+      "bounds": {
+        "x": 990,
+        "y": 480,
+        "width": 120,
+        "height": 120
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-17",
+      "roomNumber": "0.17",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-17",
+      "focus": {
+        "x": 1075,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1000,
+        "y": 480,
+        "width": 150,
+        "height": 120
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-05",
+      "roomNumber": "2.05",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-05",
+      "focus": {
+        "x": 275,
+        "y": 540
+      },
+      "bounds": {
+        "x": 220,
+        "y": 480,
+        "width": 110,
+        "height": 120
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-03-first-floor-120",
+      "roomNumber": "120",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-120",
+      "focus": {
+        "x": 665,
+        "y": 640
+      },
+      "bounds": {
+        "x": 620,
+        "y": 520,
+        "width": 90,
+        "height": 240
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-011",
+      "roomNumber": "011",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-ground-floor-011",
+      "focus": {
+        "x": 1207.5,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1135,
+        "y": 530,
+        "width": 145,
+        "height": 220
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-03-second-floor-226",
+      "roomNumber": "226",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-226",
+      "focus": {
+        "x": 420,
+        "y": 640
+      },
+      "bounds": {
+        "x": 360,
+        "y": 520,
+        "width": 120,
+        "height": 240
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-114",
+      "roomNumber": "114",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-114",
+      "focus": {
+        "x": 499.5,
+        "y": 626
+      },
+      "bounds": {
+        "x": 422,
+        "y": 584,
+        "width": 155,
+        "height": 84
+      },
+      "sortOrder": 130
+    },
+    {
+      "roomKey": "koethen-01-basement-k16-0",
+      "roomNumber": "K16-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k16-0",
+      "focus": {
+        "x": 250,
+        "y": 542.5
+      },
+      "bounds": {
+        "x": 160,
+        "y": 500,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-01-roof-428-0",
+      "roomNumber": "428-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-428-0",
+      "focus": {
+        "x": 1324,
+        "y": 340
+      },
+      "bounds": {
+        "x": 1285,
+        "y": 300,
+        "width": 78,
+        "height": 80
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-1",
+      "roomNumber": "213-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-1",
+      "focus": {
+        "x": 410,
+        "y": 602
+      },
+      "bounds": {
+        "x": 340,
+        "y": 568,
+        "width": 140,
+        "height": 68
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-27",
+      "roomNumber": "-1.27",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-27",
+      "focus": {
+        "x": 1365,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1320,
+        "y": 220,
+        "width": 90,
+        "height": 160
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-13",
+      "roomNumber": "1.13",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-13",
+      "focus": {
+        "x": 1165,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1110,
+        "y": 480,
+        "width": 110,
+        "height": 120
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-16",
+      "roomNumber": "0.16",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-ground-floor-0-16",
+      "focus": {
+        "x": 1240,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1150,
+        "y": 480,
+        "width": 180,
+        "height": 120
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-04",
+      "roomNumber": "2.04",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-04",
+      "focus": {
+        "x": 385,
+        "y": 540
+      },
+      "bounds": {
+        "x": 330,
+        "y": 480,
+        "width": 110,
+        "height": 120
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-03-first-floor-119",
+      "roomNumber": "119",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-119",
+      "focus": {
+        "x": 790,
+        "y": 640
+      },
+      "bounds": {
+        "x": 710,
+        "y": 520,
+        "width": 160,
+        "height": 240
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-03-ground-floor-010",
+      "roomNumber": "010",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-ground-floor-010",
+      "focus": {
+        "x": 1435,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1360,
+        "y": 530,
+        "width": 150,
+        "height": 220
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-03-second-floor-225",
+      "roomNumber": "225",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-225",
+      "focus": {
+        "x": 540,
+        "y": 640
+      },
+      "bounds": {
+        "x": 480,
+        "y": 520,
+        "width": 120,
+        "height": 240
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-115",
+      "roomNumber": "115",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-115",
+      "focus": {
+        "x": 702,
+        "y": 671
+      },
+      "bounds": {
+        "x": 650,
+        "y": 640,
+        "width": 104,
+        "height": 62
+      },
+      "sortOrder": 140
+    },
+    {
+      "roomKey": "koethen-01-basement-k15-0",
+      "roomNumber": "K15-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k15-0",
+      "focus": {
+        "x": 250,
+        "y": 627.5
+      },
+      "bounds": {
+        "x": 160,
+        "y": 585,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-01-roof-428-2",
+      "roomNumber": "428-2",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-428-2",
+      "focus": {
+        "x": 1401.5,
+        "y": 340
+      },
+      "bounds": {
+        "x": 1363,
+        "y": 300,
+        "width": 77,
+        "height": 80
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-2",
+      "roomNumber": "213-2",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-2",
+      "focus": {
+        "x": 410,
+        "y": 670
+      },
+      "bounds": {
+        "x": 340,
+        "y": 636,
+        "width": 140,
+        "height": 68
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-29",
+      "roomNumber": "-1.29",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-29",
+      "focus": {
+        "x": 1455,
+        "y": 300
+      },
+      "bounds": {
+        "x": 1410,
+        "y": 220,
+        "width": 90,
+        "height": 160
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-12",
+      "roomNumber": "1.12",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-12",
+      "focus": {
+        "x": 1360,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1220,
+        "y": 480,
+        "width": 280,
+        "height": 120
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-15",
+      "roomNumber": "0.15",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "lecture",
+      "svgElementId": "room-koethen-02-ground-floor-0-15",
+      "focus": {
+        "x": 1415,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1330,
+        "y": 480,
+        "width": 170,
+        "height": 120
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-03",
+      "roomNumber": "2.03",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-03",
+      "focus": {
+        "x": 512.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 440,
+        "y": 480,
+        "width": 145,
+        "height": 120
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-03-first-floor-118",
+      "roomNumber": "118",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-118",
+      "focus": {
+        "x": 945,
+        "y": 640
+      },
+      "bounds": {
+        "x": 870,
+        "y": 520,
+        "width": 150,
+        "height": 240
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-03-second-floor-224",
+      "roomNumber": "224",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-224",
+      "focus": {
+        "x": 640,
+        "y": 640
+      },
+      "bounds": {
+        "x": 600,
+        "y": 520,
+        "width": 80,
+        "height": 240
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-121",
+      "roomNumber": "121",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-121",
+      "focus": {
+        "x": 902,
+        "y": 671
+      },
+      "bounds": {
+        "x": 850,
+        "y": 640,
+        "width": 104,
+        "height": 62
+      },
+      "sortOrder": 150
+    },
+    {
+      "roomKey": "koethen-01-basement-k14-0",
+      "roomNumber": "K14-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k14-0",
+      "focus": {
+        "x": 250,
+        "y": 712.5
+      },
+      "bounds": {
+        "x": 160,
+        "y": 670,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-01-roof-418-0",
+      "roomNumber": "418-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-418-0",
+      "focus": {
+        "x": 250,
+        "y": 534
+      },
+      "bounds": {
+        "x": 160,
+        "y": 500,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-01-second-floor-213-3",
+      "roomNumber": "213-3",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-213-3",
+      "focus": {
+        "x": 410,
+        "y": 738
+      },
+      "bounds": {
+        "x": 340,
+        "y": 704,
+        "width": 140,
+        "height": 68
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-07",
+      "roomNumber": "-1.07",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-07",
+      "focus": {
+        "x": 185,
+        "y": 540
+      },
+      "bounds": {
+        "x": 100,
+        "y": 480,
+        "width": 170,
+        "height": 120
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-02-first-floor-1-25",
+      "roomNumber": "1.25",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-first-floor-1-25",
+      "focus": {
+        "x": 800,
+        "y": 662.5
+      },
+      "bounds": {
+        "x": 720,
+        "y": 620,
+        "width": 160,
+        "height": 85
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-28",
+      "roomNumber": "0.28",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "lecture",
+      "svgElementId": "room-koethen-02-ground-floor-0-28",
+      "focus": {
+        "x": 800,
+        "y": 770
+      },
+      "bounds": {
+        "x": 620,
+        "y": 660,
+        "width": 360,
+        "height": 220
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-02",
+      "roomNumber": "2.02",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-02",
+      "focus": {
+        "x": 647.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 585,
+        "y": 480,
+        "width": 125,
+        "height": 120
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-03-first-floor-117",
+      "roomNumber": "117",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-117",
+      "focus": {
+        "x": 1095,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1020,
+        "y": 520,
+        "width": 150,
+        "height": 240
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-03-second-floor-223",
+      "roomNumber": "223",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-223",
+      "focus": {
+        "x": 750,
+        "y": 640
+      },
+      "bounds": {
+        "x": 680,
+        "y": 520,
+        "width": 140,
+        "height": 240
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-122",
+      "roomNumber": "122",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-122",
+      "focus": {
+        "x": 1100.5,
+        "y": 575
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 530,
+        "width": 155,
+        "height": 90
+      },
+      "sortOrder": 160
+    },
+    {
+      "roomKey": "koethen-01-basement-k14-1",
+      "roomNumber": "K14-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k14-1",
+      "focus": {
+        "x": 250,
+        "y": 797.5
+      },
+      "bounds": {
+        "x": 160,
+        "y": 755,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-01-roof-416-0",
+      "roomNumber": "416-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-416-0",
+      "focus": {
+        "x": 250,
+        "y": 602
+      },
+      "bounds": {
+        "x": 160,
+        "y": 568,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-01-second-floor-224-1",
+      "roomNumber": "224-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-224-1",
+      "focus": {
+        "x": 1350,
+        "y": 556.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 500,
+        "width": 180,
+        "height": 113
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-04",
+      "roomNumber": "-1.04",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-04",
+      "focus": {
+        "x": 337.5,
+        "y": 510
+      },
+      "bounds": {
+        "x": 270,
+        "y": 480,
+        "width": 135,
+        "height": 60
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-30",
+      "roomNumber": "0.30",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-ground-floor-0-30",
+      "focus": {
+        "x": 672.5,
+        "y": 850
+      },
+      "bounds": {
+        "x": 620,
+        "y": 820,
+        "width": 105,
+        "height": 60
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-25",
+      "roomNumber": "2.25",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-second-floor-2-25",
+      "focus": {
+        "x": 942.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 890,
+        "y": 480,
+        "width": 105,
+        "height": 120
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-03-first-floor-116",
+      "roomNumber": "116",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-116",
+      "focus": {
+        "x": 1235,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1170,
+        "y": 520,
+        "width": 130,
+        "height": 240
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-03-second-floor-222",
+      "roomNumber": "222",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-222",
+      "focus": {
+        "x": 890,
+        "y": 640
+      },
+      "bounds": {
+        "x": 820,
+        "y": 520,
+        "width": 140,
+        "height": 240
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-123",
+      "roomNumber": "123",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-123",
+      "focus": {
+        "x": 1100.5,
+        "y": 462
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 406,
+        "width": 155,
+        "height": 112
+      },
+      "sortOrder": 170
+    },
+    {
+      "roomKey": "koethen-01-basement-k31-0",
+      "roomNumber": "K31-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k31-0",
+      "focus": {
+        "x": 1350,
+        "y": 555
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 500,
+        "width": 180,
+        "height": 110
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-01-roof-415-0",
+      "roomNumber": "415-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-415-0",
+      "focus": {
+        "x": 250,
+        "y": 670
+      },
+      "bounds": {
+        "x": 160,
+        "y": 636,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-01-second-floor-224-2",
+      "roomNumber": "224-2",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-224-2",
+      "focus": {
+        "x": 1350,
+        "y": 669.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 613,
+        "width": 180,
+        "height": 113
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-06",
+      "roomNumber": "-1.06",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-06",
+      "focus": {
+        "x": 304,
+        "y": 570
+      },
+      "bounds": {
+        "x": 270,
+        "y": 540,
+        "width": 68,
+        "height": 60
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-32",
+      "roomNumber": "0.32",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-ground-floor-0-32",
+      "focus": {
+        "x": 765,
+        "y": 850
+      },
+      "bounds": {
+        "x": 725,
+        "y": 820,
+        "width": 80,
+        "height": 60
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-23",
+      "roomNumber": "2.23",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-second-floor-2-23",
+      "focus": {
+        "x": 1047.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 995,
+        "y": 480,
+        "width": 105,
+        "height": 120
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-03-first-floor-115",
+      "roomNumber": "115",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-115",
+      "focus": {
+        "x": 1350,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1300,
+        "y": 520,
+        "width": 100,
+        "height": 240
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-03-second-floor-221",
+      "roomNumber": "221",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-second-floor-221",
+      "focus": {
+        "x": 1030,
+        "y": 640
+      },
+      "bounds": {
+        "x": 960,
+        "y": 520,
+        "width": 140,
+        "height": 240
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-124",
+      "roomNumber": "124",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-124",
+      "focus": {
+        "x": 1100.5,
+        "y": 338
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 282,
+        "width": 155,
+        "height": 112
+      },
+      "sortOrder": 180
+    },
+    {
+      "roomKey": "koethen-01-basement-k32-0",
+      "roomNumber": "K32-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k32-0",
+      "focus": {
+        "x": 1350,
+        "y": 665
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 610,
+        "width": 180,
+        "height": 110
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-01-roof-414-0",
+      "roomNumber": "414-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-414-0",
+      "focus": {
+        "x": 250,
+        "y": 738
+      },
+      "bounds": {
+        "x": 160,
+        "y": 704,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-01-second-floor-224-3",
+      "roomNumber": "224-3",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-second-floor-224-3",
+      "focus": {
+        "x": 1350,
+        "y": 783
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 726,
+        "width": 180,
+        "height": 114
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-05",
+      "roomNumber": "-1.05",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-05",
+      "focus": {
+        "x": 371.5,
+        "y": 570
+      },
+      "bounds": {
+        "x": 338,
+        "y": 540,
+        "width": 67,
+        "height": 60
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-34",
+      "roomNumber": "0.34",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-ground-floor-0-34",
+      "focus": {
+        "x": 845,
+        "y": 850
+      },
+      "bounds": {
+        "x": 805,
+        "y": 820,
+        "width": 80,
+        "height": 60
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-20",
+      "roomNumber": "2.20",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-20",
+      "focus": {
+        "x": 1195,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1100,
+        "y": 480,
+        "width": 190,
+        "height": 120
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-03-first-floor-114",
+      "roomNumber": "114",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-first-floor",
+      "roomType": "office",
+      "svgElementId": "room-koethen-03-first-floor-114",
+      "focus": {
+        "x": 1450,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1400,
+        "y": 520,
+        "width": 100,
+        "height": 240
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-03-second-floor-220",
+      "roomNumber": "220",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-220",
+      "focus": {
+        "x": 1170,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1100,
+        "y": 520,
+        "width": 140,
+        "height": 240
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-125",
+      "roomNumber": "125",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-125",
+      "focus": {
+        "x": 1088,
+        "y": 199
+      },
+      "bounds": {
+        "x": 998,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 190
+    },
+    {
+      "roomKey": "koethen-01-basement-k33-0",
+      "roomNumber": "K33-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-basement-k33-0",
+      "focus": {
+        "x": 1350,
+        "y": 780
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 720,
+        "width": 180,
+        "height": 120
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-01-roof-413-0",
+      "roomNumber": "413-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-413-0",
+      "focus": {
+        "x": 250,
+        "y": 806
+      },
+      "bounds": {
+        "x": 160,
+        "y": 772,
+        "width": 180,
+        "height": 68
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-01-second-floor-224-8",
+      "roomNumber": "224-8",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-second-floor-224-8",
+      "focus": {
+        "x": 1190,
+        "y": 556.5
+      },
+      "bounds": {
+        "x": 1120,
+        "y": 500,
+        "width": 140,
+        "height": 113
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-03",
+      "roomNumber": "-1.03",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-03",
+      "focus": {
+        "x": 477.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 405,
+        "y": 480,
+        "width": 145,
+        "height": 120
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-02-ground-floor-0-35",
+      "roomNumber": "0.35",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-ground-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-ground-floor-0-35",
+      "focus": {
+        "x": 932.5,
+        "y": 850
+      },
+      "bounds": {
+        "x": 885,
+        "y": 820,
+        "width": 95,
+        "height": 60
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-02-second-floor-2-19",
+      "roomNumber": "2.19",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-second-floor",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-second-floor-2-19",
+      "focus": {
+        "x": 1395,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1290,
+        "y": 480,
+        "width": 210,
+        "height": 120
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-03-second-floor-219",
+      "roomNumber": "219",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-219",
+      "focus": {
+        "x": 1285,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1240,
+        "y": 520,
+        "width": 90,
+        "height": 240
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-126",
+      "roomNumber": "126",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-126",
+      "focus": {
+        "x": 1368,
+        "y": 199
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 200
+    },
+    {
+      "roomKey": "koethen-01-basement-k34-0",
+      "roomNumber": "K34-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-basement-k34-0",
+      "focus": {
+        "x": 1190,
+        "y": 780
+      },
+      "bounds": {
+        "x": 1120,
+        "y": 720,
+        "width": 140,
+        "height": 120
+      },
+      "sortOrder": 210
+    },
+    {
+      "roomKey": "koethen-01-roof-430-0",
+      "roomNumber": "430-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-430-0",
+      "focus": {
+        "x": 1350,
+        "y": 542.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 500,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 210
+    },
+    {
+      "roomKey": "koethen-01-second-floor-224-7",
+      "roomNumber": "224-7",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-second-floor-224-7",
+      "focus": {
+        "x": 1190,
+        "y": 669.5
+      },
+      "bounds": {
+        "x": 1120,
+        "y": 613,
+        "width": 140,
+        "height": 113
+      },
+      "sortOrder": 210
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-02",
+      "roomNumber": "-1.02",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-02",
+      "focus": {
+        "x": 587.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 550,
+        "y": 480,
+        "width": 75,
+        "height": 120
+      },
+      "sortOrder": 210
+    },
+    {
+      "roomKey": "koethen-03-second-floor-218",
+      "roomNumber": "218",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-218",
+      "focus": {
+        "x": 1372.5,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1330,
+        "y": 520,
+        "width": 85,
+        "height": 240
+      },
+      "sortOrder": 210
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-127",
+      "roomNumber": "127",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-127",
+      "focus": {
+        "x": 1356.5,
+        "y": 388
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 333,
+        "width": 157,
+        "height": 110
+      },
+      "sortOrder": 210
+    },
+    {
+      "roomKey": "koethen-01-roof-431-0",
+      "roomNumber": "431-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-431-0",
+      "focus": {
+        "x": 1350,
+        "y": 627.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 585,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 220
+    },
+    {
+      "roomKey": "koethen-01-second-floor-224-6",
+      "roomNumber": "224-6",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-01-second-floor-224-6",
+      "focus": {
+        "x": 1190,
+        "y": 783
+      },
+      "bounds": {
+        "x": 1120,
+        "y": 726,
+        "width": 140,
+        "height": 114
+      },
+      "sortOrder": 220
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-01",
+      "roomNumber": "-1.01",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-01",
+      "focus": {
+        "x": 662.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 625,
+        "y": 480,
+        "width": 75,
+        "height": 120
+      },
+      "sortOrder": 220
+    },
+    {
+      "roomKey": "koethen-03-second-floor-217",
+      "roomNumber": "217",
+      "buildingKey": "koethen-03",
+      "floorKey": "koethen-03-second-floor",
+      "roomType": "service",
+      "svgElementId": "room-koethen-03-second-floor-217",
+      "focus": {
+        "x": 1457.5,
+        "y": 640
+      },
+      "bounds": {
+        "x": 1415,
+        "y": 520,
+        "width": 85,
+        "height": 240
+      },
+      "sortOrder": 220
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-128",
+      "roomNumber": "128",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-128",
+      "focus": {
+        "x": 1356.5,
+        "y": 490
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 455,
+        "width": 157,
+        "height": 70
+      },
+      "sortOrder": 220
+    },
+    {
+      "roomKey": "koethen-01-roof-432-0",
+      "roomNumber": "432-0",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-432-0",
+      "focus": {
+        "x": 1350,
+        "y": 712.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 670,
+        "width": 180,
+        "height": 85
+      },
+      "sortOrder": 230
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-35",
+      "roomNumber": "-1.35",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "service",
+      "svgElementId": "room-koethen-02-basement-minus-1-35",
+      "focus": {
+        "x": 960,
+        "y": 540
+      },
+      "bounds": {
+        "x": 900,
+        "y": 480,
+        "width": 120,
+        "height": 120
+      },
+      "sortOrder": 230
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-129",
+      "roomNumber": "129",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-129",
+      "focus": {
+        "x": 1356.5,
+        "y": 572
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 537,
+        "width": 157,
+        "height": 70
+      },
+      "sortOrder": 230
+    },
+    {
+      "roomKey": "koethen-01-roof-433-1",
+      "roomNumber": "433-1",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-433-1",
+      "focus": {
+        "x": 1305,
+        "y": 797.5
+      },
+      "bounds": {
+        "x": 1260,
+        "y": 755,
+        "width": 90,
+        "height": 85
+      },
+      "sortOrder": 240
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-33",
+      "roomNumber": "-1.33",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-33",
+      "focus": {
+        "x": 1102.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1020,
+        "y": 480,
+        "width": 165,
+        "height": 120
+      },
+      "sortOrder": 240
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-130",
+      "roomNumber": "130",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-130",
+      "focus": {
+        "x": 1356.5,
+        "y": 660.5
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 619,
+        "width": 157,
+        "height": 83
+      },
+      "sortOrder": 240
+    },
+    {
+      "roomKey": "koethen-01-roof-433-2",
+      "roomNumber": "433-2",
+      "buildingKey": "koethen-01",
+      "floorKey": "koethen-01-roof",
+      "roomType": "room",
+      "svgElementId": "room-koethen-01-roof-433-2",
+      "focus": {
+        "x": 1395,
+        "y": 797.5
+      },
+      "bounds": {
+        "x": 1350,
+        "y": 755,
+        "width": 90,
+        "height": 85
+      },
+      "sortOrder": 250
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-32",
+      "roomNumber": "-1.32",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-32",
+      "focus": {
+        "x": 1260,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1185,
+        "y": 480,
+        "width": 150,
+        "height": 120
+      },
+      "sortOrder": 250
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-131",
+      "roomNumber": "131",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-131",
+      "focus": {
+        "x": 1381,
+        "y": 816
+      },
+      "bounds": {
+        "x": 1306,
+        "y": 756,
+        "width": 150,
+        "height": 120
+      },
+      "sortOrder": 250
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-31",
+      "roomNumber": "-1.31",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-31",
+      "focus": {
+        "x": 1417.5,
+        "y": 540
+      },
+      "bounds": {
+        "x": 1335,
+        "y": 480,
+        "width": 165,
+        "height": 120
+      },
+      "sortOrder": 260
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-133",
+      "roomNumber": "133",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-133",
+      "focus": {
+        "x": 1178.5,
+        "y": 806
+      },
+      "bounds": {
+        "x": 1111,
+        "y": 756,
+        "width": 135,
+        "height": 100
+      },
+      "sortOrder": 260
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-44",
+      "roomNumber": "-1.44",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-44",
+      "focus": {
+        "x": 710,
+        "y": 700
+      },
+      "bounds": {
+        "x": 620,
+        "y": 650,
+        "width": 180,
+        "height": 100
+      },
+      "sortOrder": 270
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-134",
+      "roomNumber": "134",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-134",
+      "focus": {
+        "x": 1031.5,
+        "y": 806
+      },
+      "bounds": {
+        "x": 964,
+        "y": 756,
+        "width": 135,
+        "height": 100
+      },
+      "sortOrder": 270
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-49",
+      "roomNumber": "-1.49",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-49",
+      "focus": {
+        "x": 890,
+        "y": 700
+      },
+      "bounds": {
+        "x": 800,
+        "y": 650,
+        "width": 180,
+        "height": 100
+      },
+      "sortOrder": 280
+    },
+    {
+      "roomKey": "ratke-gebaeude-ground-floor-135",
+      "roomNumber": "135",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-ground-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-ground-floor-135",
+      "focus": {
+        "x": 910,
+        "y": 806
+      },
+      "bounds": {
+        "x": 868,
+        "y": 756,
+        "width": 84,
+        "height": 100
+      },
+      "sortOrder": 280
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-45",
+      "roomNumber": "-1.45",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-45",
+      "focus": {
+        "x": 710,
+        "y": 790
+      },
+      "bounds": {
+        "x": 620,
+        "y": 750,
+        "width": 180,
+        "height": 80
+      },
+      "sortOrder": 290
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-200",
+      "roomNumber": "200",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-200",
+      "focus": {
+        "x": 784,
+        "y": 806
+      },
+      "bounds": {
+        "x": 738,
+        "y": 756,
+        "width": 92,
+        "height": 100
+      },
+      "sortOrder": 290
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-48",
+      "roomNumber": "-1.48",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-48",
+      "focus": {
+        "x": 890,
+        "y": 790
+      },
+      "bounds": {
+        "x": 800,
+        "y": 750,
+        "width": 180,
+        "height": 80
+      },
+      "sortOrder": 300
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-201",
+      "roomNumber": "201",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-201",
+      "focus": {
+        "x": 661,
+        "y": 806
+      },
+      "bounds": {
+        "x": 596,
+        "y": 756,
+        "width": 130,
+        "height": 100
+      },
+      "sortOrder": 300
+    },
+    {
+      "roomKey": "koethen-02-basement-minus-1-46",
+      "roomNumber": "-1.46",
+      "buildingKey": "koethen-02",
+      "floorKey": "koethen-02-basement",
+      "roomType": "room",
+      "svgElementId": "room-koethen-02-basement-minus-1-46",
+      "focus": {
+        "x": 800,
+        "y": 860
+      },
+      "bounds": {
+        "x": 620,
+        "y": 830,
+        "width": 360,
+        "height": 60
+      },
+      "sortOrder": 310
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-202",
+      "roomNumber": "202",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-202",
+      "focus": {
+        "x": 519,
+        "y": 806
+      },
+      "bounds": {
+        "x": 454,
+        "y": 756,
+        "width": 130,
+        "height": 100
+      },
+      "sortOrder": 310
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-203",
+      "roomNumber": "203",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-203",
+      "focus": {
+        "x": 377,
+        "y": 806
+      },
+      "bounds": {
+        "x": 312,
+        "y": 756,
+        "width": 130,
+        "height": 100
+      },
+      "sortOrder": 320
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-205",
+      "roomNumber": "205",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-205",
+      "focus": {
+        "x": 220,
+        "y": 816
+      },
+      "bounds": {
+        "x": 140,
+        "y": 756,
+        "width": 160,
+        "height": 120
+      },
+      "sortOrder": 330
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-206",
+      "roomNumber": "206",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-206",
+      "focus": {
+        "x": 243.5,
+        "y": 634.5
+      },
+      "bounds": {
+        "x": 165,
+        "y": 587,
+        "width": 157,
+        "height": 95
+      },
+      "sortOrder": 340
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-207",
+      "roomNumber": "207",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-207",
+      "focus": {
+        "x": 243.5,
+        "y": 515
+      },
+      "bounds": {
+        "x": 165,
+        "y": 455,
+        "width": 157,
+        "height": 120
+      },
+      "sortOrder": 350
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-208",
+      "roomNumber": "208",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-208",
+      "focus": {
+        "x": 243.5,
+        "y": 388
+      },
+      "bounds": {
+        "x": 165,
+        "y": 333,
+        "width": 157,
+        "height": 110
+      },
+      "sortOrder": 360
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-209",
+      "roomNumber": "209",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-209",
+      "focus": {
+        "x": 232,
+        "y": 199
+      },
+      "bounds": {
+        "x": 142,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 370
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-210",
+      "roomNumber": "210",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-210",
+      "focus": {
+        "x": 512,
+        "y": 199
+      },
+      "bounds": {
+        "x": 422,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 380
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-211",
+      "roomNumber": "211",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-211",
+      "focus": {
+        "x": 499.5,
+        "y": 342
+      },
+      "bounds": {
+        "x": 422,
+        "y": 282,
+        "width": 155,
+        "height": 120
+      },
+      "sortOrder": 390
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-212",
+      "roomNumber": "212",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-212",
+      "focus": {
+        "x": 499.5,
+        "y": 469
+      },
+      "bounds": {
+        "x": 422,
+        "y": 414,
+        "width": 155,
+        "height": 110
+      },
+      "sortOrder": 400
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-213",
+      "roomNumber": "213",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-213",
+      "focus": {
+        "x": 499.5,
+        "y": 578
+      },
+      "bounds": {
+        "x": 422,
+        "y": 536,
+        "width": 155,
+        "height": 84
+      },
+      "sortOrder": 410
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-214",
+      "roomNumber": "214",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-214",
+      "focus": {
+        "x": 702,
+        "y": 671
+      },
+      "bounds": {
+        "x": 650,
+        "y": 640,
+        "width": 104,
+        "height": 62
+      },
+      "sortOrder": 420
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-216",
+      "roomNumber": "216",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "lecture",
+      "svgElementId": "room-ratke-gebaeude-first-floor-216",
+      "focus": {
+        "x": 800,
+        "y": 292.5
+      },
+      "bounds": {
+        "x": 650,
+        "y": 190,
+        "width": 300,
+        "height": 205
+      },
+      "sortOrder": 430
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-218",
+      "roomNumber": "218",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-218",
+      "focus": {
+        "x": 902,
+        "y": 671
+      },
+      "bounds": {
+        "x": 850,
+        "y": 640,
+        "width": 104,
+        "height": 62
+      },
+      "sortOrder": 440
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-219",
+      "roomNumber": "219",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-219",
+      "focus": {
+        "x": 1100.5,
+        "y": 601
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 556,
+        "width": 155,
+        "height": 90
+      },
+      "sortOrder": 450
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-220",
+      "roomNumber": "220",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-220",
+      "focus": {
+        "x": 1100.5,
+        "y": 499
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 454,
+        "width": 155,
+        "height": 90
+      },
+      "sortOrder": 460
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-221",
+      "roomNumber": "221",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-221",
+      "focus": {
+        "x": 1100.5,
+        "y": 405
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 368,
+        "width": 155,
+        "height": 74
+      },
+      "sortOrder": 470
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-222",
+      "roomNumber": "222",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-222",
+      "focus": {
+        "x": 1100.5,
+        "y": 319
+      },
+      "bounds": {
+        "x": 1023,
+        "y": 282,
+        "width": 155,
+        "height": 74
+      },
+      "sortOrder": 480
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-223-225",
+      "roomNumber": "223–225",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-223-225",
+      "focus": {
+        "x": 1088,
+        "y": 199
+      },
+      "bounds": {
+        "x": 998,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 490
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-228",
+      "roomNumber": "228",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-228",
+      "focus": {
+        "x": 1368,
+        "y": 199
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 128,
+        "width": 180,
+        "height": 142
+      },
+      "sortOrder": 500
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-229",
+      "roomNumber": "229",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-229",
+      "focus": {
+        "x": 1356.5,
+        "y": 388
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 333,
+        "width": 157,
+        "height": 110
+      },
+      "sortOrder": 510
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-230-231",
+      "roomNumber": "230/231",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-230-231",
+      "focus": {
+        "x": 1356.5,
+        "y": 490
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 455,
+        "width": 157,
+        "height": 70
+      },
+      "sortOrder": 520
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-232",
+      "roomNumber": "232",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-232",
+      "focus": {
+        "x": 1356.5,
+        "y": 572
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 537,
+        "width": 157,
+        "height": 70
+      },
+      "sortOrder": 530
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-233",
+      "roomNumber": "233",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-233",
+      "focus": {
+        "x": 1356.5,
+        "y": 660.5
+      },
+      "bounds": {
+        "x": 1278,
+        "y": 619,
+        "width": 157,
+        "height": 83
+      },
+      "sortOrder": 540
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-234",
+      "roomNumber": "234",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-234",
+      "focus": {
+        "x": 1360,
+        "y": 816
+      },
+      "bounds": {
+        "x": 1270,
+        "y": 756,
+        "width": 180,
+        "height": 120
+      },
+      "sortOrder": 550
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-236",
+      "roomNumber": "236",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-236",
+      "focus": {
+        "x": 1173,
+        "y": 806
+      },
+      "bounds": {
+        "x": 1088,
+        "y": 756,
+        "width": 170,
+        "height": 100
+      },
+      "sortOrder": 560
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-237",
+      "roomNumber": "237",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-237",
+      "focus": {
+        "x": 1011,
+        "y": 806
+      },
+      "bounds": {
+        "x": 946,
+        "y": 756,
+        "width": 130,
+        "height": 100
+      },
+      "sortOrder": 570
+    },
+    {
+      "roomKey": "ratke-gebaeude-first-floor-238",
+      "roomNumber": "238",
+      "buildingKey": "ratke-gebaeude",
+      "floorKey": "ratke-gebaeude-first-floor",
+      "roomType": "room",
+      "svgElementId": "room-ratke-gebaeude-first-floor-238",
+      "focus": {
+        "x": 888,
+        "y": 806
+      },
+      "bounds": {
+        "x": 842,
+        "y": 756,
+        "width": 92,
+        "height": 100
+      },
+      "sortOrder": 580
+    }
+  ]
+}

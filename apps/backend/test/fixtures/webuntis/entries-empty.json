@@ -1,0 +1,62 @@
+{
+  "format": 2,
+  "days": [
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14622,
+        "shortName": "AIN2 - BT",
+        "longName": "AIN2-Angewandte Informatik Vertiefung: Biotechnologie",
+        "displayName": ""
+      },
+      "status": "NO_DATA",
+      "dayEntries": [],
+      "gridEntries": [],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14625,
+        "shortName": "AIN2 - DMS",
+        "longName": "AIN2-Angewandte Informatik Vertiefung: Digitale Medien und Spieleentwicklung",
+        "displayName": ""
+      },
+      "status": "NO_DATA",
+      "dayEntries": [],
+      "gridEntries": [],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14628,
+        "shortName": "AIN2 - DSK",
+        "longName": "AIN2-Angewandte Informatik Vertiefung: Data Science und KI",
+        "displayName": ""
+      },
+      "status": "NO_DATA",
+      "dayEntries": [],
+      "gridEntries": [],
+      "backEntries": []
+    },
+    {
+      "date": "2026-07-20",
+      "resourceType": "CLASS",
+      "resource": {
+        "id": 14634,
+        "shortName": "AIN2 - MT",
+        "longName": "AIN2-Angewandte Informatik Vertiefung: Medientechnik",
+        "displayName": ""
+      },
+      "status": "NO_DATA",
+      "dayEntries": [],
+      "gridEntries": [],
+      "backEntries": []
+    }
+  ],
+  "errors": []
+}

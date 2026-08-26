@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ counterpart to android:allowBackup="false".
+
+  `allowBackup` alone no longer covers everything from API 31 on: cloud backup
+  and device-to-device transfer are configured separately here, and a missing
+  file means "back everything up".
+
+  This app holds the mail password, the exam-portal password, the Moodle token
+  and the keys of every encrypted local cache. iOS already keeps them off
+  backups deliberately, via the `first_unlock_this_device` keychain class (see
+  lib/core/security/app_secure_storage.dart) — this is the same decision on the
+  other platform, and AGENTS.md §2 states it for both: credentials live in the
+  keychain/keystore of the device they were entered on and nowhere else.
+
+  The trade is the documented one: a new phone means signing the accounts in
+  again.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

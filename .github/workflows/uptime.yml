@@ -1,0 +1,62 @@
+# Campus Köthen — DEV uptime check
+#
+# Prepared, but intentionally dormant. Nothing is deployed yet, so both hosts
+# correctly answer 502. The scheduled run therefore only executes once the
+# repository variable DEV_UPTIME_ENABLED is exactly "true" — otherwise the
+# schedule would fail every 15 minutes and train everyone to ignore it.
+#
+# Enable it after the first real deployment:
+#   Settings -> Secrets and variables -> Actions -> Variables
+#   DEV_UPTIME_ENABLED = true
+
+name: DEV uptime
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 15 minutes. Gated by DEV_UPTIME_ENABLED below.
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Probe the DEV endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A manual run always executes, so the check can be exercised on demand.
+    if: github.event_name == 'workflow_dispatch' || vars.DEV_UPTIME_ENABLED == 'true'
+
+    steps:
+      - name: Check the endpoints
+        run: |
+          set -u
+          failed=0
+
+          probe() {
+            local name="$1" url="$2" expected="$3"
+            local status
+            status=$(curl -sS -o /dev/null \
+                          --max-time 15 --connect-timeout 10 --retry 2 --retry-delay 5 \
+                          -w '%{http_code}' "$url" || echo "000")
+
+            if [ "$status" = "$expected" ]; then
+              echo "OK        $name -> HTTP $status"
+            elif [ "$status" = "000" ]; then
+              echo "::error::$name is unreachable ($url) — connection failed or timed out"
+              failed=1
+            elif [ "$status" = "502" ]; then
+              echo "::error::$name returned 502 ($url) — the container behind the proxy is not running"
+              failed=1
+            else
+              echo "::error::$name returned HTTP $status, expected $expected ($url)"
+              failed=1
+            fi
+          }
+
+          # Strapi answers /_health with 204; the API answers /health/live with 200.
+          probe "CMS  DEV" "https://cms-dev.myaioffice.de/_health"    "204"
+          probe "API  DEV" "https://api-dev.myaioffice.de/health/live" "200"
+
+          exit "$failed"

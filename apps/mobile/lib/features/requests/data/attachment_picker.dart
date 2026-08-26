@@ -1,0 +1,97 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../domain/application_files.dart';
+import '../domain/attachment_store.dart';
+import '../domain/request_drafts.dart';
+import 'encrypted_attachment_store.dart';
+
+/// What picking a file ended in.
+sealed class PickResult {
+  const PickResult();
+}
+
+class PickedFile extends PickResult {
+  const PickedFile(this.attachment);
+
+  final RequestAttachment attachment;
+}
+
+/// The user closed the dialog without choosing.
+class PickCancelled extends PickResult {
+  const PickCancelled();
+}
+
+/// The file does not belong in this slot.
+class PickWrongType extends PickResult {
+  const PickWrongType();
+}
+
+/// Over the endpoint's 25 MB per file.
+class PickTooLarge extends PickResult {
+  const PickTooLarge();
+}
+
+/// The file could not be read, or could not be stored.
+class PickFailed extends PickResult {
+  const PickFailed();
+}
+
+/// Port: lets the user pick one file for one slot.
+///
+/// Per slot rather than a free multi-select: the endpoint expects exactly four
+/// named fields with different accepted types, and a generic "add files" button
+/// would let a student attach something that is then silently not sent.
+abstract interface class AttachmentPicker {
+  Future<PickResult> pickFor(ApplicationFileSlot slot);
+}
+
+/// Picks a file and hands its bytes to the encrypted store.
+///
+/// Type and size are checked **before** anything is stored, so a file that
+/// cannot be sent never reaches the device's storage in the first place.
+class SecureAttachmentPicker implements AttachmentPicker {
+  const SecureAttachmentPicker(this._store);
+
+  final AttachmentStore _store;
+
+  @override
+  Future<PickResult> pickFor(ApplicationFileSlot slot) async {
+    final XFile? chosen = await openFile(
+      acceptedTypeGroups: <XTypeGroup>[
+        XTypeGroup(
+          label: slot.field,
+          extensions: slot.extensions.toList(growable: false),
+        ),
+      ],
+    );
+    if (chosen == null) return const PickCancelled();
+
+    // The dialog's own filter is a convenience, not a guarantee — on both
+    // platforms the user can still end up with something else.
+    if (!slot.accepts(chosen.name)) return const PickWrongType();
+
+    try {
+      final Uint8List bytes = await chosen.readAsBytes();
+      if (!slot.acceptsSize(bytes.length)) return const PickTooLarge();
+      final RequestAttachment? stored = await _store.put(chosen.name, bytes);
+      return stored == null ? const PickFailed() : PickedFile(stored);
+    } catch (_) {
+      return const PickFailed();
+    }
+  }
+}
+
+/// Overridable so tests never open a platform dialog.
+final Provider<AttachmentStore> attachmentStoreProvider =
+    Provider<AttachmentStore>((Ref ref) => EncryptedAttachmentStore());
+
+final Provider<AttachmentPicker> attachmentPickerProvider =
+    Provider<AttachmentPicker>(
+      (Ref ref) => SecureAttachmentPicker(ref.watch(attachmentStoreProvider)),
+    );

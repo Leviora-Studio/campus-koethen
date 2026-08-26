@@ -1,0 +1,50 @@
+{
+  "name": "@campus/cms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Campus Köthen editorial CMS (Strapi 5 Community)",
+  "license": "AGPL-3.0-only",
+  "author": "Leviora Studio and Jona Loreen Sommer",
+  "scripts": {
+    "build": "strapi build && node scripts/inject-prism-shim.mjs",
+    "console": "strapi console",
+    "develop": "strapi develop",
+    "dev": "strapi develop",
+    "start": "strapi start",
+    "strapi": "strapi",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "seed": "echo \"Seeding runs in the bootstrap hook. Set SEED_DEMO_CONTENT=true and start the CMS.\" && exit 0",
+    "test": "node --require ts-node/register --test test/*.test.ts",
+    "rooms:sync": "node --require ts-node/register scripts/rooms-sync.ts",
+    "sample:posts": "node --require ts-node/register scripts/seed-sample-posts.ts",
+    "upgrade": "npx @strapi/upgrade latest",
+    "upgrade:dry": "npx @strapi/upgrade latest --dry",
+    "token:create-readonly": "strapi ts:generate-types --silent && node -r ts-node/register scripts/create-readonly-token.ts"
+  },
+  "dependencies": {
+    "@campus/map": "workspace:*",
+    "@strapi/strapi": "5.52.1",
+    "pg": "8.20.0",
+    "prismjs": "1.30.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6",
+    "styled-components": "^6.1.19"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/prismjs": "^1.26.5",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0 <=26.x.x",
+    "npm": ">=6.0.0"
+  },
+  "strapi": {
+    "uuid": "22ff8c0d-ce29-4777-a5fd-e57430d9434a"
+  }
+}

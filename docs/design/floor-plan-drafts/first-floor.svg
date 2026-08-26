@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Draft derived from the user-provided first-floor photo. Not yet an app asset. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">1. Obergeschoss – schematischer Gebäudeplan</title>
+  <desc id="description">U-förmiger Gebäudegrundriss mit Ostflügel, Westflügel, Hörsaal 216, Treppen, Sanitärbereichen und nummerierten Räumen.</desc>
+  <defs>
+    <g id="stairs" fill="none" stroke="#514B63" stroke-width="5" stroke-linecap="round"><path d="M0 0v58M12 0v58M24 0v58M36 0v58M48 0v58M60 0v58M72 0v58"/></g>
+    <g id="wc-women" fill="none" stroke="#425C75" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="0" cy="-12" r="6"/><path d="M0-5v19M-12 7h24M0 14l-10 22M0 14l10 22"/></g>
+    <g id="wc-men" fill="none" stroke="#425C75" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="0" cy="-12" r="6"/><path d="M0-5v24M-12 6h24M0 19l-10 18M0 19l10 18"/></g>
+  </defs>
+  <rect width="1600" height="1000" fill="#F4F2F8"/>
+  <text x="70" y="62" fill="#242235" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">1. Obergeschoss</text>
+  <text x="1530" y="58" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="18" text-anchor="end">Schematischer Etagenplan</text>
+
+  <path d="M332 170H412V700H1188V170H1268V780H332Z" fill="#EDEAF4" stroke="#C8C3D2" stroke-width="4"/>
+  <rect x="605" y="418" width="390" height="272" rx="18" fill="#FDFBFC" stroke="#DDD8E5" stroke-width="3" stroke-dasharray="10 10"/>
+  <text x="800" y="555" fill="#AAA4B4" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">Innenhof</text>
+
+  <!-- East wing -->
+  <g fill="#E5DEF5" stroke="#4E4761" stroke-width="4">
+    <rect id="room-draft-og1-209" data-room-number="209" x="142" y="128" width="180" height="142" rx="10"/>
+    <rect id="room-draft-og1-208" data-room-number="208" x="165" y="333" width="157" height="110" rx="10"/>
+    <rect id="room-draft-og1-207" data-room-number="207" x="165" y="455" width="157" height="120" rx="10"/>
+    <rect id="room-draft-og1-206" data-room-number="206" x="165" y="587" width="157" height="95" rx="10"/>
+    <rect id="room-draft-og1-210" data-room-number="210" x="422" y="128" width="180" height="142" rx="10"/>
+    <rect id="room-draft-og1-211" data-room-number="211" x="422" y="282" width="155" height="120" rx="10"/>
+    <rect id="room-draft-og1-212" data-room-number="212" x="422" y="414" width="155" height="110" rx="10"/>
+    <rect id="room-draft-og1-213" data-room-number="213" x="422" y="536" width="155" height="84" rx="10"/>
+  </g>
+  <rect x="165" y="282" width="157" height="39" rx="8" fill="#D8EAF5" stroke="#4E4761" stroke-width="4"/>
+  <text x="208" y="308" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">WC</text><use href="#wc-women" transform="translate(274 302) scale(.55)"/>
+  <rect x="422" y="632" width="155" height="48" rx="8" fill="#D9D8DF" stroke="#4E4761" stroke-width="4"/>
+
+  <!-- West wing -->
+  <g fill="#E5DEF5" stroke="#4E4761" stroke-width="4">
+    <rect id="room-draft-og1-223-225" data-room-number="223–225" x="998" y="128" width="180" height="142" rx="10"/>
+    <rect id="room-draft-og1-222" data-room-number="222" x="1023" y="282" width="155" height="74" rx="10"/>
+    <rect id="room-draft-og1-221" data-room-number="221" x="1023" y="368" width="155" height="74" rx="10"/>
+    <rect id="room-draft-og1-220" data-room-number="220" x="1023" y="454" width="155" height="90" rx="10"/>
+    <rect id="room-draft-og1-219" data-room-number="219" x="1023" y="556" width="155" height="90" rx="10"/>
+    <rect id="room-draft-og1-228" data-room-number="228" x="1278" y="128" width="180" height="142" rx="10"/>
+    <rect id="room-draft-og1-229" data-room-number="229" x="1278" y="333" width="157" height="110" rx="10"/>
+    <rect id="room-draft-og1-230-231" data-room-number="230/231" x="1278" y="455" width="157" height="70" rx="10"/>
+    <rect id="room-draft-og1-232" data-room-number="232" x="1278" y="537" width="157" height="70" rx="10"/>
+    <rect id="room-draft-og1-233" data-room-number="233" x="1278" y="619" width="157" height="83" rx="10"/>
+  </g>
+  <rect x="1023" y="658" width="155" height="44" rx="8" fill="#D8EAF5" stroke="#4E4761" stroke-width="4"/>
+  <text x="1062" y="687" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">WC</text><use href="#wc-women" transform="translate(1128 680) scale(.48)"/><use href="#wc-men" transform="translate(1155 680) scale(.48)"/>
+  <rect x="1278" y="282" width="157" height="39" rx="8" fill="#D8EAF5" stroke="#4E4761" stroke-width="4"/>
+  <text x="1319" y="308" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">WC</text><use href="#wc-men" transform="translate(1383 302) scale(.55)"/>
+
+  <!-- Central core -->
+  <rect id="room-draft-og1-216" data-room-number="216" x="650" y="190" width="300" height="205" rx="14" fill="#F8E3BF" stroke="#4E4761" stroke-width="5"/>
+  <text x="800" y="273" fill="#242235" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" text-anchor="middle">Großer Hörsaal</text>
+  <text x="800" y="310" fill="#6B6274" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" text-anchor="middle">216</text>
+  <rect x="650" y="430" width="104" height="50" rx="9" fill="#D8EAF5" stroke="#4E4761" stroke-width="4"/>
+  <rect x="650" y="492" width="104" height="50" rx="9" fill="#D8EAF5" stroke="#4E4761" stroke-width="4"/>
+  <text x="675" y="462" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">WC</text><text x="675" y="524" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">WC</text>
+  <use href="#wc-men" transform="translate(727 456) scale(.48)"/><use href="#wc-women" transform="translate(727 518) scale(.48)"/>
+  <use href="#stairs" transform="translate(654 564)"/><use href="#stairs" transform="translate(850 564)"/>
+  <rect id="room-draft-og1-214" data-room-number="214" x="650" y="640" width="104" height="62" rx="9" fill="#E5DEF5" stroke="#4E4761" stroke-width="4"/>
+  <rect id="room-draft-og1-218" data-room-number="218" x="850" y="640" width="104" height="62" rx="9" fill="#E5DEF5" stroke="#4E4761" stroke-width="4"/>
+
+  <!-- Bottom wing -->
+  <g fill="#E5DEF5" stroke="#4E4761" stroke-width="4">
+    <rect id="room-draft-og1-205" data-room-number="205" x="140" y="756" width="160" height="120" rx="10"/>
+    <rect id="room-draft-og1-203" data-room-number="203" x="312" y="756" width="130" height="100" rx="10"/>
+    <rect id="room-draft-og1-202" data-room-number="202" x="454" y="756" width="130" height="100" rx="10"/>
+    <rect id="room-draft-og1-201" data-room-number="201" x="596" y="756" width="130" height="100" rx="10"/>
+    <rect id="room-draft-og1-200" data-room-number="200" x="738" y="756" width="92" height="100" rx="10"/>
+    <rect id="room-draft-og1-238" data-room-number="238" x="842" y="756" width="92" height="100" rx="10"/>
+    <rect id="room-draft-og1-237" data-room-number="237" x="946" y="756" width="130" height="100" rx="10"/>
+    <rect id="room-draft-og1-236" data-room-number="236" x="1088" y="756" width="170" height="100" rx="10"/>
+    <rect id="room-draft-og1-234" data-room-number="234" x="1270" y="756" width="180" height="120" rx="10"/>
+  </g>
+  <use href="#stairs" transform="translate(350 120) rotate(90) scale(.58)"/><use href="#stairs" transform="translate(1208 120) rotate(90) scale(.58)"/>
+
+  <g fill="#242235" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle" pointer-events="none">
+    <text x="232" y="207">209</text><text x="244" y="401">208</text><text x="244" y="521">207</text><text x="244" y="644">206</text>
+    <text x="512" y="207">210</text><text x="500" y="349">211</text><text x="500" y="477">212</text><text x="500" y="587">213</text>
+    <text x="1088" y="202" font-size="18">223–225</text><text x="1101" y="328">222</text><text x="1101" y="415">221</text><text x="1101" y="506">220</text><text x="1101" y="610">219</text>
+    <text x="1368" y="207">228</text><text x="1357" y="401">229</text><text x="1357" y="497" font-size="18">230/231</text><text x="1357" y="579">232</text><text x="1357" y="668">233</text>
+    <text x="702" y="680">214</text><text x="902" y="680">218</text>
+    <text x="220" y="824">205</text><text x="377" y="816">203</text><text x="519" y="816">202</text><text x="661" y="816">201</text><text x="784" y="816">200</text>
+    <text x="888" y="816">238</text><text x="1011" y="816">237</text><text x="1173" y="816">236</text><text x="1360" y="824">234</text>
+  </g>
+  <text x="380" y="900" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">Ostflügel</text>
+  <text x="1220" y="900" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">Westflügel</text>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#706A80">
+    <rect x="70" y="955" width="18" height="18" rx="4" fill="#E5DEF5" stroke="#4E4761" stroke-width="2"/><text x="98" y="970">Raum</text>
+    <rect x="178" y="955" width="18" height="18" rx="4" fill="#F8E3BF" stroke="#4E4761" stroke-width="2"/><text x="206" y="970">Hörsaal</text>
+    <rect x="300" y="955" width="18" height="18" rx="4" fill="#D8EAF5" stroke="#4E4761" stroke-width="2"/><text x="328" y="970">Sanitär</text>
+    <text x="1530" y="970" text-anchor="end">Nicht maßstabsgetreu · kein Flucht- und Rettungsplan</text>
+  </g>
+</svg>

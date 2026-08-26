@@ -1,0 +1,229 @@
+{
+  "resourceType": "CLASS",
+  "preSelected": null,
+  "buildings": [],
+  "departments": [
+    {
+      "id": 1,
+      "shortName": "KÖT",
+      "longName": "KÖT",
+      "displayName": "KÖT"
+    },
+    {
+      "id": 2,
+      "shortName": "BBG",
+      "longName": "Bernburg",
+      "displayName": "Bernburg"
+    },
+    {
+      "id": 3,
+      "shortName": "DE",
+      "longName": "DE",
+      "displayName": "DE"
+    },
+    {
+      "id": 5,
+      "shortName": "FB1",
+      "longName": "FB1",
+      "displayName": "FB1"
+    },
+    {
+      "id": 6,
+      "shortName": "FB2",
+      "longName": "FB2",
+      "displayName": "FB2"
+    },
+    {
+      "id": 9,
+      "shortName": "FB5",
+      "longName": "FB5",
+      "displayName": "FB5"
+    },
+    {
+      "id": 10,
+      "shortName": "FB6",
+      "longName": "FB6",
+      "displayName": "FB6"
+    },
+    {
+      "id": 11,
+      "shortName": "FB7",
+      "longName": "FB7",
+      "displayName": "FB7"
+    },
+    {
+      "id": 14,
+      "shortName": "FB3",
+      "longName": "FB3",
+      "displayName": "FB3"
+    },
+    {
+      "id": 15,
+      "shortName": "FB4",
+      "longName": "FB4",
+      "displayName": "FB4"
+    },
+    {
+      "id": 17,
+      "shortName": "SPZ",
+      "longName": "SPZ",
+      "displayName": "SPZ"
+    },
+    {
+      "id": 24,
+      "shortName": "GZ",
+      "longName": "GZ",
+      "displayName": "GZ"
+    },
+    {
+      "id": 26,
+      "shortName": "StK",
+      "longName": "Studienkolleg",
+      "displayName": "Studienkolleg"
+    },
+    {
+      "id": 37,
+      "shortName": "Sonstiges",
+      "longName": "Sonstiges",
+      "displayName": "Sonstiges"
+    }
+  ],
+  "roomGroups": [],
+  "resourceTypes": [],
+  "assignmentGroups": [],
+  "classes": [
+    {
+      "class": {
+        "id": 14547,
+        "shortName": "MSL1./2.",
+        "longName": "1./2. Fachsemester MSL (ohne Studienanfänger im 4-semestrigen Studiengang)",
+        "displayName": "1./2. Fachsemester MSL (ohne Studienanfänger im 4-semestrigen Studiengang) (MSL1./2.)"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 9,
+        "shortName": "FB5",
+        "longName": "FB5",
+        "displayName": "FB5"
+      }
+    },
+    {
+      "class": {
+        "id": 14622,
+        "shortName": "AIN2 - BT",
+        "longName": "AIN2-Angewandte Informatik Vertiefung: Biotechnologie",
+        "displayName": "AIN2-Angewandte Informatik Vertiefung: Biotechnologie (AIN2 - BT)"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 9,
+        "shortName": "FB5",
+        "longName": "FB5",
+        "displayName": "FB5"
+      }
+    },
+    {
+      "class": {
+        "id": 15096,
+        "shortName": "MID1/2",
+        "longName": "1./2. Sem. Integrated Design",
+        "displayName": "1./2. Sem. Integrated Design (MID1/2)"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 15,
+        "shortName": "FB4",
+        "longName": "FB4",
+        "displayName": "FB4"
+      }
+    },
+    {
+      "class": {
+        "id": 15093,
+        "shortName": "MDE1/2",
+        "longName": "1./2. Sem. Intemediales Design",
+        "displayName": "1./2. Sem. Intemediales Design (MDE1/2)"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 15,
+        "shortName": "FB4",
+        "longName": "FB4",
+        "displayName": "FB4"
+      }
+    },
+    {
+      "class": {
+        "id": 14805,
+        "shortName": "MBU (SPO 2021)",
+        "longName": "1./2.Sem.Master Bertriebswirtschaft/Unternehmensführung",
+        "displayName": "1./2.Sem.Master Bertriebswirtschaft/Unternehmensführung (MBU (SPO 2021))"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 6,
+        "shortName": "FB2",
+        "longName": "FB2",
+        "displayName": "FB2"
+      }
+    },
+    {
+      "class": {
+        "id": 14808,
+        "shortName": "MHR (SPO 2021)",
+        "longName": "1./2.Sem.Master Human Resource Management",
+        "displayName": "1./2.Sem.Master Human Resource Management (MHR (SPO 2021))"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 6,
+        "shortName": "FB2",
+        "longName": "FB2",
+        "displayName": "FB2"
+      }
+    },
+    {
+      "class": {
+        "id": 14820,
+        "shortName": "MLU1/2",
+        "longName": "1./2.Sem.Master Landschaftsarchitektur und Umweltplanung",
+        "displayName": "1./2.Sem.Master Landschaftsarchitektur und Umweltplanung (MLU1/2)"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 5,
+        "shortName": "FB1",
+        "longName": "FB1",
+        "displayName": "FB1"
+      }
+    },
+    {
+      "class": {
+        "id": 14832,
+        "shortName": "MLW1/2",
+        "longName": "1./2.Sem.Master Landwirtschaft",
+        "displayName": "1./2.Sem.Master Landwirtschaft (MLW1/2)"
+      },
+      "classTeacher1": null,
+      "classTeacher2": null,
+      "department": {
+        "id": 5,
+        "shortName": "FB1",
+        "longName": "FB1",
+        "displayName": "FB1"
+      }
+    }
+  ],
+  "resources": [],
+  "rooms": [],
+  "subjects": [],
+  "students": [],
+  "teachers": []
+}

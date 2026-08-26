@@ -1,0 +1,63 @@
+{
+  "data": [
+    {
+      "id": 900020,
+      "date": "2026-07-20",
+      "counter_id": 85,
+      "location_id": 22,
+      "is_sprint": false,
+      "food": {
+        "id": 1020,
+        "name": "Fremdes Gericht",
+        "name_2": "aus einer anderen Mensa",
+        "ingredients": ["52"],
+        "price_1": 1.95,
+        "price_2": 4.95,
+        "price_3": 7,
+        "extra_1": "",
+        "extra_2": "",
+        "extra_3": "",
+        "extra_4": "",
+        "image_url": "https://meine-mensa.de/mediathek/fixture1020.jpg"
+      }
+    },
+    {
+      "id": 900021,
+      "date": "2026-07-20",
+      "counter_id": 44,
+      "location_id": 7,
+      "is_sprint": false,
+      "food": {
+        "id": 1021,
+        "name": "Richtiges Gericht",
+        "name_2": "aus der angefragten Mensa",
+        "ingredients": ["51"],
+        "price_1": 1.95,
+        "price_2": 4.95,
+        "price_3": 7,
+        "extra_1": "",
+        "extra_2": "",
+        "extra_3": "",
+        "extra_4": "",
+        "image_url": "https://meine-mensa.de/mediathek/fixture1021.jpg"
+      }
+    }
+  ],
+  "meta": {
+    "ingredients": {
+      "2": "Konservierungsstoffe",
+      "51": "vegetarisch",
+      "52": "vegan",
+      "A1": "enthält Weizengluten",
+      "A3": "enthält Hafergluten",
+      "G2": "enthält Mandeln",
+      "F": "enthält Milch (einschließlich Laktose)"
+    },
+    "markers": {
+      "53": "Sprint-Menü",
+      "54": "Mensa Vital",
+      "55": "Bio",
+      "9901": "Klima-Teller"
+    }
+  }
+}

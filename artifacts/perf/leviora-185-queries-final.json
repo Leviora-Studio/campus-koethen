@@ -1,0 +1,197 @@
+{
+  "baseUrl": "http://127.0.0.1:3099",
+  "results": [
+    {
+      "name": "canteens-list",
+      "path": "/v1/canteens?locale=de",
+      "status": 200,
+      "coldQueries": 2,
+      "coldDbMs": 0.21,
+      "warmQueries": 2,
+      "warmDbMs": 0.11,
+      "warmStatements": [
+        {
+          "ms": 0.035,
+          "sql": "SELECT \"public\".\"canteens\".\"id\", \"public\".\"canteens\".\"slug\", \"public\".\"canteens\".\"displayNameDe\", \"public\".\"canteens\".\"displayNameEn\", \"public\".\"canteens\".\"campusLabelDe\", \"public\".\"canteens\".\"campusLabelEn\" FROM \"public\".\"canteens\" WHERE \"public\".\"canteens\".\"active\" = $1 ORDER BY \"public\".\"canteens\".\"sortOrder\" ASC, \"public\".\"canteens\".\"slug\" ASC OFFSET $2"
+        },
+        {
+          "ms": 0.072,
+          "sql": "SELECT c.id AS \"canteenId\", run.\"finishedAt\" FROM unnest($1::text[]) AS c(id) JOIN LATERAL ( SELECT s.\"finishedAt\" FROM \"sync_runs\" s WHERE s.\"canteenId\" = c.id AND s.\"status\" = 'success' AND s.\"finishedAt\" IS NOT NULL ORDER BY s.\"finishedAt\" DESC LIMIT 1 ) run ON TRUE"
+        }
+      ]
+    },
+    {
+      "name": "canteen-menu-7d",
+      "path": "/v1/canteens/perf-canteen-1/menu?locale=de&from=2026-03-02&to=2026-03-08",
+      "status": 200,
+      "coldQueries": 5,
+      "coldDbMs": 1.41,
+      "warmQueries": 2,
+      "warmDbMs": 0.11,
+      "warmStatements": [
+        {
+          "ms": 0.023,
+          "sql": "SELECT \"public\".\"canteens\".\"id\", \"public\".\"canteens\".\"slug\", \"public\".\"canteens\".\"displayNameDe\", \"public\".\"canteens\".\"displayNameEn\", \"public\".\"canteens\".\"campusLabelDe\", \"public\".\"canteens\".\"campusLabelEn\" FROM \"public\".\"canteens\" WHERE (\"public\".\"canteens\".\"slug\" = $1 AND \"public\".\"canteens\".\"active\" = $2) LIMIT $3 OFFSET $4"
+        },
+        {
+          "ms": 0.092,
+          "sql": "SELECT c.id AS \"canteenId\", run.\"finishedAt\" FROM unnest($1::text[]) AS c(id) JOIN LATERAL ( SELECT s.\"finishedAt\" FROM \"sync_runs\" s WHERE s.\"canteenId\" = c.id AND s.\"status\" = 'success' AND s.\"finishedAt\" IS NOT NULL ORDER BY s.\"finishedAt\" DESC LIMIT 1 ) run ON TRUE"
+        }
+      ]
+    },
+    {
+      "name": "canteen-menu-14d",
+      "path": "/v1/canteens/perf-canteen-1/menu?locale=de&from=2026-03-02&to=2026-03-15",
+      "status": 200,
+      "coldQueries": 4,
+      "coldDbMs": 1.92,
+      "warmQueries": 2,
+      "warmDbMs": 0.1,
+      "warmStatements": [
+        {
+          "ms": 0.025,
+          "sql": "SELECT \"public\".\"canteens\".\"id\", \"public\".\"canteens\".\"slug\", \"public\".\"canteens\".\"displayNameDe\", \"public\".\"canteens\".\"displayNameEn\", \"public\".\"canteens\".\"campusLabelDe\", \"public\".\"canteens\".\"campusLabelEn\" FROM \"public\".\"canteens\" WHERE (\"public\".\"canteens\".\"slug\" = $1 AND \"public\".\"canteens\".\"active\" = $2) LIMIT $3 OFFSET $4"
+        },
+        {
+          "ms": 0.071,
+          "sql": "SELECT c.id AS \"canteenId\", run.\"finishedAt\" FROM unnest($1::text[]) AS c(id) JOIN LATERAL ( SELECT s.\"finishedAt\" FROM \"sync_runs\" s WHERE s.\"canteenId\" = c.id AND s.\"status\" = 'success' AND s.\"finishedAt\" IS NOT NULL ORDER BY s.\"finishedAt\" DESC LIMIT 1 ) run ON TRUE"
+        }
+      ]
+    },
+    {
+      "name": "timetable-status",
+      "path": "/v1/timetable/status",
+      "status": 200,
+      "coldQueries": 3,
+      "coldDbMs": 0.23,
+      "warmQueries": 3,
+      "warmDbMs": 0.17,
+      "warmStatements": [
+        {
+          "ms": 0.028,
+          "sql": "SELECT \"public\".\"timetable_sync_runs\".\"id\", \"public\".\"timetable_sync_runs\".\"finishedAt\", \"public\".\"timetable_sync_runs\".\"rangeFrom\", \"public\".\"timetable_sync_runs\".\"rangeTo\" FROM \"public\".\"timetable_sync_runs\" WHERE (\"public\".\"timetable_sync_runs\".\"kind\" = $1 AND \"public\".\"timetable_sync_runs\".\"status\" = $2 AND \"public\".\"timetable_sync_runs\".\"finishedAt\" IS NOT NULL) ORDER BY \"public\".\"timetable_s..."
+        },
+        {
+          "ms": 0.076,
+          "sql": "SELECT \"public\".\"timetable_sync_runs\".\"id\", \"public\".\"timetable_sync_runs\".\"finishedAt\" FROM \"public\".\"timetable_sync_runs\" WHERE (\"public\".\"timetable_sync_runs\".\"kind\" = $1 AND \"public\".\"timetable_sync_runs\".\"status\" = $2 AND \"public\".\"timetable_sync_runs\".\"finishedAt\" IS NOT NULL) ORDER BY \"public\".\"timetable_sync_runs\".\"finishedAt\" DESC LIMIT $3 OFFSET $4"
+        },
+        {
+          "ms": 0.063,
+          "sql": "SELECT COUNT(*) AS \"_count$_all\" FROM (SELECT \"public\".\"timetable_groups\".\"id\" FROM \"public\".\"timetable_groups\" WHERE \"public\".\"timetable_groups\".\"active\" = $1 OFFSET $2) AS \"sub\""
+        }
+      ]
+    },
+    {
+      "name": "timetable-groups",
+      "path": "/v1/timetable/groups?locale=de",
+      "status": 200,
+      "coldQueries": 2,
+      "coldDbMs": 0.29,
+      "warmQueries": 2,
+      "warmDbMs": 0.36,
+      "warmStatements": [
+        {
+          "ms": 0.034,
+          "sql": "SELECT \"public\".\"timetable_sync_runs\".\"id\", \"public\".\"timetable_sync_runs\".\"finishedAt\" FROM \"public\".\"timetable_sync_runs\" WHERE (\"public\".\"timetable_sync_runs\".\"kind\" = $1 AND \"public\".\"timetable_sync_runs\".\"status\" = $2 AND \"public\".\"timetable_sync_runs\".\"finishedAt\" IS NOT NULL) ORDER BY \"public\".\"timetable_sync_runs\".\"finishedAt\" DESC LIMIT $3 OFFSET $4"
+        },
+        {
+          "ms": 0.328,
+          "sql": "SELECT \"public\".\"timetable_groups\".\"id\", \"public\".\"timetable_groups\".\"shortName\", \"public\".\"timetable_groups\".\"longName\", \"public\".\"timetable_groups\".\"department\" FROM \"public\".\"timetable_groups\" WHERE \"public\".\"timetable_groups\".\"active\" = $1 ORDER BY \"public\".\"timetable_groups\".\"shortName\" ASC LIMIT $2 OFFSET $3"
+        }
+      ]
+    },
+    {
+      "name": "calendars-list",
+      "path": "/v1/calendars?locale=de",
+      "status": 200,
+      "coldQueries": 1,
+      "coldDbMs": 0.13,
+      "warmQueries": 1,
+      "warmDbMs": 0.06,
+      "warmStatements": [
+        {
+          "ms": 0.057,
+          "sql": "SELECT \"public\".\"public_calendars\".\"id\", \"public\".\"public_calendars\".\"slug\", \"public\".\"public_calendars\".\"channelSlug\", \"public\".\"public_calendars\".\"googleCalendarId\", \"public\".\"public_calendars\".\"nameDe\", \"public\".\"public_calendars\".\"nameEn\", \"public\".\"public_calendars\".\"colorHex\", \"public\".\"public_calendars\".\"sortOrder\", \"public\".\"public_calendars\".\"defaultSubscribed\", \"public\".\"public_calendars..."
+        }
+      ]
+    },
+    {
+      "name": "calendar-events-single-30d",
+      "path": "/v1/calendars/perf-calendar-00/events?from=2026-03-02&to=2026-04-01",
+      "status": 200,
+      "coldQueries": 2,
+      "coldDbMs": 0.23,
+      "warmQueries": 2,
+      "warmDbMs": 0.2,
+      "warmStatements": [
+        {
+          "ms": 0.026,
+          "sql": "SELECT \"public\".\"public_calendars\".\"id\", \"public\".\"public_calendars\".\"slug\", \"public\".\"public_calendars\".\"channelSlug\", \"public\".\"public_calendars\".\"googleCalendarId\", \"public\".\"public_calendars\".\"nameDe\", \"public\".\"public_calendars\".\"nameEn\", \"public\".\"public_calendars\".\"colorHex\", \"public\".\"public_calendars\".\"sortOrder\", \"public\".\"public_calendars\".\"defaultSubscribed\", \"public\".\"public_calendars..."
+        },
+        {
+          "ms": 0.177,
+          "sql": "SELECT \"public\".\"public_calendar_events\".\"id\", \"public\".\"public_calendar_events\".\"calendarId\", \"public\".\"public_calendar_events\".\"occurrenceKey\", \"public\".\"public_calendar_events\".\"title\", \"public\".\"public_calendar_events\".\"description\", \"public\".\"public_calendar_events\".\"location\", \"public\".\"public_calendar_events\".\"startsAt\", \"public\".\"public_calendar_events\".\"endsAt\", \"public\".\"public_calendar_..."
+        }
+      ]
+    },
+    {
+      "name": "calendar-events-agg-12x30d",
+      "path": "/v1/calendars/events?from=2026-03-02&to=2026-04-01&calendar=perf-calendar-00&calendar=perf-calendar-01&calendar=perf-calendar-02&calendar=perf-calendar-03&calendar=perf-calendar-04&calendar=perf-calendar-05&calendar=perf-calendar-06&calendar=perf-calendar-07&calendar=perf-calendar-08&calendar=perf-calendar-09&calendar=perf-calendar-10&calendar=perf-calendar-11",
+      "status": 200,
+      "coldQueries": 2,
+      "coldDbMs": 3.01,
+      "warmQueries": 2,
+      "warmDbMs": 2.38,
+      "warmStatements": [
+        {
+          "ms": 0.035,
+          "sql": "SELECT \"public\".\"public_calendars\".\"id\", \"public\".\"public_calendars\".\"slug\" FROM \"public\".\"public_calendars\" WHERE (\"public\".\"public_calendars\".\"slug\" IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) AND \"public\".\"public_calendars\".\"isActive\" = $13 AND \"public\".\"public_calendars\".\"operationalStatus\" IN ($14,$15) AND \"public\".\"public_calendars\".\"lastSuccessfulSyncAt\" IS NOT NULL) OFFSET $16"
+        },
+        {
+          "ms": 2.343,
+          "sql": "SELECT \"public\".\"public_calendar_events\".\"id\", \"public\".\"public_calendar_events\".\"calendarId\", \"public\".\"public_calendar_events\".\"occurrenceKey\", \"public\".\"public_calendar_events\".\"title\", \"public\".\"public_calendar_events\".\"description\", \"public\".\"public_calendar_events\".\"location\", \"public\".\"public_calendar_events\".\"startsAt\", \"public\".\"public_calendar_events\".\"endsAt\", \"public\".\"public_calendar_..."
+        }
+      ]
+    },
+    {
+      "name": "posts-list-p1",
+      "path": "/v1/posts?locale=de&page=1&pageSize=20",
+      "status": 200,
+      "coldQueries": 0,
+      "coldDbMs": 0,
+      "warmQueries": 0,
+      "warmDbMs": 0,
+      "warmStatements": []
+    },
+    {
+      "name": "posts-detail",
+      "path": "/v1/posts/perf-post-1?locale=de",
+      "status": 200,
+      "coldQueries": 0,
+      "coldDbMs": 0,
+      "warmQueries": 0,
+      "warmDbMs": 0,
+      "warmStatements": []
+    },
+    {
+      "name": "contact-areas",
+      "path": "/v1/contact-areas?locale=de",
+      "status": 200,
+      "coldQueries": 0,
+      "coldDbMs": 0,
+      "warmQueries": 0,
+      "warmDbMs": 0,
+      "warmStatements": []
+    },
+    {
+      "name": "rooms-list",
+      "path": "/v1/rooms?locale=de",
+      "status": 200,
+      "coldQueries": 0,
+      "coldDbMs": 0,
+      "warmQueries": 0,
+      "warmDbMs": 0,
+      "warmStatements": []
+    }
+  ]
+}

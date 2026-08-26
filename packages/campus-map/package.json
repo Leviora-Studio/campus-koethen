@@ -1,0 +1,31 @@
+{
+  "name": "@campus/map",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical Campus Köthen map catalogue, SVG validator and Flutter asset generator",
+  "license": "AGPL-3.0-only",
+  "author": "Leviora Studio and Jona Loreen Sommer",
+  "main": "src/index.mjs",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.mjs"
+    },
+    "./catalog": {
+      "types": "./catalog/index.d.ts",
+      "default": "./catalog/campus-map.catalog.json"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node src/cli.mjs generate",
+    "validate": "node src/cli.mjs validate",
+    "generate": "node src/cli.mjs generate",
+    "check": "node src/cli.mjs check",
+    "lint": "node src/cli.mjs validate",
+    "typecheck": "node src/cli.mjs validate",
+    "test": "node --test test/*.test.mjs"
+  }
+}

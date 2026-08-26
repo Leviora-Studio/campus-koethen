@@ -1,0 +1,216 @@
+# Campus Köthen — DEV deployment contract for myaioffice.de
+#
+# This file mirrors the manually operated server stack. CI builds immutable
+# images but never deploys them. A human updates the sha- tags, runs the
+# migration task, and recreates the services deliberately.
+
+name: campus-koethen-dev
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+x-backend-image: &backend-image
+  image: ghcr.io/leviora-studio/campus-koethen/backend:${BACKEND_IMAGE_TAG:?set BACKEND_IMAGE_TAG to an immutable sha- tag}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      # Bootstrap superuser used only for administration and backups. The two
+      # applications connect with their separate, non-superuser roles below.
+      POSTGRES_USER: campus_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?required}
+      POSTGRES_DB: postgres
+      CMS_DB_PASSWORD: ${CMS_DB_PASSWORD:?required}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init/01-create-databases.sh:/docker-entrypoint-initdb.d/01-create-databases.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U campus_admin -d postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  cms:
+    image: ghcr.io/leviora-studio/campus-koethen/cms:${CMS_IMAGE_TAG:?set CMS_IMAGE_TAG to an immutable sha- tag}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 1337
+      PUBLIC_URL: https://cms-dev.myaioffice.de
+      # Explicit browser origin allowlist. Empty means "the CMS's own
+      # PUBLIC_URL", which is the origin the admin panel is served from.
+      CORS_ALLOWED_ORIGINS: ${CMS_CORS_ALLOWED_ORIGINS:-}
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: campus_cms_dev
+      DATABASE_USERNAME: campus_cms
+      DATABASE_PASSWORD: ${CMS_DB_PASSWORD:?required}
+      DATABASE_SSL: 'false'
+      APP_KEYS: ${STRAPI_APP_KEYS:?required}
+      API_TOKEN_SALT: ${STRAPI_API_TOKEN_SALT:?required}
+      ADMIN_JWT_SECRET: ${STRAPI_ADMIN_JWT_SECRET:?required}
+      TRANSFER_TOKEN_SALT: ${STRAPI_TRANSFER_TOKEN_SALT:?required}
+      ENCRYPTION_KEY: ${STRAPI_ENCRYPTION_KEY:?required}
+      STRAPI_TELEMETRY_DISABLED: 'true'
+      SEED_DEMO_CONTENT: 'false'
+    ports:
+      # Loopback only; the existing Nginx instance terminates public TLS.
+      - '127.0.0.1:3020:1337'
+    volumes:
+      - strapi_uploads:/opt/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:1337/_health').then(r=>process.exit(r.status<400?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  # One-off task. Run after pulling the new backend image and before starting
+  # API/worker. It applies committed migrations only and needs no shadow DB.
+  migrate:
+    <<: *backend-image
+    restart: 'no'
+    profiles: ['migrate']
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://campus_app:${APP_DB_PASSWORD:?required}@db:5432/campus_app_dev?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  api:
+    <<: *backend-image
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://campus_app:${APP_DB_PASSWORD:?required}@db:5432/campus_app_dev?schema=public
+      STRAPI_BASE_URL: http://cms:1337
+      # Empty is allowed only for the first Strapi bootstrap. Before API and
+      # worker start, the operator must set the real read-only token.
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
+      PUBLIC_CALENDAR_ENABLED: ${PUBLIC_CALENDAR_ENABLED:-false}
+      PUBLIC_CALENDAR_STALE_AFTER_MINUTES: ${PUBLIC_CALENDAR_STALE_AFTER_MINUTES:-}
+      PUBLIC_CALENDAR_API_MAX_CALENDARS: ${PUBLIC_CALENDAR_API_MAX_CALENDARS:-}
+      PUBLIC_CALENDAR_API_MAX_RANGE_DAYS: ${PUBLIC_CALENDAR_API_MAX_RANGE_DAYS:-}
+      PUBLIC_CALENDAR_API_MAX_EVENTS: ${PUBLIC_CALENDAR_API_MAX_EVENTS:-}
+      PUBLIC_CALENDAR_LOOKAHEAD_DAYS: ${PUBLIC_CALENDAR_LOOKAHEAD_DAYS:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?required}
+      WEBUNTIS_ENABLED: ${WEBUNTIS_ENABLED:-false}
+      WEBUNTIS_STALE_AFTER_MINUTES: ${WEBUNTIS_STALE_AFTER_MINUTES:-180}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '127.0.0.1:3021:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      cms:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+  worker:
+    <<: *backend-image
+    restart: unless-stopped
+    command: ['node', 'dist/worker.js']
+    stop_grace_period: 30s
+    # It serves no HTTP; the backend image's API liveness probe does not apply.
+    healthcheck:
+      disable: true
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://campus_app:${APP_DB_PASSWORD:?required}@db:5432/campus_app_dev?schema=public
+      STRAPI_BASE_URL: http://cms:1337
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
+      STRAPI_TIMEOUT_MS: ${STRAPI_TIMEOUT_MS:-10000}
+      STRAPI_RETRY_ATTEMPTS: ${STRAPI_RETRY_ATTEMPTS:-2}
+      WORKER_TIME_ZONE: ${WORKER_TIME_ZONE:-UTC}
+      PUBLIC_CALENDAR_ENABLED: ${PUBLIC_CALENDAR_ENABLED:-false}
+      PUBLIC_CALENDAR_CATALOG_SYNC_CRON: ${PUBLIC_CALENDAR_CATALOG_SYNC_CRON:-*/10 * * * *}
+      PUBLIC_CALENDAR_EVENT_SYNC_CRON: ${PUBLIC_CALENDAR_EVENT_SYNC_CRON:-*/10 * * * *}
+      PUBLIC_CALENDAR_SYNC_ON_BOOT: ${PUBLIC_CALENDAR_SYNC_ON_BOOT:-true}
+      PUBLIC_CALENDAR_LOOKAHEAD_DAYS: ${PUBLIC_CALENDAR_LOOKAHEAD_DAYS:-}
+      PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT: ${PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT:-}
+      PUBLIC_CALENDAR_MAX_OCCURRENCES: ${PUBLIC_CALENDAR_MAX_OCCURRENCES:-}
+      CANTEEN_SYNC_CRON: ${CANTEEN_SYNC_CRON:-0 */2 * * *}
+      CANTEEN_SYNC_ON_BOOT: ${CANTEEN_SYNC_ON_BOOT:-true}
+      WEBUNTIS_ENABLED: ${WEBUNTIS_ENABLED:-false}
+      WEBUNTIS_BASE_URL: ${WEBUNTIS_BASE_URL:-https://hsa.webuntis.com/WebUntis/api/rest/view/v1}
+      WEBUNTIS_ANONYMOUS_SCHOOL: ${WEBUNTIS_ANONYMOUS_SCHOOL:-hsa}
+      WEBUNTIS_GROUP_SYNC_CRON: ${WEBUNTIS_GROUP_SYNC_CRON:-0 * * * *}
+      WEBUNTIS_ENTRY_SYNC_CRON: ${WEBUNTIS_ENTRY_SYNC_CRON:-0 * * * *}
+      WEBUNTIS_SYNC_ON_BOOT: ${WEBUNTIS_SYNC_ON_BOOT:-true}
+      WEBUNTIS_LOOKBACK_DAYS: ${WEBUNTIS_LOOKBACK_DAYS:-7}
+      WEBUNTIS_LOOKAHEAD_DAYS: ${WEBUNTIS_LOOKAHEAD_DAYS:-28}
+      WEBUNTIS_STALE_AFTER_MINUTES: ${WEBUNTIS_STALE_AFTER_MINUTES:-180}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+      cms:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - campus_internal
+    logging: *default-logging
+
+networks:
+  campus_internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  strapi_uploads:

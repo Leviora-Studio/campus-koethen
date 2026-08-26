@@ -1,0 +1,470 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+import 'package:campus_koethen/core/locale/formatters.dart';
+import 'package:campus_koethen/core/locale/locale_mode.dart';
+import 'package:campus_koethen/core/network/network_providers.dart';
+import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
+import 'package:campus_koethen/features/calendar/presentation/calendar_entry_sheet.dart';
+import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
+import 'package:campus_koethen/features/timetable/application/timetable_week.dart';
+import 'package:campus_koethen/features/timetable/presentation/timetable_screen.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
+import "package:campus_koethen/core/theme/app_icons.dart";
+
+import '../../support/fake_http_adapter.dart';
+import '../../support/fixtures.dart';
+import '../../support/pump_app.dart';
+
+/// The Monday of the week the screen shows by default.
+final DateTime monday = TimetableWeek.startOf(DateTime.now());
+
+InMemoryKeyValueStore storeWithGroup() =>
+    InMemoryKeyValueStore(<String, Object>{
+      PreferenceKeys.preferredTimetableGroup: timetableGroupIdFixture,
+    });
+
+FakeHttpAdapter workingApi({Map<String, dynamic>? meta}) {
+  return FakeHttpAdapter((RequestOptions options) {
+    if (options.path.endsWith('/timetable/groups')) {
+      return FakeHttpResponse(envelope(timetableGroupsFixture));
+    }
+    return FakeHttpResponse(
+      envelope(timetableWeekFixture(monday), meta: meta ?? timetableMeta()),
+    );
+  });
+}
+
+/// Pumps the screen with a preselected group and jumps to the Monday that
+/// carries the fixture's appointments.
+Future<ProviderContainer> pumpTimetable(
+  WidgetTester tester, {
+  FakeHttpAdapter? adapter,
+  KeyValueStore? store,
+  Locale locale = AppLocales.german,
+  TextScaler textScaler = TextScaler.noScaling,
+  ThemeMode themeMode = ThemeMode.light,
+  bool selectMonday = true,
+}) async {
+  final ProviderContainer container = await pumpScreen(
+    tester,
+    const TimetableScreen(),
+    keyValueStore: store ?? storeWithGroup(),
+    locale: locale,
+    textScaler: textScaler,
+    themeMode: themeMode,
+    overrides: <Override>[
+      apiClientProvider.overrideWithValue(
+        fakeApiClient(adapter ?? workingApi()),
+      ),
+    ],
+  );
+  if (selectMonday) {
+    container.read(selectedTimetableDayProvider.notifier).select(monday);
+  }
+  await tester.pumpAndSettle();
+  return container;
+}
+
+void main() {
+  group('onboarding', () {
+    testWidgets('asks for a course when none is chosen', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(tester, store: InMemoryKeyValueStore());
+
+      expect(find.text('Noch kein Kurs gewählt'), findsOneWidget);
+      expect(find.text('Kurs auswählen'), findsOneWidget);
+      expect(
+        find.text('Etwas ist schiefgelaufen'),
+        findsNothing,
+        reason: 'an unchosen course is not an error',
+      );
+    });
+
+    testWidgets('opens the picker and stores the chosen course', (
+      WidgetTester tester,
+    ) async {
+      final InMemoryKeyValueStore store = InMemoryKeyValueStore();
+      await pumpTimetable(tester, store: store, selectMonday: false);
+
+      await tester.tap(find.text('Kurs auswählen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('AIN2 - BT'), findsOneWidget);
+      expect(find.text('MB1'), findsOneWidget);
+      expect(find.text('FB5'), findsOneWidget, reason: 'department is visible');
+
+      await tester.tap(find.text('MB1'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.getString(PreferenceKeys.preferredTimetableGroup),
+        '22222222-2222-4222-8222-222222222222',
+        reason: 'only the Campus UUID is persisted',
+      );
+    });
+
+    testWidgets('searches courses by short name, long name and department', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        store: InMemoryKeyValueStore(),
+        selectMonday: false,
+      );
+      await tester.tap(find.text('Kurs auswählen'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'maschinenbau');
+      await tester.pumpAndSettle();
+
+      expect(find.text('MB1'), findsOneWidget);
+      expect(find.text('AIN2 - BT'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'fb5');
+      await tester.pumpAndSettle();
+      expect(find.text('AIN2 - BT'), findsOneWidget);
+      expect(find.text('MB1'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pumpAndSettle();
+      expect(find.text('Kein passender Kurs'), findsOneWidget);
+    });
+  });
+
+  group('agenda', () {
+    testWidgets('an appointment opens its details', (
+      WidgetTester tester,
+    ) async {
+      // The card is a summary; everything else about the slot — groups, the
+      // note, the way to the room — lives in the same sheet the calendar uses.
+      await pumpTimetable(tester);
+
+      await tester.tap(find.text('Mathematik 2'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CalendarEntrySheet), findsOneWidget);
+      expect(find.text('D-04/201'), findsWidgets);
+    });
+
+    testWidgets('shows the appointments of the selected day', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(tester);
+
+      expect(find.text('Mathematik 2'), findsOneWidget);
+      expect(find.text('Projektseminar'), findsOneWidget);
+      expect(find.text('Demo Demoperson01'), findsWidgets);
+      expect(find.text('D-04/201'), findsWidgets);
+      expect(find.text('Lehrveranstaltung'), findsWidgets);
+
+      final DateTime start = DateTime.utc(
+        monday.year,
+        monday.month,
+        monday.day,
+        6,
+      );
+      expect(
+        find.textContaining(AppDateFormats.time(start, 'de')),
+        findsWidgets,
+        reason: 'the start time is rendered locale aware',
+      );
+    });
+
+    testWidgets('marks cancelled, changed and unknown states with text', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(tester);
+
+      expect(find.text('Fällt aus'), findsOneWidget);
+      expect(find.text('Geändert'), findsOneWidget);
+      expect(find.text('Status unklar'), findsOneWidget);
+      expect(
+        find.text('Sonstiger Termin'),
+        findsOneWidget,
+        reason: 'an unknown type falls back to a neutral label',
+      );
+    });
+
+    testWidgets('gives every state an icon and a screen reader label', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await pumpTimetable(tester);
+
+      expect(find.byIcon(AppIcons.event_busy_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.edit_calendar_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.help_outline), findsOneWidget);
+
+      expect(
+        find.bySemanticsLabel(RegExp('Technische Mechanik.*Fällt aus')),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
+    testWidgets('shows an empty day instead of an error', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = await pumpTimetable(tester);
+
+      container
+          .read(selectedTimetableDayProvider.notifier)
+          .select(TimetableWeek.shift(monday, 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keine Termine'), findsOneWidget);
+      expect(find.text('Etwas ist schiefgelaufen'), findsNothing);
+      expect(find.text('Mathematik 2'), findsNothing);
+    });
+
+    testWidgets('week navigation moves to the next week', (
+      WidgetTester tester,
+    ) async {
+      final FakeHttpAdapter adapter = workingApi();
+      final ProviderContainer container = await pumpTimetable(
+        tester,
+        adapter: adapter,
+      );
+
+      await tester.tap(find.byTooltip('Nächste Woche'));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(selectedTimetableDayProvider),
+        TimetableWeek.shift(monday, 7),
+      );
+      final String expected = AppDateFormats.isoDate(
+        TimetableWeek.shift(monday, 7),
+      );
+      expect(
+        adapter.queries.any((String query) => query.contains('from=$expected')),
+        isTrue,
+        reason: 'the next week is requested from the API',
+      );
+    });
+
+    testWidgets('shows the factual source notice', (WidgetTester tester) async {
+      await pumpTimetable(tester);
+
+      final Finder notice = find.textContaining('Quelle:');
+      await tester.scrollUntilVisible(
+        notice,
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(notice, findsOneWidget);
+      final String text = tester.widget<Text>(notice).data!;
+      expect(text, contains('keine Zusammenarbeit'));
+      expect(text, isNot(contains('offiziell')));
+    });
+  });
+
+  group('states', () {
+    testWidgets('shows an error with a retry when nothing can be served', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        adapter: FakeHttpAdapter((RequestOptions _) => throw Exception('down')),
+      );
+
+      expect(
+        find.text(
+          'Keine Verbindung zum Server. Bitte prüfe deine Internetverbindung.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Erneut versuchen'), findsOneWidget);
+    });
+
+    testWidgets('labels cached content as offline', (
+      WidgetTester tester,
+    ) async {
+      bool offline = false;
+      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+        if (offline) throw Exception('offline');
+        if (options.path.endsWith('/timetable/groups')) {
+          return FakeHttpResponse(envelope(timetableGroupsFixture));
+        }
+        return FakeHttpResponse(
+          envelope(timetableWeekFixture(monday), meta: timetableMeta()),
+        );
+      });
+
+      final ProviderContainer container = await pumpTimetable(
+        tester,
+        adapter: adapter,
+      );
+      expect(find.text('Offline gespeicherte Inhalte'), findsNothing);
+
+      offline = true;
+      container.invalidate(timetableWeekProvider);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Offline gespeicherte Inhalte'), findsOneWidget);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+    });
+
+    testWidgets('warns about stale server data', (WidgetTester tester) async {
+      await pumpTimetable(
+        tester,
+        adapter: workingApi(meta: timetableMeta(dataStale: true)),
+      );
+
+      expect(find.text('Daten möglicherweise veraltet'), findsOneWidget);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+    });
+
+    testWidgets('explains a pending data set without looking broken', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        adapter: workingApi(meta: timetableMeta(dataState: 'pending')),
+      );
+
+      expect(find.text('Stundenplan wird vorbereitet'), findsOneWidget);
+      expect(find.text('Etwas ist schiefgelaufen'), findsNothing);
+    });
+
+    testWidgets('explains a disabled feature without looking broken', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        adapter: workingApi(
+          meta: timetableMeta(
+            featureEnabled: false,
+            dataState: 'unavailable',
+            lastSuccessfulSyncAt: null,
+          ),
+        ),
+      );
+
+      expect(
+        find.text('Stundenplan noch nicht freigeschaltet'),
+        findsOneWidget,
+      );
+      expect(find.text('Etwas ist schiefgelaufen'), findsNothing);
+      expect(find.text('Erneut versuchen'), findsNothing);
+    });
+
+    testWidgets('reports a permanently unavailable range', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        adapter: workingApi(meta: timetableMeta(dataState: 'unavailable')),
+      );
+
+      expect(find.text('Kein Datenstand verfügbar'), findsOneWidget);
+      expect(find.text('Etwas ist schiefgelaufen'), findsNothing);
+    });
+
+    testWidgets('never leaves a poll timer behind when disposed', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        adapter: workingApi(meta: timetableMeta(dataState: 'pending')),
+      );
+      expect(find.text('Stundenplan wird vorbereitet'), findsOneWidget);
+
+      // Replacing the screen disposes it; a surviving timer would make the
+      // test framework fail with a pending timer error.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('accessibility and i18n', () {
+    testWidgets('renders English when the locale is en', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(
+        tester,
+        store: InMemoryKeyValueStore(),
+        locale: AppLocales.english,
+      );
+
+      expect(find.text('No course selected yet'), findsOneWidget);
+      expect(find.text('Choose course'), findsWidgets);
+      expect(find.text('Noch kein Kurs gewählt'), findsNothing);
+    });
+
+    testWidgets('keeps foreign names untranslated in English', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(tester, locale: AppLocales.english);
+
+      expect(find.text('Mathematik 2'), findsOneWidget);
+      expect(find.text('Cancelled'), findsOneWidget);
+      expect(find.text('Class'), findsWidgets);
+    });
+
+    testWidgets('survives doubled text size without overflow', (
+      WidgetTester tester,
+    ) async {
+      // Doubled text needs doubled room. The question this test asks is
+      // whether the layout survives the scale, not whether a day's teaching
+      // fits on one screen at it — that is what scrolling is for.
+      tester.view.physicalSize = const Size(390, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await pumpTimetable(tester, textScaler: const TextScaler.linear(2));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+      expect(find.text('Fällt aus'), findsOneWidget);
+    });
+
+    testWidgets('renders in the dark theme', (WidgetTester tester) async {
+      await pumpTimetable(tester, themeMode: ThemeMode.dark);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+      expect(find.text('Fällt aus'), findsOneWidget);
+      expect(
+        Theme.of(tester.element(find.text('Mathematik 2'))).brightness,
+        Brightness.dark,
+      );
+    });
+
+    testWidgets('keeps navigation targets at least 48dp tall', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(tester);
+
+      final Iterable<Element> targets = find
+          .byWidgetPredicate(
+            (Widget widget) =>
+                widget is IconButton ||
+                widget.runtimeType.toString() == '_TimetableDayChip',
+          )
+          .evaluate();
+      expect(targets, isNotEmpty);
+      for (final Element element in targets) {
+        expect(
+          element.size!.height,
+          greaterThanOrEqualTo(48.0),
+          reason: '${element.widget.runtimeType} is too small to hit',
+        );
+      }
+    });
+  });
+}

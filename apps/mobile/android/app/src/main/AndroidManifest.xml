@@ -1,0 +1,91 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Die App ist ohne Netz funktionslos: sie lädt die Campus API und spricht
+         für Mail, Noten, Moodle und Anträge direkt mit den offiziellen Anbietern.
+         Ohne diese Zeile fehlt Release-Builds jede Netzwerkverbindung — die
+         Flutter-Vorlage deklariert INTERNET nur im Debug- und Profile-Manifest.
+         Cleartext bleibt bewusst verboten: alle Ziele sind HTTPS. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Lokale Benachrichtigungen (ADR-0001): Nach einem Neustart des Geräts
+         sind alle beim System vorgemerkten Termine verloren. Mit dieser
+         Berechtigung stellt das Plugin sie nach dem Boot wieder her, ohne dass
+         die App geöffnet werden muss.
+         Bewusst NICHT vorhanden: SCHEDULE_EXACT_ALARM und USE_EXACT_ALARM.
+         Geplant wird ausschließlich inexakt (inexactAllowWhileIdle); der Preis
+         dafür sind wenige Minuten Streuung, der Preis einer exakten Alarmierung
+         wäre eine erklärungsbedürftige Sonderberechtigung. POST_NOTIFICATIONS
+         bringt das Plugin selbst mit. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Kein Backup, keine Geräteübertragung. Ohne diese Angaben sichert
+         Android die App-Daten in die Cloud und überträgt sie auf ein neues
+         Gerät — dazu gehören die verschlüsselten Hive-Boxen und die
+         SharedPreferences, in denen flutter_secure_storage seine Chiffrate
+         ablegt. iOS hält diese Daten bereits bewusst aus jedem Backup heraus
+         (Keychain-Klasse first_unlock_this_device); dies ist dieselbe
+         Entscheidung auf Android (AGENTS.md §2). Der Preis ist der dokumentierte:
+         Auf einem neuen Gerät müssen die Konten erneut eingerichtet werden. -->
+    <application
+        android:label="Campus Köthen"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Zustellung der lokal vorausgeplanten Benachrichtigungen. Der erste
+             Receiver zeigt einen fälligen Eintrag an, der zweite plant den
+             gesamten Bestand nach einem Neustart oder einem App-Update neu
+             ein. Beide sind nicht exportiert: Sie werden ausschließlich vom
+             System und vom Plugin selbst ausgelöst. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

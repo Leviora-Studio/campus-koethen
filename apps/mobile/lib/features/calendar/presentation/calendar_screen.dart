@@ -1,0 +1,876 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import "package:campus_koethen/core/theme/app_icons.dart";
+
+import '../../../app/app_modules.dart';
+import '../../../app/app_routes.dart';
+import '../../../core/locale/formatters.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_dimensions.dart';
+import '../../../core/theme/app_metrics.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/screen_scaffold.dart';
+import '../../../core/widgets/section_header.dart';
+import '../../../core/widgets/state_views.dart';
+import '../../../core/widgets/status_banner.dart';
+import '../../../core/widgets/time_rail.dart';
+import '../../../l10n/l10n.dart';
+import '../../campusmap/application/campus_map_providers.dart';
+import '../../campusmap/domain/map_catalog.dart';
+import '../../campusmap/domain/room.dart';
+import '../../campusmap/domain/room_mention.dart';
+import '../../campusmap/presentation/room_link.dart';
+import '../../moodle/application/moodle_account_controller.dart';
+import '../../moodle/application/moodle_controller.dart';
+import '../../timetable/application/timetable_week.dart';
+import '../../timetable/presentation/timetable_group_picker_sheet.dart';
+import '../application/calendar_providers.dart';
+import '../domain/calendar_entry.dart';
+import '../domain/entry_rooms.dart';
+import 'calendar_entry_sheet.dart';
+import 'calendar_source_sheets.dart';
+import 'week_grid_view.dart';
+import 'week_strip.dart';
+
+/// The top-level "Kalender" tab: one calendar merged from the timetable,
+/// Moodle deadlines and the public calendars.
+///
+/// ## What changed, and why
+///
+/// The screen used to open with two full bands of controls — three source
+/// buttons, then a view switcher — before a single appointment was visible.
+/// Both are still here, but the sources have moved into the masthead as one
+/// action: which calendars you are looking at is a question answered once,
+/// while which day you are looking at is the one asked all day.
+///
+/// The day itself is drawn on the rail (see `TimeRail`), which is what turns a
+/// list of appointments into a picture of a day: the times line up in one
+/// column, the gaps between them are visible as gaps, and "now" is a marker
+/// drawn straight across.
+class CalendarScreen extends ConsumerStatefulWidget {
+  const CalendarScreen({super.key});
+
+  @override
+  ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends ConsumerState<CalendarScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Populate Moodle deadlines lazily on open (respects the one-hour gate).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(moodleAccountControllerProvider).value != null) {
+        ref.read(moodleControllerProvider.notifier).maybeAutoSync();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    final CalendarViewMode mode = ref.watch(calendarViewModeProvider);
+    final CalendarData data = ref.watch(focusedCalendarDataProvider);
+
+    // "Not everything is showing" has to be visible from the outside, or a
+    // missing appointment looks like a bug rather than like a setting.
+    final bool everythingVisible =
+        data.enabledSources.length == kMergeableCalendarSources.length;
+
+    return ScreenScaffold(
+      eyebrow: ModuleCategory.study.label(l10n),
+      title: l10n.navCalendar,
+      actions: <Widget>[
+        IconButton(
+          tooltip: l10n.calendarSourcesLabel,
+          onPressed: () => showCalendarSourcesSheet(context),
+          isSelected: !everythingVisible,
+          icon: const Icon(AppIcons.layers_outlined),
+          selectedIcon: const Icon(AppIcons.layers_clear_outlined),
+        ),
+        IconButton(
+          tooltip: l10n.calendarManageTitle,
+          onPressed: () => GoRouter.of(context).push(AppRoutes.calendarManage),
+          icon: const Icon(AppIcons.tune),
+        ),
+      ],
+      controls: _ViewControls(mode: mode),
+      body: switch (mode) {
+        CalendarViewMode.day => _DayAgendaView(data: data),
+        CalendarViewMode.week => _WeekView(data: data),
+        CalendarViewMode.list => _ListView(data: data),
+      },
+    );
+  }
+}
+
+/// The scrollable header shared by all views: per-source error banners and
+/// (when needed) the "pick a course" hint.
+///
+/// One source failing never removes the others — the banner says which one is
+/// missing and the rest of the calendar keeps its data.
+List<Widget> _calendarHeader(BuildContext context, CalendarData data) {
+  final AppLocalizations l10n = context.l10n;
+  final AppMetrics metrics = context.metrics;
+  Widget banner(String message) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      metrics.screenPadding,
+      AppSpacing.sm,
+      metrics.screenPadding,
+      0,
+    ),
+    child: StatusBanner(
+      tone: StatusTone.warning,
+      icon: AppIcons.sync_problem,
+      title: message,
+    ),
+  );
+  return <Widget>[
+    if (data.hasTimetableError) banner(l10n.calendarTimetableUnavailable),
+    if (data.hasMoodleError) banner(l10n.calendarMoodleUnavailable),
+    // The third source had a flag and a string and no banner, so a failed
+    // public-calendar load looked exactly like a day with nothing scheduled.
+    // "Not happening" and "we could not ask" are the two readings this
+    // header exists to keep apart.
+    if (data.hasPublicCalendarError) banner(l10n.calendarPublicUnavailable),
+    if (data.needsGroup) const _GroupHint(),
+  ];
+}
+
+/// Day, week or list — and nothing else on the line.
+class _ViewControls extends ConsumerWidget {
+  const _ViewControls({required this.mode});
+
+  final CalendarViewMode mode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final AppMetrics metrics = context.metrics;
+    // Icon *and* label do not fit three segments onto a 320 px phone once the
+    // user scales text up. The label is what gets dropped, never the control:
+    // the icon keeps its tooltip and its accessible name, so nothing is lost
+    // for a screen reader.
+    final bool roomForLabels =
+        MediaQuery.textScalerOf(context).scale(14) < 20 ||
+        MediaQuery.sizeOf(context).width > 360;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        metrics.screenPadding,
+        AppSpacing.md,
+        metrics.screenPadding,
+        0,
+      ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: SegmentedButton<CalendarViewMode>(
+          showSelectedIcon: false,
+          segments: <ButtonSegment<CalendarViewMode>>[
+            ButtonSegment<CalendarViewMode>(
+              value: CalendarViewMode.day,
+              icon: const Icon(AppIcons.view_day_outlined),
+              tooltip: l10n.calendarViewDay,
+              label: roomForLabels ? Text(l10n.calendarViewDay) : null,
+            ),
+            ButtonSegment<CalendarViewMode>(
+              value: CalendarViewMode.week,
+              icon: const Icon(AppIcons.grid_on_outlined),
+              tooltip: l10n.calendarViewWeek,
+              label: roomForLabels ? Text(l10n.calendarViewWeek) : null,
+            ),
+            ButtonSegment<CalendarViewMode>(
+              value: CalendarViewMode.list,
+              icon: const Icon(AppIcons.view_agenda_outlined),
+              tooltip: l10n.calendarViewList,
+              label: roomForLabels ? Text(l10n.calendarViewList) : null,
+            ),
+          ],
+          selected: <CalendarViewMode>{mode},
+          onSelectionChanged: (Set<CalendarViewMode> selection) =>
+              ref.read(calendarViewModeProvider.notifier).set(selection.first),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupHint extends ConsumerWidget {
+  const _GroupHint();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final AppMetrics metrics = context.metrics;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        metrics.screenPadding,
+        AppSpacing.sm,
+        metrics.screenPadding,
+        0,
+      ),
+      child: StatusBanner(
+        icon: AppIcons.schedule_outlined,
+        title: l10n.calendarSelectGroupHint,
+        action: FilledButton(
+          onPressed: () => showTimetableGroupPickerSheet(context, ref),
+          // Names the action, not the source: "Stundenplan" is what the
+          // control above already says.
+          child: Text(l10n.timetableGroupPickerTitle),
+        ),
+      ),
+    );
+  }
+}
+
+/// The primary view: a week strip and the chosen day, drawn on the rail.
+///
+/// Horizontal swiping moves a day at a time, which is how a phone calendar is
+/// expected to behave; the strip above shows where in the week that lands.
+class _DayAgendaView extends ConsumerWidget {
+  const _DayAgendaView({required this.data});
+
+  final CalendarData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final String locale = Localizations.localeOf(context).languageCode;
+    final DateTime focused = ref.watch(calendarFocusedDayProvider);
+    final DateTime now = DateTime.now();
+    final DateTime today = TimetableWeek.dayOf(now);
+    final List<CalendarEntry> entries = data.forDay(focused);
+    final bool isToday = TimetableWeek.dayOf(focused) == today;
+
+    // From the same index the day list below reads, so a dot can never sit
+    // under a different day than the entry it announces.
+    final Map<DateTime, int> counts = data.entryCountsByDay;
+
+    return Column(
+      children: <Widget>[
+        WeekStrip(
+          selected: focused,
+          today: today,
+          entryCounts: counts,
+          // Every day an entry actually occupies, not only the day it starts:
+          // otherwise a multi-day entry leaves the strip blank on days where
+          // the list right below it shows the entry.
+          eventDays: data.eventDays,
+          onSelect: (DateTime day) =>
+              ref.read(calendarFocusedDayProvider.notifier).select(day),
+          // A swipe on the strip is a week; a swipe on the day below is a day.
+          // Two gestures, two areas — neither can swallow the other.
+          onShiftWeeks: (int delta) =>
+              ref.read(calendarFocusedDayProvider.notifier).shiftWeeks(delta),
+          onToday: () => ref.read(calendarFocusedDayProvider.notifier).today(),
+        ),
+        Expanded(
+          child: GestureDetector(
+            // A day per swipe. `primaryVelocity` is negative when the finger
+            // moves left, which means "forward" in a left-to-right calendar.
+            onHorizontalDragEnd: (DragEndDetails details) {
+              final double velocity = details.primaryVelocity ?? 0;
+              if (velocity == 0) return;
+              ref
+                  .read(calendarFocusedDayProvider.notifier)
+                  .shiftDays(velocity < 0 ? 1 : -1);
+            },
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+              children: <Widget>[
+                ..._calendarHeader(context, data),
+                SectionHeader(
+                  label: AppDateFormats.weekdayDate(focused, locale),
+                ),
+                if (entries.isEmpty)
+                  // `data.isLoading` exists for exactly this and was never
+                  // read: an empty day during the initial load claimed "no
+                  // entries" before any source had answered.
+                  data.isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.xxl,
+                          ),
+                          child: LoadingView(),
+                        )
+                      : RailGap(
+                          height: AppSpacing.xxxl,
+                          label: l10n.calendarNoEntriesForDay,
+                        )
+                else
+                  ..._railFor(
+                    context: context,
+                    entries: entries,
+                    locale: locale,
+                    now: isToday ? now : null,
+                    l10n: l10n,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Lays the day out on the rail and drops the "now" line into the right gap.
+///
+/// The line goes before the first entry that has not started yet; if the day is
+/// already over it closes the list instead. Either way the reader sees where
+/// they are without counting rows.
+List<Widget> _railFor({
+  required BuildContext context,
+  required List<CalendarEntry> entries,
+  required String locale,
+  required DateTime? now,
+  required AppLocalizations l10n,
+}) {
+  final List<Widget> children = <Widget>[];
+  bool nowPlaced = now == null;
+
+  for (final CalendarEntry entry in entries) {
+    final DateTime start = entry.start.toLocal();
+    if (!nowPlaced && start.isAfter(now!)) {
+      children.add(_nowRule(now: now, locale: locale, l10n: l10n));
+      nowPlaced = true;
+    }
+    children.add(_EntryRow(entry: entry, locale: locale, now: now));
+  }
+
+  if (!nowPlaced) {
+    children.add(_nowRule(now: now!, locale: locale, l10n: l10n));
+  }
+  return children;
+}
+
+/// The line drawn straight across the rail at the current time.
+///
+/// One definition for both the day agenda and the list view, so the two can
+/// never label the same moment differently.
+Widget _nowRule({
+  required DateTime now,
+  required String locale,
+  required AppLocalizations l10n,
+}) => NowRule(
+  time: AppDateFormats.time(now, locale),
+  semanticLabel: '${l10n.todayNowLabel}, ${AppDateFormats.time(now, locale)}',
+);
+
+/// One appointment on the rail — and, when the plan knows it, its room.
+///
+/// The room is a control **in the row**. It used to take three steps to get
+/// from a lecture to where it is: tap the row, read the sheet, press the room.
+/// The sheet is still there for everything else the entry knows, but the one
+/// thing a reader wants while walking across campus is now one tap away.
+class _EntryRow extends ConsumerWidget {
+  const _EntryRow({
+    required this.entry,
+    required this.locale,
+    required this.now,
+  });
+
+  final CalendarEntry entry;
+  final String locale;
+
+  /// The current time, or `null` when the day being read is not today.
+  final DateTime? now;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final AppColors colors = context.colors;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    final DateTime start = entry.start.toLocal();
+    final DateTime? end = entry.end?.toLocal();
+
+    // A deadline has no duration, so it is never "now" — it is ahead of you or
+    // it is behind you. Treating its start as its end says exactly that.
+    final DateTime finish = end ?? start;
+    final DateTime? currentTime = now;
+    final TimeRailEmphasis emphasis;
+    if (currentTime == null) {
+      emphasis = TimeRailEmphasis.normal;
+    } else if (!start.isAfter(currentTime) && finish.isAfter(currentTime)) {
+      emphasis = TimeRailEmphasis.now;
+    } else if (!finish.isAfter(currentTime)) {
+      emphasis = TimeRailEmphasis.past;
+    } else {
+      emphasis = TimeRailEmphasis.normal;
+    }
+
+    // Source is always conveyed with a text label (and an icon), never by
+    // colour alone; the public-calendar colour is an extra decorative accent.
+    final String sourceLabel = switch (entry.source) {
+      CalendarSource.moodle => l10n.calendarSourceMoodle,
+      CalendarSource.timetable => l10n.calendarSourceTimetable,
+      CalendarSource.publicCalendar ||
+      CalendarSource.postEvent ||
+      CalendarSource.savedEvents =>
+        entry.sourceLabel ?? l10n.calendarSourcePublic,
+    };
+
+    final List<String> meta = <String>[
+      sourceLabel,
+      if (entry.isCancelled) l10n.timetableStatusCancelled,
+      if (entry.subtitle != null && entry.subtitle!.isNotEmpty) entry.subtitle!,
+    ];
+
+    // Only a room the bundled plan can actually show becomes a control. An
+    // older app with a newer catalogue knows the name but has no geometry, and
+    // a link into an empty map is worse than plain text.
+    //
+    // The guard comes first so a row that names no room never subscribes to
+    // the room index at all — most entries in a day are exactly that.
+    final Room? room;
+    if (entryMayNameRoom(entry)) {
+      final RoomResolver resolver = ref.watch(roomResolverProvider);
+      final MapCatalog? catalog = ref.watch(mapCatalogProvider).value;
+      room = roomsForEntry(
+        resolver,
+        entry,
+      ).where((Room r) => catalog?.geometryFor(r.roomKey) != null).firstOrNull;
+    } else {
+      room = null;
+    }
+
+    // CAL-4: `TimeRailTile` takes a `semanticLabel` and nobody was passing one,
+    // so a screen reader read a calendar row as loose fragments — a time, then
+    // a title, then a source — instead of one entry. The room is included for
+    // the same reason it is on the timetable card: it is what the reader is
+    // usually after.
+    final String semanticLabel = <String>[
+      if (entry.allDay)
+        '${l10n.calendarWeekAllDay}, '
+            '${AppDateFormats.weekdayDate(entry.day, locale)}'
+      else
+        end == null
+            ? AppDateFormats.time(start, locale)
+            : l10n.timetableTimeRange(
+                AppDateFormats.time(start, locale),
+                AppDateFormats.time(end, locale),
+              ),
+      entry.title.isEmpty ? sourceLabel : entry.title,
+      ...meta,
+      if (room != null)
+        room.displayName ?? room.roomNumber
+      else if (entry.location != null && entry.location!.isNotEmpty)
+        entry.location!,
+    ].join(', ');
+
+    return TimeRailTile(
+      semanticLabel: semanticLabel,
+      start: entry.allDay ? null : AppDateFormats.time(start, locale),
+      end: entry.allDay || end == null
+          ? null
+          : AppDateFormats.time(end, locale),
+      emphasis: emphasis,
+      tint: entry.colorArgb == null ? null : Color(entry.colorArgb!),
+      onTap: () => showCalendarEntrySheet(context, entry),
+      trailing: Icon(
+        AppIcons.chevron_right,
+        size: AppSizes.icon,
+        color: colors.textSecondary,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (entry.allDay)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+              child: Text(
+                l10n.calendarWeekAllDay,
+                style: context.type.dataSmall,
+              ),
+            ),
+          Text(
+            entry.title.isEmpty ? sourceLabel : entry.title,
+            style: text.titleMedium?.copyWith(
+              decoration: entry.isCancelled ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          if (meta.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(meta.join(' · '), style: text.bodySmall),
+          ],
+          if (emphasis == TimeRailEmphasis.now) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            // The marker on the rail says "now" to the eye; this says it in
+            // words, which is what a screen reader and a greyscale screen get.
+            Text(
+              l10n.todayNowLabel,
+              style: text.labelSmall?.copyWith(color: colors.textPrimary),
+            ),
+          ],
+          if (room != null) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            _RoomChip(room: room),
+          ] else if (entry.location != null &&
+              entry.location!.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(entry.location!, style: text.bodySmall),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The room, as a control that goes straight to the plan.
+class _RoomChip extends StatelessWidget {
+  const _RoomChip({required this.room});
+
+  final Room room;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    final AppColors colors = context.colors;
+
+    return Semantics(
+      button: true,
+      label: l10n.campusMapShowRoom(room.displayName ?? room.roomNumber),
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => openRoomOnMap(context, room.roomKey),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Container(
+          constraints: const BoxConstraints(
+            minHeight: AppSizes.minTouchTarget - AppSpacing.md,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: colors.outline.withValues(alpha: 0.56),
+              width: AppSizes.hairline,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                AppIcons.place_outlined,
+                size: AppSizes.iconSmall,
+                color: colors.primary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              // A room number is a code, so it is set in the data face.
+              Text(
+                room.displayName ?? room.roomNumber,
+                style: context.type.dataSmall.copyWith(color: colors.primary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The optional graphical week.
+class _WeekView extends ConsumerWidget {
+  const _WeekView({required this.data});
+
+  final CalendarData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final AppMetrics metrics = context.metrics;
+    final String locale = Localizations.localeOf(context).languageCode;
+    final DateTime focused = ref.watch(calendarFocusedDayProvider);
+    final bool showWeekend = ref.watch(calendarShowWeekendProvider);
+
+    return Column(
+      children: <Widget>[
+        ..._calendarHeader(context, data),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            metrics.screenPadding,
+            AppSpacing.md,
+            metrics.screenPadding,
+            AppSpacing.sm,
+          ),
+          // A Wrap, not a Row: at a large text size the month and the range
+          // picker do not share a line on a narrow phone, and the picker
+          // dropping onto its own line beats either of them being cut off.
+          child: Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              Text(
+                AppDateFormats.monthAndYear(focused, locale),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              // Both ranges on screen, the current one picked. A single chip
+              // reading "Wochenende" left the reader to work out whether it
+              // was showing the weekend or hiding it — naming the two weeks
+              // outright answers that before it is asked.
+              _WeekRangePicker(showWeekend: showWeekend),
+              // The arrows the code comment below already promised. Until
+              // now the ONLY way to change week here was a horizontal drag,
+              // which is not exposed as an action at all — so TalkBack,
+              // VoiceOver and switch control simply could not move the week.
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                  ),
+                ),
+                onPressed: () =>
+                    ref.read(calendarFocusedDayProvider.notifier).today(),
+                icon: const Icon(
+                  AppIcons.today_outlined,
+                  size: AppSizes.iconSmall,
+                ),
+                label: Text(l10n.calendarToday),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: l10n.calendarPreviousWeek,
+                onPressed: () => ref
+                    .read(calendarFocusedDayProvider.notifier)
+                    .shiftWeeks(-1),
+                icon: const Icon(AppIcons.chevron_left),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: l10n.calendarNextWeek,
+                onPressed: () =>
+                    ref.read(calendarFocusedDayProvider.notifier).shiftWeeks(1),
+                icon: const Icon(AppIcons.chevron_right),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            // A week per swipe, exactly like the arrows above the day
+            // agenda — the two navigation paths agree on what one swipe
+            // means. `onHorizontalDragEnd` only ever claims the horizontal
+            // axis, so the grid's own vertical (hour) scrolling is untouched.
+            onHorizontalDragEnd: (DragEndDetails details) {
+              final double velocity = details.primaryVelocity ?? 0;
+              if (velocity == 0) return;
+              ref
+                  .read(calendarFocusedDayProvider.notifier)
+                  .shiftWeeks(velocity < 0 ? 1 : -1);
+            },
+            child: WeekGridView(
+              weekStart: TimetableWeek.startOf(focused),
+              entries: data.entries,
+              today: TimetableWeek.dayOf(DateTime.now()),
+              selected: focused,
+              dayCount: ref.watch(calendarWeekDayCountProvider),
+              onSelectDay: (DateTime day) {
+                ref.read(calendarFocusedDayProvider.notifier).select(day);
+                // Picking a day in the week grid is how you get to that day.
+                ref
+                    .read(calendarViewModeProvider.notifier)
+                    .set(CalendarViewMode.day);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Teaching week or full week, as the two weeks themselves.
+///
+/// "Mo–Fr" is read at a glance but cannot be heard, so each segment carries
+/// the range written out as its accessible name and as its tooltip.
+class _WeekRangePicker extends ConsumerWidget {
+  const _WeekRangePicker({required this.showWeekend});
+
+  final bool showWeekend;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+
+    return SegmentedButton<bool>(
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      ),
+      segments: <ButtonSegment<bool>>[
+        ButtonSegment<bool>(
+          value: false,
+          label: Semantics(
+            label: l10n.calendarWeekRangeWorkdaysSemantic,
+            excludeSemantics: true,
+            child: Text(l10n.calendarWeekRangeWorkdays),
+          ),
+          tooltip: l10n.calendarWeekRangeWorkdaysSemantic,
+        ),
+        ButtonSegment<bool>(
+          value: true,
+          label: Semantics(
+            label: l10n.calendarWeekRangeFullSemantic,
+            excludeSemantics: true,
+            child: Text(l10n.calendarWeekRangeFull),
+          ),
+          tooltip: l10n.calendarWeekRangeFullSemantic,
+        ),
+      ],
+      selected: <bool>{showWeekend},
+      onSelectionChanged: (Set<bool> selection) =>
+          ref.read(calendarShowWeekendProvider.notifier).set(selection.first),
+    );
+  }
+}
+
+/// Everything there is, day by day, on one continuous rail.
+class _ListView extends ConsumerWidget {
+  const _ListView({required this.data});
+
+  final CalendarData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final String locale = Localizations.localeOf(context).languageCode;
+    if (data.entries.isEmpty) {
+      return ListView(
+        children: <Widget>[
+          ..._calendarHeader(context, data),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: data.isLoading
+                ? const LoadingView()
+                : Text(l10n.calendarNoEntries, textAlign: TextAlign.center),
+          ),
+        ],
+      );
+    }
+
+    final DateTime now = DateTime.now();
+    final DateTime today = TimetableWeek.dayOf(now);
+    final List<_ListRow> rows = _listRows(
+      header: _calendarHeader(context, data),
+      entries: data.entries,
+      today: today,
+      now: now,
+    );
+
+    // A month of merged entries is far more than one screen, so the rows are
+    // described first and built as they scroll into view. Building them all
+    // up front cost a full screen's worth of work many times over on every
+    // rebuild — the same reason the Moodle course tabs stopped doing it.
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+      itemCount: rows.length,
+      itemBuilder: (BuildContext context, int index) => switch (rows[index]) {
+        _StaticRow(:final Widget child) => child,
+        _DayHeadingRow(:final DateTime day) => SectionHeader(
+          label: AppDateFormats.weekdayDate(day, locale),
+        ),
+        _NowRuleRow(:final DateTime at) => _nowRule(
+          now: at,
+          locale: locale,
+          l10n: l10n,
+        ),
+        _EntryRowSpec(:final CalendarEntry entry, :final DateTime? now) =>
+          _EntryRow(entry: entry, locale: locale, now: now),
+      },
+    );
+  }
+}
+
+/// One row of the list view, described rather than built.
+///
+/// Deciding what the list contains stays a single pass over the merged
+/// entries; turning a row into widgets happens only for the rows on screen.
+sealed class _ListRow {
+  const _ListRow();
+}
+
+/// A row that is already a widget — the per-source banners above the list,
+/// of which there are at most a handful.
+class _StaticRow extends _ListRow {
+  const _StaticRow(this.child);
+
+  final Widget child;
+}
+
+class _DayHeadingRow extends _ListRow {
+  const _DayHeadingRow(this.day);
+
+  final DateTime day;
+}
+
+class _NowRuleRow extends _ListRow {
+  const _NowRuleRow(this.at);
+
+  final DateTime at;
+}
+
+class _EntryRowSpec extends _ListRow {
+  const _EntryRowSpec({required this.entry, required this.now});
+
+  final CalendarEntry entry;
+
+  /// The current time, or `null` when this entry's day is not today.
+  final DateTime? now;
+}
+
+/// Describes the whole list: the banners, then each day's heading and entries,
+/// with the "now" rule placed inside today exactly where [_railFor] puts it.
+List<_ListRow> _listRows({
+  required List<Widget> header,
+  required List<CalendarEntry> entries,
+  required DateTime today,
+  required DateTime now,
+}) {
+  // Group by day, preserving the merged (ascending) order — the same grouping
+  // the eagerly built list did, so the order of days and of entries within a
+  // day is unchanged.
+  final List<DateTime> orderedDays = <DateTime>[];
+  final Map<DateTime, List<CalendarEntry>> byDay =
+      <DateTime, List<CalendarEntry>>{};
+  for (final CalendarEntry entry in entries) {
+    final DateTime key = entry.day;
+    byDay
+        .putIfAbsent(key, () {
+          orderedDays.add(key);
+          return <CalendarEntry>[];
+        })
+        .add(entry);
+  }
+
+  final List<_ListRow> rows = <_ListRow>[
+    for (final Widget widget in header) _StaticRow(widget),
+  ];
+
+  for (final DateTime day in orderedDays) {
+    rows.add(_DayHeadingRow(day));
+    final bool isToday = day == today;
+    bool nowPlaced = !isToday;
+    for (final CalendarEntry entry in byDay[day]!) {
+      if (!nowPlaced && entry.start.toLocal().isAfter(now)) {
+        rows.add(_NowRuleRow(now));
+        nowPlaced = true;
+      }
+      rows.add(_EntryRowSpec(entry: entry, now: isToday ? now : null));
+    }
+    // Today with nothing left ahead of it: the rule goes after the last entry.
+    if (!nowPlaced) rows.add(_NowRuleRow(now));
+  }
+
+  return rows;
+}

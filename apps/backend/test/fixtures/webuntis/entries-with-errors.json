@@ -1,0 +1,5 @@
+{
+  "format": 2,
+  "days": [],
+  "errors": [{ "code": "SOME_UPSTREAM_ERROR", "message": "synthetic upstream error for tests" }]
+}

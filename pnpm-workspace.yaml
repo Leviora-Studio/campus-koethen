@@ -1,0 +1,93 @@
+packages:
+  - 'apps/cms'
+  - 'apps/backend'
+  - 'packages/*'
+
+# apps/mobile is intentionally NOT a pnpm workspace member.
+# The Flutter app is managed by its own Dart/Flutter toolchain (pub).
+
+# Explicit allowlist for dependency install scripts (pnpm >= 10).
+# Only packages that genuinely need to compile or fetch a native binary are
+# allowed to run. Telemetry/advertising postinstall scripts stay disabled.
+allowBuilds:
+  '@prisma/engines': true # downloads the query engine binary
+  prisma: true # CLI postinstall, generates the client
+  esbuild: true # native binary used by Strapi/Vite
+  '@swc/core': true # native transpiler binary
+  sharp: true # native image processing used by Strapi uploads
+  unrs-resolver: true # native resolver binary used by eslint tooling
+  '@scarf/scarf': false # analytics beacon — intentionally denied
+  core-js-pure: false # postinstall advertising banner — intentionally denied
+
+# Forward-pins for transitive dependencies with known HIGH/CRITICAL advisories.
+# These come in through Strapi, so we cannot fix them by bumping a direct
+# dependency and will not wait for an upstream release to stop shipping them.
+# Each override is re-verified by building and starting the CMS image.
+overrides:
+  'tar@<7.5.21': '>=7.5.21' # GHSA-8qq5-c9xr-p97q / GHSA-r292-9mhp-454m — parse/recursion DoS
+  'vite@<=6.4.2': '>=6.4.3' # server.fs.deny bypass on Windows alternate paths (high)
+  'sharp@<0.35.0': '>=0.35.0' # inherited libvips CVEs (high)
+  'find-my-way@<9.7.0': '>=9.7.0' # DDoS with HTTP/2 (high); reaches the backend image via prisma
+  # Two separate js-yaml advisories, one pin per affected major line so no
+  # consumer is dragged across a major boundary.
+  #   5.x: exponential parsing time in flow collections (high)
+  #   3.x/4.x: quadratic CPU consumption in `!!omap` resolution, CVE-2026-59870,
+  #            whose fix was NOT backported below 3.15.1 / 4.3.1 (high)
+  # 3.x reaches us via jest → babel-plugin-istanbul → @istanbuljs/load-nyc-config,
+  # 4.x via eslint → @eslint/eslintrc and @nestjs/cli → cosmiconfig. Both lines
+  # have a patched release of their own, so neither needs a major bump.
+  'js-yaml@<3.15.1': '>=3.15.1 <4' # GHSA-5p4m-2wfm-xmqj
+  'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1 <5' # GHSA-5p4m-2wfm-xmqj
+  'js-yaml@>=5.0.0 <5.2.2': '>=5.2.2'
+  # DoS via unbounded expansion length. Patched releases exist on every affected
+  # major line, so each stays on its own: v5 is an ESM-first rewrite and forcing
+  # it onto v1/v2 consumers such as minimatch@3 would risk a runtime break.
+  'brace-expansion@<1.1.17': '>=1.1.17 <2'
+  'brace-expansion@>=2.0.0 <2.1.3': '>=2.1.3 <3'
+  'brace-expansion@>=5.0.0 <5.0.8': '>=5.0.8'
+  # Host confusion via a backslash authority introducer (high). Reaches us
+  # through ajv, which arrives with the prisma and nest CLIs.
+  'fast-uri@>=3.0.0 <3.1.5': '>=3.1.5 <4' # GHSA-7p8r-x3mc-p8w7
+  # Address4 reads a leading-zero octet as decimal where resolvers read octal,
+  # which is an SSRF and trust-boundary bypass (high). Comes in under Strapi.
+  # Only the 10.x line is installed, so the pin cannot disturb an older major.
+  'ip-address@>=10.0.0 <10.3.1': '>=10.3.1' # GHSA-mwp4-54f8-5fhr
+  # A custom generator called with size 0 loops forever (high). Arrives under
+  # postcss, which webpack/vite pull in for the Strapi admin build and the nest
+  # CLI. Only the 3.x line is installed, so the pin cannot disturb another major.
+  'nanoid@<3.3.18': '>=3.3.18 <4' # GHSA-2v37-7h3g-55p8
+  # Strapi's admin/content-type tooling currently pins vulnerable patch
+  # releases. All three fixes stay on the same major and preserve the public
+  # dependency contracts used by their parent packages.
+  '@hono/node-server@<1.19.15': '>=1.19.15 <2' # GHSA-frvp-7c67-39w9
+  'hono@<4.12.34': '>=4.12.34 <5' # GHSA-8j4g-w8fx-2239 / GHSA-f23p-vx2j-j53r / GHSA-54fx-42gc-7vw4 / GHSA-79qm-7rj5-m7r9
+  'postcss@<=8.5.22': '>=8.5.23 <9' # GHSA-fxqj-rqcc-2cmp
+  # Stack exhaustion when merging recursive object graphs (high). Comes in under
+  # @prisma/config, which ships with prisma and therefore reaches the backend
+  # image. The patch is only on the new major; 8.0.1 is a strict superset of the
+  # 7.1.5 export surface (deepmerge, deepmergeCustom, deepmergeInto,
+  # deepmergeIntoCustom, getKeys, getObjectType, objectHasProperty), keeps the
+  # same dual CJS/ESM entry points and the same `node >=16` engine range, and
+  # @prisma/config only ever calls `deepmerge`. Verified against both packages.
+  'deepmerge-ts@<8.0.0': '>=8.0.0' # GHSA-ggr8-5vv4-36mx
+
+# Advisories that are assessed and handled, but whose published range cannot
+# express the fix. Reviewed on every dependency change — never a blanket mute.
+auditConfig:
+  ignoreGhsas:
+    # brace-expansion — DoS via unbounded expansion length (CVE-2026-14257).
+    #
+    # The advisory declares a single major-spanning range, "<=5.0.7 vulnerable,
+    # >=5.0.8 patched", so it still matches the BACKPORTED releases. The fix is
+    # demonstrably present in what we install: 1.1.18 carries EXPANSION_MAX_LENGTH
+    # and the bounding check, citing this very CVE. The overrides above pin every
+    # major line to its patched release, so a lower version cannot come back.
+    #
+    # Upgrading everything to 5.x instead is NOT an option: v5 is an ESM-first
+    # rewrite whose CommonJS entry exports `{ expand }` rather than the function
+    # itself, so minimatch@3 — which calls the default export — would break at
+    # runtime. Verified by requiring the built package directly.
+    #
+    # All 130 paths are devDependencies (eslint, jest, @nestjs/cli); none reach a
+    # production image.
+    - GHSA-mh99-v99m-4gvg

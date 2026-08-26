@@ -1,0 +1,288 @@
+// Campus Köthen App · AGPL-3.0-only
+// Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+/// Where drafts, cases and a student card actually end up on disk.
+library;
+
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:campus_koethen/core/cache/encrypted_box.dart';
+import 'package:campus_koethen/features/requests/data/encrypted_attachment_store.dart';
+import 'package:campus_koethen/features/requests/data/encrypted_request_store.dart';
+import 'package:campus_koethen/features/requests/domain/request_drafts.dart';
+import 'package:campus_koethen/features/requests/domain/submitted_case.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/fake_gremio.dart';
+
+final DateTime _now = DateTime(2026, 8, 6, 12);
+
+/// An [EncryptedBox] stand-in that records what it was given.
+///
+/// The real box needs a keychain and a file system; what these tests are about
+/// is the *protocol* around it — read back before reporting success, migrate
+/// before clearing, never write plaintext anywhere else.
+class RecordingBox implements EncryptedBox {
+  RecordingBox({this.failWrites = false});
+
+  final Map<String, String> entries = <String, String>{};
+  bool failWrites;
+
+  @override
+  String get boxName => 'recording';
+
+  @override
+  String get keyStorageKey => 'recording-key';
+
+  @override
+  Future<String?> read(String key) async => entries[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (failWrites) return; // silently drops, exactly like a full disk
+    entries[key] = value;
+  }
+
+  @override
+  Future<void> writeAll(Map<String, String> values) async {
+    if (failWrites) return;
+    entries.addAll(values);
+  }
+
+  @override
+  Future<void> delete(String key) async => entries.remove(key);
+
+  @override
+  Future<Iterable<String>> keys() async => entries.keys;
+
+  @override
+  Future<void> wipe() async => entries.clear();
+
+  @override
+  Future<EncryptedBoxOpenResult> openChecked() async =>
+      const EncryptedBoxOpenResult.opened();
+
+  @override
+  Future<EncryptedBoxWipeResult> wipeChecked() async {
+    entries.clear();
+    return const EncryptedBoxWipeResult(keyAbsent: true, boxAbsent: true);
+  }
+}
+
+/// A legacy box whose contents the test controls.
+class FakeLegacyBox implements LegacyDraftBox {
+  FakeLegacyBox(this.contents);
+
+  String? contents;
+  bool cleared = false;
+
+  @override
+  Future<String?> read() async => contents;
+
+  @override
+  Future<void> clear() async {
+    cleared = true;
+    contents = null;
+  }
+}
+
+FeedbackDraft _draft(String id) => FeedbackDraft(
+  id: id,
+  createdAt: _now,
+  updatedAt: _now,
+  idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
+  areaId: 1,
+  feedback: 'Ein Hinweis.',
+);
+
+SubmittedCase _case(String id) => SubmittedCase(
+  id: id,
+  kind: RequestKind.feedback,
+  submittedAt: _now,
+  statusUrl: kFakeStatusUrl,
+  receiptPdfUrl: kFakeReceiptUrl,
+);
+
+void main() {
+  group('the encrypted request store', () {
+    test('keeps drafts and cases in the encrypted box only', () async {
+      final RecordingBox box = RecordingBox();
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(null),
+      );
+
+      await store.writeDrafts(<RequestDraft>[_draft('d1')]);
+      await store.writeCases(<SubmittedCase>[_case('c1')]);
+
+      expect(await store.readDrafts(), hasLength(1));
+      expect((await store.readCases()).single.statusUrl, kFakeStatusUrl);
+      // Nothing lands anywhere else — these two keys are the whole footprint.
+      expect(box.entries.keys.toSet(), <String>{'drafts', 'cases'});
+    });
+
+    test('reports a failed write instead of swallowing it', () async {
+      // The caller is about to delete a draft; a silent failure would lose the
+      // only link back to a case that already exists.
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: RecordingBox(failWrites: true),
+        legacy: FakeLegacyBox(null),
+      );
+
+      expect(
+        () => store.writeCases(<SubmittedCase>[_case('c1')]),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+      expect(
+        () => store.writeDrafts(<RequestDraft>[_draft('d1')]),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+    });
+
+    test('degrades to empty rather than crashing on a corrupt box', () async {
+      final RecordingBox box = RecordingBox();
+      box.entries['drafts'] = 'not json at all';
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(null),
+      );
+
+      expect(await store.readDrafts(), isEmpty);
+    });
+  });
+
+  group('migrating away from the plaintext box', () {
+    test('moves old drafts across and only then clears the old box', () async {
+      final RecordingBox box = RecordingBox();
+      final FakeLegacyBox legacy = FakeLegacyBox(
+        jsonEncode(<Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'old-1',
+            'kind': 'feedback',
+            'idempotencyKey': '550e8400-e29b-41d4-a716-446655440000',
+            'description': 'Alter Text',
+          },
+        ]),
+      );
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: legacy,
+      );
+
+      final List<RequestDraft> drafts = await store.readDrafts();
+
+      expect(drafts, hasLength(1));
+      expect((drafts.single as FeedbackDraft).feedback, 'Alter Text');
+      expect(legacy.cleared, isTrue, reason: 'the plaintext copy must go');
+      expect(box.entries.containsKey('drafts'), isTrue);
+    });
+
+    test('leaves the old box alone when the encrypted write fails', () async {
+      // A duplicate is recoverable; a lost draft is not.
+      final FakeLegacyBox legacy = FakeLegacyBox(
+        jsonEncode(<Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'old-1',
+            'kind': 'feedback',
+            'idempotencyKey': '550e8400-e29b-41d4-a716-446655440000',
+            'description': 'Alter Text',
+          },
+        ]),
+      );
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: RecordingBox(failWrites: true),
+        legacy: legacy,
+      );
+
+      await store.readDrafts();
+
+      expect(legacy.cleared, isFalse);
+    });
+
+    test('does not duplicate a draft that was already migrated', () async {
+      final RecordingBox box = RecordingBox();
+      box.entries['drafts'] = jsonEncode(<Map<String, dynamic>>[
+        _draft('old-1').toJson(),
+      ]);
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(
+          jsonEncode(<Map<String, dynamic>>[_draft('old-1').toJson()]),
+        ),
+      );
+
+      expect(await store.readDrafts(), hasLength(1));
+    });
+  });
+
+  group('the encrypted attachment store', () {
+    test('round-trips bytes without writing them anywhere else', () async {
+      final RecordingBox box = RecordingBox();
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(box: box);
+      final Uint8List bytes = Uint8List.fromList(<int>[1, 2, 3, 4]);
+
+      final RequestAttachment? stored = await store.put('ausweis.pdf', bytes);
+
+      expect(stored, isNotNull);
+      expect(stored!.fileName, 'ausweis.pdf');
+      expect(stored.sizeBytes, 4);
+      expect(await store.read(stored), bytes);
+      // The identifier is a store key, never a file-system path a crash could
+      // leave behind in the clear.
+      expect(stored.path, startsWith('attachment:'));
+      expect(box.entries.keys.single, stored.path);
+    });
+
+    test('reports a failed write rather than a dangling reference', () async {
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(
+        box: RecordingBox(failWrites: true),
+      );
+
+      expect(
+        await store.put('ausweis.pdf', Uint8List.fromList(<int>[1])),
+        isNull,
+      );
+    });
+
+    test('a missing entry reads as null, not as a crash', () async {
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(
+        box: RecordingBox(),
+      );
+
+      expect(
+        await store.read(
+          const RequestAttachment(fileName: 'x.pdf', path: 'attachment:gone'),
+        ),
+        isNull,
+      );
+    });
+
+    test('deleting removes the bytes', () async {
+      final RecordingBox box = RecordingBox();
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(box: box);
+      final RequestAttachment stored = (await store.put(
+        'ausweis.pdf',
+        Uint8List.fromList(<int>[1]),
+      ))!;
+
+      await store.deleteAll(<RequestAttachment>[stored]);
+
+      expect(box.entries, isEmpty);
+      expect(await store.read(stored), isNull);
+    });
+
+    test('an attachment never names its own path in a log line', () async {
+      final RequestAttachment stored = (await EncryptedAttachmentStore(
+        box: RecordingBox(),
+      ).put('ausweis.pdf', Uint8List.fromList(<int>[1])))!;
+
+      expect(stored.toString(), contains('ausweis.pdf'));
+      expect(stored.toString(), isNot(contains(stored.path)));
+    });
+  });
+
+  test('a stored case never names its links in a log line', () {
+    expect(_case('c1').toString(), isNot(contains('testtoken')));
+  });
+}

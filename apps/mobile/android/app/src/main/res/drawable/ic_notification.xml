@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Campus Köthen App · AGPL-3.0-only
+     Copyright © 2026 Leviora Studio and Jona Loreen Sommer
+
+     Das kleine Symbol in der Statusleiste. Android maskiert es und zeichnet
+     nur die Silhouette: Ein mehrfarbiges oder halbtransparentes Icon wird
+     deshalb als graues Quadrat dargestellt. Diese Glocke ist eine einfarbige
+     Fläche (weiß, voll deckend) und ist bewusst KEIN App-Icon und kein
+     Hochschulmotiv — sie ist eine schlichte, selbst gezeichnete Glocke.
+     Die Form folgt dem Tabler-„bell“-Umriss, den die App auch in der
+     Oberfläche verwendet, damit Statusleiste und App dieselbe Sprache
+     sprechen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFFFF">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2c-0.83,0 -1.5,0.67 -1.5,1.5v0.66C7.91,4.8 6,7.13 6,9.9V14l-1.6,2.4C4.07,16.9 4.42,17.6 5.02,17.6h13.96c0.6,0 0.95,-0.7 0.62,-1.2L18,14V9.9c0,-2.77 -1.91,-5.1 -4.5,-5.74V3.5C13.5,2.67 12.83,2 12,2z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.5,19.1c0.23,1.09 1.2,1.9 2.5,1.9s2.27,-0.81 2.5,-1.9z" />
+</vector>
