@@ -613,6 +613,14 @@ void main() {
               },
             ),
           ),
+          calendarListDataProvider.overrideWith(
+            (Ref ref, DateTime day) => CalendarData(
+              entries: manyEntries(day),
+              enabledSources: const <CalendarSource>{
+                CalendarSource.publicCalendar,
+              },
+            ),
+          ),
         ],
       );
       await tester.pumpAndSettle();
@@ -819,6 +827,14 @@ void _weekViewTests() {
               hasMoodleError: false,
               publicCalendarsLoading: false,
               hasPublicCalendarError: false,
+            ),
+          ),
+          calendarListDataProvider.overrideWith(
+            (Ref ref, DateTime day) => CalendarData(
+              entries: <CalendarEntry>[demoEntry(day)],
+              enabledSources: const <CalendarSource>{
+                CalendarSource.publicCalendar,
+              },
             ),
           ),
         ],

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../core/locale/formatters.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../../../core/theme/contrast.dart';
 import '../../../l10n/l10n.dart';
 import '../../timetable/application/timetable_week.dart';
 import '../domain/calendar_entry.dart';
@@ -525,20 +527,23 @@ class _DayColumn extends StatelessWidget {
                   ].join(', '),
                   excludeSemantics: true,
                   button: true,
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    color: colors.surfaceContainerHighest,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => showCalendarEntrySheet(context, item.entry),
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.xxs),
-                        child: LayoutBuilder(
-                          builder:
-                              (
-                                BuildContext context,
-                                BoxConstraints constraints,
-                              ) {
+                  child: Builder(
+                    builder: (BuildContext context) {
+                      final Color? calendarColor = _calendarColor(item.entry);
+                      final Color foreground = calendarColor == null
+                          ? colors.onSurfaceVariant
+                          : _foregroundOn(calendarColor);
+                      return Card(
+                        margin: EdgeInsets.zero,
+                        color: calendarColor ?? colors.surfaceContainerHighest,
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () =>
+                              showCalendarEntrySheet(context, item.entry),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.xxs),
+                            child: LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
                                 // A box is only as tall as its entry is long, and
                                 // the shortest is barely one line. Work out how
                                 // many whole lines fit and ellipsise the rest —
@@ -558,7 +563,7 @@ class _DayColumn extends StatelessWidget {
                                     Icon(
                                       _iconFor(item.entry.source),
                                       size: 12,
-                                      color: colors.onSurfaceVariant,
+                                      color: foreground,
                                     ),
                                     const SizedBox(width: AppSpacing.xxs),
                                     Expanded(
@@ -567,12 +572,14 @@ class _DayColumn extends StatelessWidget {
                                         // Struck through exactly as in every
                                         // other view — a shape, so it survives
                                         // greyscale and colour blindness.
-                                        style: item.entry.isCancelled
-                                            ? titleStyle?.copyWith(
-                                                decoration:
-                                                    TextDecoration.lineThrough,
-                                              )
-                                            : titleStyle,
+                                        style: titleStyle?.copyWith(
+                                          color: calendarColor == null
+                                              ? null
+                                              : foreground,
+                                          decoration: item.entry.isCancelled
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                        ),
                                         maxLines: lines,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -580,9 +587,11 @@ class _DayColumn extends StatelessWidget {
                                   ],
                                 );
                               },
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -605,6 +614,10 @@ class _AllDayChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
+    final Color? calendarColor = _calendarColor(entry);
+    final Color foreground = calendarColor == null
+        ? colors.onSurfaceVariant
+        : _foregroundOn(calendarColor);
 
     return ActionChip(
       // The band is the tightest row of the week; without this the chip would
@@ -613,15 +626,33 @@ class _AllDayChip extends StatelessWidget {
       avatar: Icon(
         _DayColumn._iconFor(entry.source),
         size: AppSizes.iconSmall,
-        color: colors.onSurfaceVariant,
+        color: foreground,
       ),
       label: Text(
         entry.title,
-        style: entry.isCancelled
-            ? const TextStyle(decoration: TextDecoration.lineThrough)
-            : null,
+        style: TextStyle(
+          color: calendarColor == null ? null : foreground,
+          decoration: entry.isCancelled ? TextDecoration.lineThrough : null,
+        ),
       ),
+      backgroundColor: calendarColor,
       onPressed: () => showCalendarEntrySheet(context, entry),
     );
   }
+}
+
+Color? _calendarColor(CalendarEntry entry) {
+  final int? argb = entry.colorArgb;
+  return argb == null ? null : Color(argb).withValues(alpha: 1);
+}
+
+/// Calendar colours come from editorial data and may be arbitrarily light or
+/// dark. Choose the higher-contrast of the design system's paper and ink so a
+/// coloured appointment remains readable in both app themes.
+Color _foregroundOn(Color background) {
+  final Color ink = AppColors.light.onSurface;
+  final Color paper = AppColors.light.surface;
+  return Contrast.ratio(ink, background) >= Contrast.ratio(paper, background)
+      ? ink
+      : paper;
 }

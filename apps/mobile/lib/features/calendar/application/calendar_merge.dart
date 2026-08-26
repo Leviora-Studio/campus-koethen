@@ -135,6 +135,7 @@ CalendarEntry savedEventSnapshotToCalendarEntry(SavedEventSnapshot snapshot) =>
       end: snapshot.end,
       allDay: snapshot.allDay,
       calendarSlug: snapshot.calendarSlug,
+      colorArgb: snapshot.colorArgb,
       sourceLabel: snapshot.sourceLabel == null
           ? null
           : eventSourceDisplayLabel(

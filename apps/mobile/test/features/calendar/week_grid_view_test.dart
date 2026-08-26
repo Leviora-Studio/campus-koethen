@@ -2,6 +2,7 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:campus_koethen/core/theme/app_dimensions.dart';
+import 'package:campus_koethen/core/theme/contrast.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
 import 'package:campus_koethen/features/calendar/domain/week_layout.dart';
 import 'package:campus_koethen/features/calendar/presentation/calendar_entry_sheet.dart';
@@ -33,6 +34,7 @@ CalendarEntry _entry({
   int fromM = 0,
   required int toH,
   int toM = 0,
+  int? colorArgb,
 }) {
   final DateTime day = _monday.add(Duration(days: dayOffset));
   return CalendarEntry(
@@ -41,6 +43,7 @@ CalendarEntry _entry({
     title: title,
     start: DateTime(day.year, day.month, day.day, fromH, fromM),
     end: DateTime(day.year, day.month, day.day, toH, toM),
+    colorArgb: colorArgb,
   );
 }
 
@@ -91,6 +94,70 @@ double _neededHeight(WidgetTester tester, String title) {
 }
 
 void main() {
+  group('calendar colours', () {
+    testWidgets('a timed event uses its calendar colour', (
+      WidgetTester tester,
+    ) async {
+      const int calendarColor = 0xFF2E7D32;
+      await pumpGrid(tester, <CalendarEntry>[
+        _entry(
+          title: 'Grüner Kalendertermin',
+          dayOffset: 0,
+          fromH: 10,
+          toH: 11,
+          colorArgb: calendarColor,
+        ),
+      ]);
+
+      final Card card = tester.widget<Card>(
+        find.ancestor(
+          of: find.text('Grüner Kalendertermin'),
+          matching: find.byType(Card),
+        ),
+      );
+      expect(card.color, const Color(calendarColor));
+      final Text title = tester.widget<Text>(
+        find.text('Grüner Kalendertermin'),
+      );
+      expect(
+        Contrast.ratio(title.style!.color!, const Color(calendarColor)),
+        greaterThanOrEqualTo(Contrast.aaBody),
+      );
+    });
+
+    testWidgets('an all-day event uses its calendar colour', (
+      WidgetTester tester,
+    ) async {
+      const int calendarColor = 0xFF6A1B9A;
+      final CalendarEntry entry = CalendarEntry(
+        id: 'purple-all-day',
+        source: CalendarSource.publicCalendar,
+        title: 'Violetter Ganztagstermin',
+        start: _monday,
+        end: _monday.add(const Duration(days: 1)),
+        allDay: true,
+        colorArgb: calendarColor,
+      );
+
+      await pumpGrid(tester, <CalendarEntry>[entry]);
+
+      final ActionChip chip = tester.widget<ActionChip>(
+        find.ancestor(
+          of: find.text('Violetter Ganztagstermin'),
+          matching: find.byType(ActionChip),
+        ),
+      );
+      expect(chip.backgroundColor, const Color(calendarColor));
+      expect(
+        Contrast.ratio(
+          (chip.label as Text).style!.color!,
+          const Color(calendarColor),
+        ),
+        greaterThanOrEqualTo(Contrast.aaBody),
+      );
+    });
+  });
+
   group('the week the grid draws', () {
     testWidgets('is Monday to Friday by default', (WidgetTester tester) async {
       // Two empty weekend columns cost a fifth of the width of a phone.

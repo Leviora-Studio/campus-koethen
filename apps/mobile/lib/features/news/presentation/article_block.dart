@@ -49,9 +49,20 @@ const double _maxBannerRatio = 16 / 9;
 /// block does navigate, to that channel's own profile screen.
 ///
 class ArticleBlock extends ConsumerWidget {
-  const ArticleBlock({required this.article, super.key});
+  const ArticleBlock({
+    required this.article,
+    this.showFullContent = false,
+    super.key,
+  });
 
   final NewsArticle article;
+
+  /// Shows the complete article without the feed's expand/collapse control.
+  ///
+  /// Used when the article already lives in a detail surface such as the
+  /// calendar popup. It deliberately does not change the feed's persisted
+  /// expansion state.
+  final bool showFullContent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,11 +70,13 @@ class ArticleBlock extends ConsumerWidget {
     final TextTheme text = Theme.of(context).textTheme;
     final String locale = Localizations.localeOf(context).languageCode;
 
-    final bool expanded = ref.watch(
-      newsExpansionProvider.select(
-        (Set<String> slugs) => slugs.contains(article.slug),
-      ),
-    );
+    final bool expanded =
+        showFullContent ||
+        ref.watch(
+          newsExpansionProvider.select(
+            (Set<String> slugs) => slugs.contains(article.slug),
+          ),
+        );
     // One clock for the whole feed keeps "vor 3 min" honest while reading,
     // without a timer per block.
     final ArticleAge? age = articleAge(
@@ -82,7 +95,7 @@ class ArticleBlock extends ConsumerWidget {
       container: true,
       child: Panel(
         padding: EdgeInsets.all(context.metrics.cardPadding),
-        onTap: onToggle,
+        onTap: showFullContent ? null : onToggle,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -128,7 +141,7 @@ class ArticleBlock extends ConsumerWidget {
             _ArticleBody(
               article: article,
               expanded: expanded,
-              onToggle: onToggle,
+              onToggle: showFullContent ? null : onToggle,
             ),
           ],
         ),
@@ -290,7 +303,7 @@ class _ArticleBody extends ConsumerWidget {
 
   final NewsArticle article;
   final bool expanded;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -313,11 +326,12 @@ class _ArticleBody extends ConsumerWidget {
           ContentBlocksView(blocks: article.content),
           if (article.sourceName != null || article.sourceUrl != null)
             _SourceLink(article: article),
-          _ToggleButton(
-            label: l10n.newsShowLess,
-            icon: AppIcons.keyboard_arrow_up,
-            onPressed: onToggle,
-          ),
+          if (onToggle != null)
+            _ToggleButton(
+              label: l10n.newsShowLess,
+              icon: AppIcons.keyboard_arrow_up,
+              onPressed: onToggle!,
+            ),
         ],
       );
     }
@@ -348,14 +362,15 @@ class _ArticleBody extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
             // Offered only when there is genuinely something behind it.
-            if (hasMoreToShow(
-              blocks: article.content,
-              textOverflows: overflows,
-            ))
+            if (onToggle != null &&
+                hasMoreToShow(
+                  blocks: article.content,
+                  textOverflows: overflows,
+                ))
               _ToggleButton(
                 label: l10n.newsShowMore,
                 icon: AppIcons.keyboard_arrow_down,
-                onPressed: onToggle,
+                onPressed: onToggle!,
               ),
           ],
         );

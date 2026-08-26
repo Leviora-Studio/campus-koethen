@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/loaded.dart';
 import '../../../core/prefs/preference_keys.dart';
 import '../../../core/prefs/settings_controller.dart';
+import '../../../core/time/clock.dart';
 import '../../events/application/saved_events_controller.dart';
 import '../../events/domain/saved_event_snapshot.dart';
 import '../../moodle/application/moodle_account_controller.dart';
@@ -78,6 +79,12 @@ calendarFocusedDayProvider =
     NotifierProvider<CalendarFocusedDayController, DateTime>(
       CalendarFocusedDayController.new,
     );
+
+/// Injectable because the list view is a rolling window anchored to today,
+/// independent of whichever day the day/week views currently focus.
+final Provider<Clock> calendarClockProvider = Provider<Clock>(
+  (Ref ref) => const SystemClock(),
+);
 
 /// Number of columns the week view draws without the weekend.
 const int kWorkWeekDays = 5;
@@ -260,6 +267,44 @@ List<DateTime> monthWeekStarts(DateTime day) {
   return starts;
 }
 
+/// Inclusive date bounds for the rolling calendar list.
+@immutable
+class CalendarDateWindow {
+  CalendarDateWindow({required DateTime from, required DateTime to})
+    : from = calendarDayKey(from),
+      to = calendarDayKey(to);
+
+  final DateTime from;
+  final DateTime to;
+}
+
+/// Today plus the following 119 calendar days: exactly 120 days inclusive.
+CalendarDateWindow calendarListWindow(DateTime now) {
+  final DateTime today = calendarDayKey(now);
+  return CalendarDateWindow(from: today, to: TimetableWeek.shift(today, 119));
+}
+
+/// Keeps entries whose start day lies inside [window], including both bounds.
+List<CalendarEntry> calendarEntriesInWindow(
+  Iterable<CalendarEntry> entries,
+  CalendarDateWindow window,
+) => entries
+    .where(
+      (CalendarEntry entry) =>
+          !entry.day.isBefore(window.from) && !entry.day.isAfter(window.to),
+    )
+    .toList(growable: false);
+
+List<DateTime> _weekStartsForWindow(CalendarDateWindow window) {
+  final List<DateTime> starts = <DateTime>[];
+  DateTime cursor = TimetableWeek.startOf(window.from);
+  while (!cursor.isAfter(window.to)) {
+    starts.add(cursor);
+    cursor = TimetableWeek.shift(cursor, TimetableWeek.lengthInDays);
+  }
+  return starts;
+}
+
 /// The aggregated calendar for the month around [anchor].
 ///
 /// Keyed by an explicit anchor date, **not** by the calendar screen's focused
@@ -293,12 +338,50 @@ final calendarDataProvider = Provider.family<CalendarData, DateTime>(
 /// timetable weeks, public-calendar months and Moodle deadlines it reads are
 /// their own, non-disposing providers, so returning to a month re-merges from
 /// what is already there.
-final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>((
+final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>(
+  (Ref ref, DateTime anchor) => _buildCalendarData(
+    ref,
+    timetableWeekStarts: monthWeekStarts(anchor),
+    publicCalendarEntries: ref.watch(
+      publicCalendarMonthEntriesProvider(anchor),
+    ),
+  ),
+  isAutoDispose: true,
+);
+
+/// The rolling 120-day aggregation used only by the list view.
+///
+/// The public calendar source can serve the complete window in one request.
+/// Timetable data keeps using its existing week-sized requests because that
+/// endpoint deliberately accepts a smaller maximum range.
+final calendarListDataProvider = Provider.family<CalendarData, DateTime>(
+  (Ref ref, DateTime today) =>
+      ref.watch(_calendarListDataProvider(calendarDayKey(today))),
+  isAutoDispose: true,
+);
+
+final _calendarListDataProvider = Provider.family<CalendarData, DateTime>((
   Ref ref,
-  DateTime anchor,
+  DateTime today,
 ) {
+  final CalendarDateWindow window = calendarListWindow(today);
+  return _buildCalendarData(
+    ref,
+    timetableWeekStarts: _weekStartsForWindow(window),
+    publicCalendarEntries: ref.watch(
+      publicCalendarListEntriesProvider(window.from),
+    ),
+    window: window,
+  );
+}, isAutoDispose: true);
+
+CalendarData _buildCalendarData(
+  Ref ref, {
+  required List<DateTime> timetableWeekStarts,
+  required AsyncValue<List<CalendarEntry>> publicCalendarEntries,
+  CalendarDateWindow? window,
+}) {
   final Set<CalendarSource> enabled = ref.watch(calendarEnabledSourcesProvider);
-  final DateTime focused = anchor;
 
   // --- Source 1: timetable (Campus API), one week provider per visible week.
   final List<CalendarEntry> timetableEntries = <CalendarEntry>[];
@@ -310,7 +393,7 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>((
     if (groupId == null) {
       needsGroup = true;
     } else {
-      for (final DateTime weekStart in monthWeekStarts(focused)) {
+      for (final DateTime weekStart in timetableWeekStarts) {
         final AsyncValue<Loaded<Timetable>> week = ref.watch(
           timetableWeekProvider(
             TimetableWeekRequest(groupId: groupId, weekStart: weekStart),
@@ -352,13 +435,11 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>((
   final List<CalendarEntry> publicEntries = <CalendarEntry>[];
   bool publicLoading = false;
   bool publicError = false;
-  ref
-      .watch(publicCalendarMonthEntriesProvider(anchor))
-      .when(
-        data: (List<CalendarEntry> entries) => publicEntries.addAll(entries),
-        loading: () => publicLoading = true,
-        error: (_, _) => publicError = true,
-      );
+  publicCalendarEntries.when(
+    data: (List<CalendarEntry> entries) => publicEntries.addAll(entries),
+    loading: () => publicLoading = true,
+    error: (_, _) => publicError = true,
+  );
 
   // --- Source 4 (optional, opt-in): "Meine gemerkten Events". Independent
   // too, and deduplicated against the live public-calendar entries above via
@@ -384,13 +465,14 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>((
     );
   }
 
+  final List<CalendarEntry> merged = mergeCalendarEntries(<CalendarEntry>[
+    ...timetableEntries,
+    ...moodleEntries,
+    ...publicEntries,
+    ...savedEventEntries,
+  ]);
   return CalendarData(
-    entries: mergeCalendarEntries(<CalendarEntry>[
-      ...timetableEntries,
-      ...moodleEntries,
-      ...publicEntries,
-      ...savedEventEntries,
-    ]),
+    entries: window == null ? merged : calendarEntriesInWindow(merged, window),
     enabledSources: enabled,
     timetableLoading: timetableLoading,
     moodleLoading: moodleLoading,
@@ -401,7 +483,7 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>((
     publicCalendarsLoading: publicLoading,
     hasPublicCalendarError: publicError,
   );
-}, isAutoDispose: true);
+}
 
 /// The aggregated calendar for the day the calendar screen is focused on.
 ///
@@ -409,11 +491,17 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>((
 /// to repeat the lookup; everything else passes the date it actually cares
 /// about.
 final Provider<CalendarData> focusedCalendarDataProvider =
-    Provider<CalendarData>(
-      (Ref ref) => ref.watch(
+    Provider<CalendarData>((Ref ref) {
+      if (ref.watch(calendarViewModeProvider) == CalendarViewMode.list) {
+        final DateTime today = calendarDayKey(
+          ref.watch(calendarClockProvider).now(),
+        );
+        return ref.watch(calendarListDataProvider(today));
+      }
+      return ref.watch(
         calendarDataProvider(ref.watch(calendarFocusedDayProvider)),
-      ),
-    );
+      );
+    });
 
 /// Every entry of one day, chronologically, across all enabled sources.
 ///

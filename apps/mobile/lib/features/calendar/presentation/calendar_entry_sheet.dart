@@ -12,6 +12,10 @@ import '../../../l10n/l10n.dart';
 import '../../campusmap/application/campus_map_providers.dart';
 import '../../campusmap/domain/room.dart';
 import '../../campusmap/presentation/room_link.dart';
+import '../../events/application/event_providers.dart';
+import '../../events/data/event_posts_repository.dart';
+import '../../news/data/news_models.dart';
+import '../../news/presentation/article_block.dart';
 import '../../timetable/presentation/timetable_entry_card.dart';
 import '../domain/calendar_entry.dart';
 import '../domain/calendar_entry_details.dart';
@@ -29,8 +33,69 @@ Future<void> showCalendarEntrySheet(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  builder: (BuildContext context) => CalendarEntrySheet(entry: entry),
+  builder: (BuildContext context) => _CalendarEntryPopup(entry: entry),
 );
+
+/// Selects the richer post popup only for a bookmarked post event.
+///
+/// Saved calendar occurrences use the same `savedEvents` calendar source, so
+/// the source enum alone is insufficient. Their stable ids preserve the
+/// original `post:<slug>` / `calendar:<id>` event reference and keep the two
+/// cases unambiguous.
+class _CalendarEntryPopup extends ConsumerWidget {
+  const _CalendarEntryPopup({required this.entry});
+
+  final CalendarEntry entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final String? postSlug = _savedPostSlug(entry);
+    if (postSlug == null) return CalendarEntrySheet(entry: entry);
+
+    final AsyncValue<EventPostsResult> posts = ref.watch(
+      eventPostsOverviewProvider,
+    );
+    final NewsArticle? article = posts.value?.articles
+        .where((NewsArticle article) => article.slug == postSlug)
+        .firstOrNull;
+    if (article != null) {
+      return SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: ArticleBlock(article: article, showFullContent: true),
+        ),
+      );
+    }
+
+    if (posts.isLoading) {
+      return const SafeArea(
+        top: false,
+        child: SizedBox(
+          height: AppSizes.minTouchTarget * 3,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    // Offline, orphaned or outside the server's event window: the saved
+    // snapshot still has its date, title and source and remains useful.
+    return CalendarEntrySheet(entry: entry);
+  }
+}
+
+String? _savedPostSlug(CalendarEntry entry) {
+  if (entry.source != CalendarSource.savedEvents) return null;
+  const String prefix = 'savedEvent:post:';
+  if (!entry.id.startsWith(prefix)) return null;
+  final String slug = entry.id.substring(prefix.length);
+  return slug.isEmpty ? null : slug;
+}
 
 /// Everything one calendar entry knows, including a way to its room.
 ///

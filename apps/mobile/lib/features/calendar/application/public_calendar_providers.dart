@@ -72,35 +72,61 @@ final _monthEntriesProvider =
       Ref ref,
       DateTime anchor,
     ) async {
-      final DateTime focused = anchor;
-      final String locale = ref.watch(localeCodeProvider);
-      final List<PublicCalendar> catalog =
-          ref.watch(publicCalendarsCatalogProvider).value?.value ??
-          const <PublicCalendar>[];
-      final PublicCalendarSelectionState selection = ref.watch(
-        publicCalendarSelectionProvider,
-      );
-      final List<String> slugs =
-          PublicCalendarSelectionRules.effectiveSelection(
-            available: catalog,
-            selected: selection.selectedSlugs,
-          );
-      if (slugs.isEmpty) return const <CalendarEntry>[];
-
-      final ({String from, String to}) window = _monthWindow(focused);
-      final Loaded<List<PublicCalendarEvent>> loaded = await ref
-          .watch(publicCalendarsRepositoryProvider)
-          .fetchEvents(
-            locale: locale,
-            slugs: slugs,
-            from: window.from,
-            to: window.to,
-          );
-      final Map<String, PublicCalendar> bySlug = <String, PublicCalendar>{
-        for (final PublicCalendar c in catalog) c.slug: c,
-      };
-      return publicCalendarEventsToCalendarEntries(loaded.value, bySlug);
+      final ({String from, String to}) window = _monthWindow(anchor);
+      return _loadEntries(ref, from: window.from, to: window.to);
     }, retry: (_, _) => null);
+
+/// Public-calendar events for the list view's rolling 120-day window.
+///
+/// The outer provider normalises its key to today at local midnight. Rebuilds
+/// during the same day therefore reuse the same backend response, while the
+/// next day naturally advances both inclusive bounds by one.
+final publicCalendarListEntriesProvider =
+    FutureProvider.family<List<CalendarEntry>, DateTime>(
+      (Ref ref, DateTime today) =>
+          ref.watch(_listEntriesProvider(calendarDayKey(today)).future),
+      retry: (_, _) => null,
+    );
+
+final _listEntriesProvider =
+    FutureProvider.family<List<CalendarEntry>, DateTime>((
+      Ref ref,
+      DateTime today,
+    ) {
+      final CalendarDateWindow window = calendarListWindow(today);
+      return _loadEntries(
+        ref,
+        from: window.from.toIso8601String().slice10(),
+        to: window.to.toIso8601String().slice10(),
+      );
+    }, retry: (_, _) => null);
+
+Future<List<CalendarEntry>> _loadEntries(
+  Ref ref, {
+  required String from,
+  required String to,
+}) async {
+  final String locale = ref.watch(localeCodeProvider);
+  final List<PublicCalendar> catalog =
+      ref.watch(publicCalendarsCatalogProvider).value?.value ??
+      const <PublicCalendar>[];
+  final PublicCalendarSelectionState selection = ref.watch(
+    publicCalendarSelectionProvider,
+  );
+  final List<String> slugs = PublicCalendarSelectionRules.effectiveSelection(
+    available: catalog,
+    selected: selection.selectedSlugs,
+  );
+  if (slugs.isEmpty) return const <CalendarEntry>[];
+
+  final Loaded<List<PublicCalendarEvent>> loaded = await ref
+      .watch(publicCalendarsRepositoryProvider)
+      .fetchEvents(locale: locale, slugs: slugs, from: from, to: to);
+  final Map<String, PublicCalendar> bySlug = <String, PublicCalendar>{
+    for (final PublicCalendar c in catalog) c.slug: c,
+  };
+  return publicCalendarEventsToCalendarEntries(loaded.value, bySlug);
+}
 
 extension _Slice on String {
   /// The `YYYY-MM-DD` prefix of an ISO-8601 string.

@@ -16,6 +16,7 @@ SavedEventSnapshot _saved({
   String? calendarSlug = 'stura-termine',
   String? sourceLabel,
   String title = 'Gemerktes Event',
+  int? colorArgb,
 }) => SavedEventSnapshot(
   eventRef: eventRef,
   kind: kind,
@@ -26,6 +27,7 @@ SavedEventSnapshot _saved({
   channelSlug: channelSlug,
   calendarSlug: calendarSlug,
   sourceLabel: sourceLabel,
+  colorArgb: colorArgb,
 );
 
 CalendarEntry _livePublicEntry({
@@ -102,6 +104,18 @@ void main() {
         channelSlugByCalendarSlug: const <String, String?>{},
       );
       expect(out.single.sourceLabel, 'StuRa-Termine');
+    });
+
+    test('a saved calendar event keeps its calendar colour', () {
+      final List<CalendarEntry> out = savedEventEntriesForCalendar(
+        saved: <SavedEventSnapshot>[
+          _saved(eventRef: 'calendar:key2', colorArgb: 0xFF2E7D32),
+        ],
+        liveEntries: const <CalendarEntry>[],
+        channelSlugByCalendarSlug: const <String, String?>{},
+      );
+
+      expect(out.single.colorArgb, 0xFF2E7D32);
     });
 
     test('a saved post event duplicating a live calendar entry by channel and '

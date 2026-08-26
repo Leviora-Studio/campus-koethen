@@ -9,6 +9,7 @@
 /// wrong door is worse than no link at all.
 library;
 
+import 'package:campus_koethen/core/content/content_block.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/network/api_client.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
@@ -19,6 +20,9 @@ import 'package:campus_koethen/features/calendar/presentation/calendar_entry_she
 import 'package:campus_koethen/features/campusmap/application/campus_map_providers.dart';
 import 'package:campus_koethen/features/campusmap/data/map_asset_loader.dart';
 import 'package:campus_koethen/features/campusmap/domain/map_catalog.dart';
+import 'package:campus_koethen/features/events/application/event_providers.dart';
+import 'package:campus_koethen/features/events/data/event_posts_repository.dart';
+import 'package:campus_koethen/features/news/data/news_models.dart';
 import 'package:campus_koethen/features/timetable/data/timetable_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../support/fake_http_adapter.dart';
+import '../../support/news_harness.dart';
 import '../../support/pump_app.dart';
 
 /// The real bundled catalogue, so "is this room on the map" is answered by the
@@ -129,6 +134,62 @@ CalendarEntry publicEntry({String? location, String? description}) =>
         description: description,
       ),
     );
+
+NewsArticle eventPost() => NewsArticle(
+  slug: 'sommerfest',
+  title: 'Sommerfest',
+  tag: const NewsTagRef(slug: 'event', name: 'Event'),
+  primaryChannel: const NewsChannelRef(slug: 'stura', name: 'StuRa'),
+  channels: const <NewsChannelRef>[
+    NewsChannelRef(slug: 'stura', name: 'StuRa'),
+  ],
+  content: <ContentBlock>[
+    ParagraphBlock(<InlineNode>[
+      const InlineText(text: 'Der vollständige Beitrag.'),
+    ]),
+  ],
+  eventStart: DateTime(2026, 5, 11, 18),
+);
+
+Future<void> pumpPopup(
+  WidgetTester tester,
+  CalendarEntry entry, {
+  List<NewsArticle> eventPosts = const <NewsArticle>[],
+}) async {
+  tester.view.physicalSize = const Size(390, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  await pumpScreen(
+    tester,
+    Scaffold(
+      body: Builder(
+        builder: (BuildContext context) => FilledButton(
+          onPressed: () => showCalendarEntrySheet(context, entry),
+          child: const Text('Öffnen'),
+        ),
+      ),
+    ),
+    overrides: <Override>[
+      frozenNewsClock(),
+      eventPostsOverviewProvider.overrideWith(
+        (Ref ref) async => EventPostsResult(
+          articles: eventPosts,
+          isTruncated: false,
+          from: '2026-05-01',
+          to: '2026-05-31',
+        ),
+      ),
+      apiClientProvider.overrideWithValue(_api(const <Map<String, dynamic>>[])),
+      mapCatalogProvider.overrideWith((Ref ref) => testCatalog),
+    ],
+  );
+  await tester.tap(find.text('Öffnen'));
+  await tester.pumpAndSettle();
+}
 
 void main() {
   setUpAll(() async {
@@ -244,6 +305,63 @@ void main() {
       );
 
       expect(find.textContaining('auf dem Plan'), findsNothing);
+    });
+  });
+
+  group('a saved event in the calendar', () {
+    testWidgets('opens the full post when the saved source is a post', (
+      WidgetTester tester,
+    ) async {
+      await pumpPopup(
+        tester,
+        CalendarEntry(
+          id: 'savedEvent:post:sommerfest',
+          source: CalendarSource.savedEvents,
+          title: 'Sommerfest',
+          start: DateTime(2026, 5, 11, 18),
+          sourceLabel: '@StuRa',
+        ),
+        eventPosts: <NewsArticle>[eventPost()],
+      );
+
+      expect(find.text('Der vollständige Beitrag.'), findsOneWidget);
+      expect(find.byType(CalendarEntrySheet), findsNothing);
+    });
+
+    testWidgets('keeps the event details for a saved calendar event', (
+      WidgetTester tester,
+    ) async {
+      await pumpPopup(
+        tester,
+        CalendarEntry(
+          id: 'savedEvent:calendar:termin-1',
+          source: CalendarSource.savedEvents,
+          title: 'Kalendertermin',
+          start: DateTime(2026, 5, 11, 18),
+          sourceLabel: 'StuRa-Termine',
+        ),
+      );
+
+      expect(find.byType(CalendarEntrySheet), findsOneWidget);
+      expect(find.text('Kalendertermin'), findsOneWidget);
+    });
+
+    testWidgets('falls back to saved details when the post is unavailable', (
+      WidgetTester tester,
+    ) async {
+      await pumpPopup(
+        tester,
+        CalendarEntry(
+          id: 'savedEvent:post:nicht-mehr-verfuegbar',
+          source: CalendarSource.savedEvents,
+          title: 'Gespeicherter Beitrag',
+          start: DateTime(2026, 5, 11, 18),
+          sourceLabel: '@StuRa',
+        ),
+      );
+
+      expect(find.byType(CalendarEntrySheet), findsOneWidget);
+      expect(find.text('Gespeicherter Beitrag'), findsOneWidget);
     });
   });
 

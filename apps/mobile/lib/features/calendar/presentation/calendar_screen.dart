@@ -761,8 +761,8 @@ class _ListView extends ConsumerWidget {
       now: now,
     );
 
-    // A month of merged entries is far more than one screen, so the rows are
-    // described first and built as they scroll into view. Building them all
+    // A 120-day range is far more than one screen, so the rows are described
+    // first and built as they scroll into view. Building them all
     // up front cost a full screen's worth of work many times over on every
     // rebuild — the same reason the Moodle course tabs stopped doing it.
     return ListView.builder(
