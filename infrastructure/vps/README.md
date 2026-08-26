@@ -22,12 +22,13 @@ The database bootstrap is embedded in `compose.yaml`. PostgreSQL data and
 Strapi uploads live in named Docker volumes. Nginx and TLS termination remain
 outside Docker and forward to the loopback ports configured in `.env`.
 
-The host additionally needs the two final, directly installable Nginx virtual
-hosts in [`edge/`](edge/README.md). They contain the concrete erikspace.eu test
-domains, loopback ports, TLS certificate path, rate limits and upload limits.
-The same directory contains a temporary HTTP-only bootstrap host and exact
-instructions for obtaining the first Let's Encrypt certificate. Nginx remains
-a manual host-level deployment; Compose does not install or reload it.
+The host additionally needs the directly installable Nginx bundle in
+[`edge/`](edge/README.md): main process and file-descriptor tuning, shared-NAT
+and global capacity limits, upstream keepalive, a media cache, the two final
+virtual hosts and the temporary ACME bootstrap. It is sized as a conservative
+configuration for 3,000 students, including many devices behind the same campus
+NAT address. Nginx remains a manual host-level deployment; Compose does not
+install or reload it.
 
 `generate-env-secrets.sh` is an optional first-install helper. It fills only
 empty credential assignments in `.env`, never prints their values and never
@@ -82,8 +83,11 @@ curl -fsSLO https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main
 curl -fsSLO https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/manage-user-test-data.sh
 curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/README.md -o edge/README.md
 curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-test-acme-bootstrap.conf -o edge/campus-test-acme-bootstrap.conf
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-shared-capacity.conf -o edge/campus-shared-capacity.conf
 curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-test-api.erikspace.eu.conf -o edge/campus-test-api.erikspace.eu.conf
 curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/campus-test-cms.erikspace.eu.conf -o edge/campus-test-cms.erikspace.eu.conf
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/nginx.conf -o edge/nginx.conf
+curl -fsSL https://raw.githubusercontent.com/Leviora-Studio/campus-koethen/main/infrastructure/vps/edge/nginx-systemd-limits.conf -o edge/nginx-systemd-limits.conf
 chmod 600 .env
 chmod 700 generate-env-secrets.sh
 chmod 700 manage-user-test-data.sh

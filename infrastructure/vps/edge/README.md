@@ -1,26 +1,37 @@
 # Nginx for the erikspace.eu test deployment
 
 This directory contains the complete Nginx configuration for the two test
-domains. The final virtual hosts contain no placeholders and can be installed
-unchanged on a standard Debian/Ubuntu Nginx installation whose
-`/etc/nginx/conf.d/*.conf` files are included inside the `http` block.
+domains and an audience of 3,000 students, including clients that share a
+public campus NAT address. The files contain no placeholders and can be
+installed unchanged on a dedicated Debian/Ubuntu VPS.
 
 ## Files
 
 - `campus-test-acme-bootstrap.conf` — temporary HTTP-only host used to obtain
   the first Let's Encrypt certificate;
+- `campus-shared-capacity.conf` — shared-NAT-aware rate and connection zones,
+  upstream keepalive pools and the public media edge cache;
 - `campus-test-api.erikspace.eu.conf` — final public API host, including TLS,
   redirects, rate limits and a default-deny route policy;
 - `campus-test-cms.erikspace.eu.conf` — final Strapi host, including TLS,
   redirects and the 30 MiB edge limit for the configured 25 MiB CMS upload
-  limit.
+  limit;
+- `nginx.conf` — complete main configuration with automatic workers, 16,384
+  connections per worker, reusable client connections and TLS session cache;
+- `nginx-systemd-limits.conf` — systemd file-descriptor ceiling matching the
+  Nginx worker limit.
 
 Do not install the bootstrap and final files at the same time. They define the
 same port-80 server names.
 
 Remove an older installed `campus-api.conf` before enabling the final API file.
-Keeping both would define the same rate-limit zones twice and make `nginx -t`
-fail. The repository no longer contains that placeholder-based predecessor.
+The repository no longer contains that placeholder-based predecessor.
+
+The limits are generous enough not to treat a campus NAT address as one app
+user. They also impose a separate global ceiling so an extreme burst is
+smoothed before it reaches the single backend process. These are conservative
+operating assumptions, not measured capacity: a later load test is still
+required before claiming a guaranteed request rate.
 
 ## Prerequisites
 
@@ -32,27 +43,50 @@ Before requesting the certificate:
 3. ports 3020, 3021 and 5432 must remain private. Compose binds CMS and API to
    `127.0.0.1` already;
 4. install Nginx and Certbot with the distribution packages;
-5. create the persistent ACME webroot used by initial issuance and renewal.
+5. create the persistent ACME webroot and media-cache directory;
+6. confirm that no other file in `conf.d` defines one of the `campus_*` zones or
+   upstream names.
 
 ```bash
 sudo install -d -o root -g root -m 0755 /var/www/letsencrypt
+sudo install -d -o www-data -g www-data -m 0750 /var/cache/nginx/campus-media
 ```
 
 The configuration assumes direct DNS. If another reverse proxy such as
 Cloudflare is placed in front of Nginx, configure and verify trusted real-IP
 handling before relying on the per-client rate limits.
 
+## Host capacity configuration
+
+Back up the host configuration before replacing it. The supplied main file
+keeps both standard Debian/Ubuntu include directories, but an existing VPS may
+contain additional local directives that must be retained deliberately.
+
+```bash
+sudo cp -a /etc/nginx/nginx.conf /etc/nginx/nginx.conf.before-campus
+sudo install -o root -g root -m 0644 nginx.conf /etc/nginx/nginx.conf
+sudo install -d -o root -g root -m 0755 /etc/systemd/system/nginx.service.d
+sudo install -o root -g root -m 0644 \
+  nginx-systemd-limits.conf \
+  /etc/systemd/system/nginx.service.d/campus-limits.conf
+sudo systemctl daemon-reload
+```
+
+`worker_processes auto` uses the available CPU cores. Each worker accepts up to
+16,384 connections; proxied client and upstream sockets both count. The service
+and worker open-file limits are raised to 65,535 so the connection setting is
+not silently capped by the operating system.
+
 ## First certificate and installation
 
-Copy all three files to a temporary directory on the VPS. Install only the
-bootstrap first:
+Install only the bootstrap virtual host first:
 
 ```bash
 sudo install -o root -g root -m 0644 \
   campus-test-acme-bootstrap.conf \
   /etc/nginx/conf.d/campus-test-acme-bootstrap.conf
 sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl restart nginx
 ```
 
 Obtain one certificate containing both test domains under the predictable
@@ -74,10 +108,14 @@ The certificate must now exist at:
 /etc/letsencrypt/live/campus-koethen-test/privkey.pem
 ```
 
-Replace the bootstrap with the final virtual hosts:
+Replace the bootstrap with the shared capacity contract and final virtual
+hosts:
 
 ```bash
 sudo rm /etc/nginx/conf.d/campus-test-acme-bootstrap.conf
+sudo install -o root -g root -m 0644 \
+  campus-shared-capacity.conf \
+  /etc/nginx/conf.d/campus-shared-capacity.conf
 sudo install -o root -g root -m 0644 \
   campus-test-api.erikspace.eu.conf \
   /etc/nginx/conf.d/campus-test-api.erikspace.eu.conf
@@ -92,26 +130,36 @@ sudo certbot renew --dry-run
 The port-80 blocks in the final files keep the ACME webroot reachable for
 automatic renewal and redirect all other requests to HTTPS.
 
-For later application deployments, copy the two final files only when their
-contents changed. A normal container rollout does not require an Nginx reload
-because ports and domains remain stable.
+For later application deployments, copy the shared capacity file and the two
+final hosts only when their contents changed. Changes to `nginx.conf` or the
+systemd limit require `systemctl daemon-reload` and an Nginx restart; ordinary
+VHost changes need only `nginx -t` followed by a reload. A normal container
+rollout does not require an Nginx reload because ports and domains remain
+stable.
 
 ## API edge contract
 
 The API is public and unauthenticated, so its final host applies these limits
 before a request reaches Node:
 
-| Promise                | Value                                             |
-| ---------------------- | ------------------------------------------------- |
-| Public paths           | `/v1/`, `/health/live`, `/health/ready`, `/docs*` |
-| Every other path       | `404`                                             |
-| General rate limit     | 10 requests/s per IP, burst 20                    |
-| Media rate limit       | 2 requests/s per IP, burst 10                     |
-| Documentation limit    | 5 requests/s per IP, burst 15                     |
-| Concurrent connections | 20 per IP                                         |
-| Request body           | maximum 1 KiB; the public API is read-only        |
-| Allowed methods        | `GET`, `HEAD`, `OPTIONS`                          |
-| Upstream               | `http://127.0.0.1:3021`                           |
+| Promise                   | Value                                                        |
+| ------------------------- | ------------------------------------------------------------ |
+| Public paths              | `/v1/`, `/health/live`, `/health/ready`, `/docs*`            |
+| Every other path          | `404`                                                        |
+| General, campus NAT       | 1,200 requests/s, burst 12,000                               |
+| General, whole API        | 600 requests/s, burst 6,000; delayed after first 1,200       |
+| Media, campus NAT         | 120 requests/s, burst 1,000                                  |
+| Media, whole API          | 60 requests/s, burst 600; delayed after first 120            |
+| Documentation, campus NAT | 100 requests/s, burst 500                                    |
+| Documentation, whole API  | 50 requests/s, burst 250; delayed after first 50             |
+| Health probes, source NAT | 20 requests/s, burst 100                                     |
+| Health probes, whole API  | 50 requests/s, burst 200                                     |
+| General connections       | 3,000 per NAT and 4,000 globally                             |
+| Media connections         | 500 per NAT and 750 globally                                 |
+| Public media cache        | 5 GiB maximum, 7 days inactive, upstream cache headers apply |
+| Request body              | maximum 1 KiB; the public API is read-only                   |
+| Allowed methods           | `GET`, `HEAD`, `OPTIONS`                                     |
+| Upstream                  | keepalive pool to `127.0.0.1:3021`                           |
 
 `/docs` and `/docs-json` are intentionally public because the API is a public
 read-only contract. `DOCS_ENABLED=true` in the deployment environment must
@@ -127,7 +175,10 @@ token.
 
 Nginx accepts at most 30 MiB per request, leaving multipart overhead for the
 CMS limit `UPLOAD_SIZE_LIMIT_BYTES=26214400` (25 MiB). Larger uploads are
-rejected at the edge before they reach Strapi.
+rejected at the edge before they reach Strapi. The CMS ceiling is 100
+requests/s per NAT and 200 requests/s globally, with generous bursts; its
+global simultaneous connection ceiling is 750. App users never access this
+host.
 
 ## Verification
 
@@ -148,16 +199,16 @@ Expected results:
 - CMS health returns `204`;
 - the API root returns `404` because it is not on the allowlist.
 
-Finally, verify that the API rate limit is really active:
+Finally, confirm that the capacity zones, upstream pools and cache were loaded:
 
 ```bash
-for i in $(seq 1 40); do
-  curl -s -o /dev/null -w '%{http_code} ' \
-    https://campus-test-api.erikspace.eu/v1/canteens
-done
-echo
+sudo nginx -T 2>&1 | grep -E \
+  'campus_api_global|campus_media_cache|campus_api_backend|worker_connections 16384'
+systemctl show nginx --property=LimitNOFILE
 ```
 
-The burst must eventually contain `429` responses. A sequence containing only
-`200` responses means the edge limits are not active or the requests were too
-slow to exceed them.
+The output must show the global request zone, media cache, API upstream,
+16,384-worker connection setting and `LimitNOFILE=65535`. This verifies the
+loaded contract without intentionally creating load. Operational logs include
+request time, upstream time, cache status and rate-limit status; monitor them
+for unexpected `429`, `5xx` or increasing response times.

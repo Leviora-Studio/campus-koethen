@@ -558,9 +558,11 @@ griffe erst, nachdem die Anfrage ihn bereits beschäftigt.
 Der Vertrag über die Kante liegt deshalb versioniert im Repository:
 [`infrastructure/vps/edge/`](../infrastructure/vps/edge/README.md). Verbindlich sind dort
 Default-Deny auf Pfadebene (nur `/v1/`, `/health/live`, `/health/ready` und das bewusst
-oeffentliche `/docs`), Rate Limit je IP
-(10 req/s allgemein, 2 req/s auf dem Medienpfad), Verbindungsgrenze, `client_max_body_size`
-(die API ist read-only), Upstream-Timeouts und die erlaubten Methoden.
+oeffentliche `/docs`), getrennte sehr großzügige Shared-NAT- und globale Schutzlimits,
+Verbindungsgrenzen, `client_max_body_size` (die API ist read-only), Upstream-Keepalive,
+Timeouts, ein auf öffentliche redaktionelle Bilder begrenzter Edge-Cache und die erlaubten
+Methoden. Die Dimensionierungsannahme sind 3.000 Studierende, von denen viele dieselbe
+öffentliche Campus-IP teilen können; garantierter Durchsatz bleibt bis zu einem Lasttest offen.
 
 Für die erikspace.eu-Testumgebung liegen dort ein HTTP-only-ACME-Bootstrap und zwei direkt
 installierbare finale VHosts für API und CMS. Sie enthalten die konkreten Testdomains,
@@ -572,7 +574,7 @@ bewusst auf dem VPS installiert, geprüft und neu geladen.
 
 | Thema                                           | Status                                                                                                                                                                                                                                                               |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Redis                                           | nicht im MVP — kein Caching-Layer nötig, Datenmengen sind klein                                                                                                                                                                                                      |
+| Redis                                           | nicht im MVP — Datenmengen sind klein; nur öffentliche redaktionelle Bilder werden an der Nginx-Kante gecacht                                                                                                                                                        |
 | SMTP                                            | später — Strapi-Admins werden zunächst manuell angelegt                                                                                                                                                                                                              |
 | Sentry / Analytics                              | dauerhaft ausgeschlossen im MVP                                                                                                                                                                                                                                      |
 | Automatisches Deployment                        | ausgeschlossen — Images werden gebaut, Deployment bleibt manuell                                                                                                                                                                                                     |
