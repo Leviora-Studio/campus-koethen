@@ -39,21 +39,32 @@ test. It previews, refreshes or removes only the synthetic Mensa and
 timetable rows owned by the `user-test` source. The app discloses the test
 environment globally; individual cards keep natural labels.
 
-Use `.env.example` for a generic new installation. For the Campus Koethen test
-environment at `erikspace.eu`, copy `campus-test-api.example` to `.env`; it
-already contains the public API and CMS domains. Fill its empty secrets only on
-the VPS.
+## Environment profiles
 
-The test template deliberately enables every server-side product feature in
-this stack: canteen synchronization, WebUntis, public calendars, API
-documentation and the guarded user-test dataset. News, contacts and rooms are
-always served from Strapi and have no separate enable switch. Mail, grades,
-Moodle and requests remain direct device integrations by design and therefore
-have no VPS feature flag. `SEED_DEMO_CONTENT` stays off because sample-content
+Every committed environment file is a non-secret template. Copy exactly one to
+`.env` on its target VPS and fill its empty credentials there:
+
+| Template                    | Purpose                                                      |
+| --------------------------- | ------------------------------------------------------------ |
+| `.env.example`              | Generic installation with placeholder domains and safe gates |
+| `campus-test-api.example`   | User-test deployment on the two `erikspace.eu` test domains  |
+| `campus-production.example` | Production on the two `sturahsa.de` domains                  |
+
+The test template enables every server-side product feature and additionally
+enables the guarded synthetic user-test dataset. The production template also
+enables canteen synchronization, WebUntis, public calendars and API
+documentation, but keeps `USER_TEST_DATA_ENABLED=false`. Its public addresses
+are `https://campus-koethen-api.sturahsa.de` for the backend and
+`https://koethen-cms.sturahsa.de` for Strapi.
+
+News, contacts and rooms are always served from Strapi and have no separate
+enable switch. Mail, grades, Moodle and requests remain direct device
+integrations by design and therefore have no VPS feature flag.
+`SEED_DEMO_CONTENT` stays off in both concrete templates because sample-content
 seeding is not a product feature and is forbidden in the production-mode CMS
 container.
 
-The test template contains the concrete public source configuration used by the
+Both concrete templates contain the public source configuration used by the
 worker:
 
 - `https://meine-mensa.de/api/food_plans`, with the two versioned Koethen
@@ -65,10 +76,10 @@ worker:
   environment variable.
 
 `WEBUNTIS_ENABLED=true` performs real automated requests to the public-view
-interface. Keep it enabled only for a test whose use of that upstream has been
-organizationally cleared.
+interface. Its use must be organizationally cleared for the selected
+deployment.
 
-## Download without cloning the repository
+## Download the test profile without cloning the repository
 
 Create an empty deployment directory on the VPS and download the two runtime
 files, the optional non-secret helpers and the complete Nginx setup:
@@ -92,6 +103,11 @@ chmod 600 .env
 chmod 700 generate-env-secrets.sh
 chmod 700 manage-user-test-data.sh
 ```
+
+These commands intentionally download the `erikspace.eu` test profile. For the
+production VPS, use `campus-production.example` as `.env` and the production
+Nginx files listed in [`edge/README.md`](edge/README.md); do not mix files from
+the two profiles.
 
 If the repository is private, copy the files over an authenticated channel
 instead (for example with `gh`, `scp`, or curl with a private token header). Do
@@ -205,7 +221,7 @@ the host timezone.
 
 ## Verify
 
-With the erikspace.eu test defaults:
+With the erikspace.eu test profile:
 
 ```bash
 curl -i http://127.0.0.1:3020/_health
@@ -220,6 +236,10 @@ docker compose logs --since=10m --tail=200 cms api worker
 Expected HTTP statuses are 204 for the CMS health endpoint and 200 for both API
 health endpoints. `db-init` should be exited with status 0; it is a successful
 one-off service, not a daemon.
+
+For production, use the same commands with
+`https://koethen-cms.sturahsa.de/_health` and
+`https://campus-koethen-api.sturahsa.de/health/ready`.
 
 ## Controlled user-test dataset (test environment only)
 

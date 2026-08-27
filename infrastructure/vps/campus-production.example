@@ -1,0 +1,176 @@
+# Campus Koethen production environment on sturahsa.de
+# This committed file intentionally contains all non-secret production values.
+# Copy it to `.env` on the production VPS, fill the empty credentials there,
+# and never commit the resulting `.env`.
+#
+# All server-side product features available in this stack are enabled below:
+# canteen sync, WebUntis, public calendars and API documentation. News,
+# contacts and room content have no feature switch; they become available
+# through Strapi as soon as editorial content exists. The synthetic user-test
+# dataset is explicitly disabled in production.
+
+# --- Compose and published images -------------------------------------------
+COMPOSE_PROJECT_NAME=campus-koethen-production
+CONTAINER_PLATFORM=linux/amd64
+RESTART_POLICY=unless-stopped
+DOCKER_LOG_MAX_SIZE=10m
+DOCKER_LOG_MAX_FILES=5
+
+CMS_IMAGE_REPOSITORY=ghcr.io/leviora-studio/campus-koethen/cms
+BACKEND_IMAGE_REPOSITORY=ghcr.io/leviora-studio/campus-koethen/backend
+
+# Not a credential. Set this to `sha-<full commit SHA>` only after the GitHub
+# Actions run for that main-branch commit has completed successfully.
+CAMPUS_IMAGE_TAG=
+
+# --- Public addresses and host bindings ------------------------------------
+CMS_PUBLIC_URL=https://koethen-cms.sturahsa.de
+API_PUBLIC_URL=https://campus-koethen-api.sturahsa.de
+
+# Nginx runs on the host and proxies these loopback-only ports.
+CMS_BIND_ADDRESS=127.0.0.1
+CMS_HOST_PORT=3020
+CMS_CONTAINER_PORT=1337
+API_BIND_ADDRESS=127.0.0.1
+API_HOST_PORT=3021
+API_CONTAINER_PORT=3000
+
+# The Campus app is currently native. This exact origin also keeps the public
+# API documentation aligned without opening the API to arbitrary browsers.
+# Add future browser frontends comma-separated, using their exact origins.
+CORS_ALLOWED_ORIGINS=https://campus-koethen-api.sturahsa.de
+
+# Swagger UI at /docs. Empty means OFF here, because NODE_ENV=production.
+DOCS_ENABLED=true
+
+# Exact browser origin for Strapi Admin. Never use `*` in production.
+CMS_CORS_ALLOWED_ORIGINS=https://koethen-cms.sturahsa.de
+
+# --- PostgreSQL -------------------------------------------------------------
+POSTGRES_IMAGE=postgres:16-alpine
+POSTGRES_CONTAINER_PORT=5432
+POSTGRES_ADMIN_USERNAME=campus_admin
+POSTGRES_ADMIN_DATABASE=postgres
+
+# Credential: generate once on the VPS with `openssl rand -hex 32`. Keep the
+# existing value when an existing PostgreSQL volume is reused.
+POSTGRES_ADMIN_PASSWORD=
+
+CMS_DATABASE_NAME=campus_cms
+CMS_DATABASE_USERNAME=campus_cms
+CMS_DATABASE_SCHEMA=public
+
+# Credential: generate once with `openssl rand -hex 32`.
+CMS_DATABASE_PASSWORD=
+
+APP_DATABASE_NAME=campus_app
+APP_DATABASE_USERNAME=campus_app
+APP_DATABASE_SCHEMA=public
+
+# Credential: generate once with `openssl rand -hex 32`. Hex avoids URL
+# escaping problems in the backend's PostgreSQL connection URL.
+APP_DATABASE_PASSWORD=
+
+# --- Strapi -----------------------------------------------------------------
+BACKEND_STRAPI_BASE_URL=http://cms:1337
+STRAPI_DEFAULT_LOCALE=de
+STRAPI_TELEMETRY_DISABLED=true
+SEED_DEMO_CONTENT=false
+
+# Maximum size of one uploaded CMS file: 25 MiB.
+UPLOAD_SIZE_LIMIT_BYTES=26214400
+
+CMS_DATABASE_POOL_MIN=2
+CMS_DATABASE_POOL_MAX=10
+CMS_DATABASE_CONNECTION_TIMEOUT=60000
+
+# Credentials: generate four separate values with `openssl rand -hex 32` and
+# enter them as one comma-separated line. Keep them stable after first use.
+STRAPI_APP_KEYS=
+
+# Credential: generate once with `openssl rand -hex 32`.
+STRAPI_API_TOKEN_SALT=
+
+# Credential: generate once with `openssl rand -hex 32`.
+STRAPI_ADMIN_JWT_SECRET=
+
+# Credential: generate once with `openssl rand -hex 32`.
+STRAPI_TRANSFER_TOKEN_SALT=
+
+# Credential: generate once with `openssl rand -hex 32`.
+STRAPI_ENCRYPTION_KEY=
+
+# Credential: initially leave empty. After the CMS starts, create a read-only
+# token in Strapi Admin, insert it here, and recreate API and worker. Strapi has
+# no unauthenticated content API.
+STRAPI_API_TOKEN=
+STRAPI_TIMEOUT_MS=10000
+STRAPI_RETRY_ATTEMPTS=2
+
+# All cron expressions use German local wall-clock time, including automatic
+# daylight-saving transitions.
+WORKER_TIME_ZONE=Europe/Berlin
+
+# Synthetic rows and the global user-test disclosure must stay off in PROD.
+USER_TEST_DATA_ENABLED=false
+
+# --- Canteen ---------------------------------------------------------------
+# Canonical meine-mensa.de endpoint. The backend appends the two configured
+# Koethen source locations: Fasanerieallee (`location_id=7`) and Lohmannstrasse
+# (`location_id=22`).
+CANTEEN_SOURCE_URL=https://meine-mensa.de/api/food_plans
+CANTEEN_HTTP_TIMEOUT_MS=15000
+CANTEEN_RETRY_ATTEMPTS=3
+# Largest source response we buffer. Enforced while reading, not afterwards.
+CANTEEN_MAX_RESPONSE_BYTES=8000000
+CANTEEN_REQUEST_SPACING_MS=1000
+CANTEEN_SYNC_CRON="0 */2 * * *"
+CANTEEN_SYNC_ON_BOOT=true
+CANTEEN_STALE_AFTER_MINUTES=240
+CANTEEN_SYNC_DAYS_AHEAD=14
+
+# --- WebUntis --------------------------------------------------------------
+# Anonymous Hochschule Anhalt public-view API. The backend appends `/app/data`,
+# `/timetable/filter` and `/timetable/entries` and sends `anonymous-school: hsa`.
+WEBUNTIS_ENABLED=true
+WEBUNTIS_BASE_URL=https://hsa.webuntis.com/WebUntis/api/rest/view/v1
+WEBUNTIS_ANONYMOUS_SCHOOL=hsa
+WEBUNTIS_HTTP_TIMEOUT_MS=20000
+WEBUNTIS_RETRY_ATTEMPTS=3
+WEBUNTIS_REQUEST_SPACING_MS=1500
+WEBUNTIS_MAX_RESPONSE_BYTES=16000000
+WEBUNTIS_GROUP_SYNC_CRON="0 * * * *"
+WEBUNTIS_ENTRY_SYNC_CRON="0 * * * *"
+WEBUNTIS_SYNC_ON_BOOT=true
+WEBUNTIS_LOOKBACK_DAYS=7
+WEBUNTIS_LOOKAHEAD_DAYS=28
+WEBUNTIS_STALE_AFTER_MINUTES=180
+
+# --- Public Google calendars via public ICS -------------------------------
+# No Google credential is required. Public calendar definitions are maintained
+# in Strapi. The backend constructs the fixed public Google ICS feed itself.
+PUBLIC_CALENDAR_ENABLED=true
+PUBLIC_CALENDAR_HTTP_TIMEOUT_MS=20000
+PUBLIC_CALENDAR_RETRY_ATTEMPTS=2
+PUBLIC_CALENDAR_REQUEST_SPACING_MS=1000
+PUBLIC_CALENDAR_CATALOG_SYNC_CRON="*/10 * * * *"
+PUBLIC_CALENDAR_EVENT_SYNC_CRON="*/10 * * * *"
+PUBLIC_CALENDAR_SYNC_ON_BOOT=true
+PUBLIC_CALENDAR_MAX_FEED_BYTES=8000000
+PUBLIC_CALENDAR_MAX_EVENTS=5000
+PUBLIC_CALENDAR_MAX_OCCURRENCES=10000
+PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT=750
+PUBLIC_CALENDAR_MAX_SCANNED_OCCURRENCES=250000
+PUBLIC_CALENDAR_MAX_TEXT_LENGTH=2000
+PUBLIC_CALENDAR_LOOKBACK_DAYS=30
+PUBLIC_CALENDAR_LOOKAHEAD_DAYS=180
+PUBLIC_CALENDAR_STALE_AFTER_MINUTES=720
+PUBLIC_CALENDAR_FALLBACK_TIME_ZONE=Europe/Berlin
+PUBLIC_CALENDAR_USER_AGENT="CampusKoethen/0.1.0 (+https://campus-koethen-api.sturahsa.de)"
+PUBLIC_CALENDAR_API_MAX_CALENDARS=50
+PUBLIC_CALENDAR_API_MAX_RANGE_DAYS=120
+PUBLIC_CALENDAR_API_MAX_EVENTS=2000
+
+# --- Logging ---------------------------------------------------------------
+LOG_LEVEL=info
+LOG_PRETTY=false

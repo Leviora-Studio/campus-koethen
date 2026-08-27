@@ -1,25 +1,32 @@
-# Nginx for the erikspace.eu test deployment
+# Nginx for test and production
 
-This directory contains the complete Nginx configuration for the two test
-domains and an audience of 3,000 students, including clients that share a
-public campus NAT address. The files contain no placeholders and can be
-installed unchanged on a dedicated Debian/Ubuntu VPS.
+This directory contains complete Nginx profiles for the `erikspace.eu` test
+deployment and the `sturahsa.de` production deployment. Both use the same
+capacity contract for an audience of 3,000 students, including clients that
+share a public campus NAT address. Each profile contains no placeholders and
+can be installed unchanged on its dedicated Debian/Ubuntu VPS.
 
 ## Files
 
-- `campus-test-acme-bootstrap.conf` — temporary HTTP-only host used to obtain
-  the first Let's Encrypt certificate;
 - `campus-shared-capacity.conf` — shared-NAT-aware rate and connection zones,
   upstream keepalive pools and the public media edge cache;
-- `campus-test-api.erikspace.eu.conf` — final public API host, including TLS,
-  redirects, rate limits and a default-deny route policy;
-- `campus-test-cms.erikspace.eu.conf` — final Strapi host, including TLS,
-  redirects and the 30 MiB edge limit for the configured 25 MiB CMS upload
-  limit;
 - `nginx.conf` — complete main configuration with automatic workers, 16,384
   connections per worker, reusable client connections and TLS session cache;
 - `nginx-systemd-limits.conf` — systemd file-descriptor ceiling matching the
   Nginx worker limit.
+
+Choose exactly one of these environment-specific sets:
+
+| Profile    | ACME bootstrap                          | Final API VHost                       | Final CMS VHost                     | Certificate name            |
+| ---------- | --------------------------------------- | ------------------------------------- | ----------------------------------- | --------------------------- |
+| Test       | `campus-test-acme-bootstrap.conf`       | `campus-test-api.erikspace.eu.conf`   | `campus-test-cms.erikspace.eu.conf` | `campus-koethen-test`       |
+| Production | `campus-production-acme-bootstrap.conf` | `campus-koethen-api.sturahsa.de.conf` | `koethen-cms.sturahsa.de.conf`      | `campus-koethen-production` |
+
+The test VHosts belong with `../campus-test-api.example`; the production
+VHosts belong with `../campus-production.example`. Both sets reuse
+`campus-shared-capacity.conf`, `nginx.conf` and
+`nginx-systemd-limits.conf`. Do not mix domains, certificates or VHosts between
+profiles.
 
 Do not install the bootstrap and final files at the same time. They define the
 same port-80 server names.
@@ -37,8 +44,7 @@ required before claiming a guaranteed request rate.
 
 Before requesting the certificate:
 
-1. `campus-test-api.erikspace.eu` and `campus-test-cms.erikspace.eu` must resolve
-   directly to the VPS;
+1. both domains of the selected profile must resolve directly to that VPS;
 2. TCP ports 80 and 443 must be reachable;
 3. ports 3020, 3021 and 5432 must remain private. Compose binds CMS and API to
    `127.0.0.1` already;
@@ -79,6 +85,10 @@ not silently capped by the operating system.
 
 ## First certificate and installation
 
+The commands below show the test profile. For production, use the matching
+filenames and certificate name from the profile table. The exact production
+Certbot command is included immediately afterwards.
+
 Install only the bootstrap virtual host first:
 
 ```bash
@@ -106,6 +116,25 @@ The certificate must now exist at:
 ```text
 /etc/letsencrypt/live/campus-koethen-test/fullchain.pem
 /etc/letsencrypt/live/campus-koethen-test/privkey.pem
+```
+
+For production, install `campus-production-acme-bootstrap.conf` and obtain the
+shared production certificate with:
+
+```bash
+sudo certbot certonly \
+  --webroot \
+  --webroot-path /var/www/letsencrypt \
+  --cert-name campus-koethen-production \
+  -d campus-koethen-api.sturahsa.de \
+  -d koethen-cms.sturahsa.de
+```
+
+The two production VHosts expect the certificate at:
+
+```text
+/etc/letsencrypt/live/campus-koethen-production/fullchain.pem
+/etc/letsencrypt/live/campus-koethen-production/privkey.pem
 ```
 
 Replace the bootstrap with the shared capacity contract and final virtual
