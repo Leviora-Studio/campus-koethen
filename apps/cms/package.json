@@ -1,6 +1,6 @@
 {
   "name": "@campus/cms",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Campus Köthen editorial CMS (Strapi 5 Community)",
   "license": "AGPL-3.0-only",

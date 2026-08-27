@@ -1,6 +1,6 @@
 {
   "name": "campus-koethen-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Campus K\u00f6then App \u2014 an independent, unofficial campus app monorepo (Strapi CMS, NestJS Campus API + worker, Flutter mobile client).",
   "license": "AGPL-3.0-only",
