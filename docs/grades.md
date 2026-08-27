@@ -261,46 +261,20 @@ Die Integration ist daher **inhärent fragil**:
   über die automatisierte Nutzung **beider** Prüfungsportale erfolgen. Dies ist ein offenes
   Release-Gate.
 
-## App-Switcher-Vorschau — entschieden: selektiver Schutz
+## Screenshots und App-Switcher-Vorschau — überall erlaubt
 
-Entschieden (LEVIORA-179, bestätigt in LEVIORA-181 durch Erik): Der Schutz gilt **selektiv** für
-die Masken, auf denen ein Hochschulpasswort oder eine Kopie des Studierendenausweises **eingegeben**
-wird — die drei Anmeldebildschirme (Mail, Noten, Moodle) und das Antragsformular. Genau vier Stellen
-setzen `ProtectedScreen`: `mail_setup_screen.dart`, `grade_setup_screen.dart`,
-`moodle_setup_screen.dart`, `application_form_screen.dart`.
+Entschieden: **Jeder Bildschirm der App darf auf Android und iOS aufgenommen werden.** Die App
+setzt weder Androids `FLAG_SECURE` noch einen eigenen iOS-Überleger für die App-Switcher-Vorschau
+ein. Das gilt ausdrücklich auch für die drei Anmeldebildschirme (Mail, Noten und Moodle), das
+Antragsformular, die Notenübersicht, Mailinhalte und alle Aufgabenansichten.
 
-**Ungeschützt bleiben bewusst auch die Inhalte selbst**, nicht nur die unkritischen Bereiche:
+Damit bleiben Screenshots, Bildschirmaufnahmen und die normalen Vorschauen des Betriebssystems
+appseitig uneingeschränkt. Passwortfelder verwenden weiterhin die normale verdeckte Darstellung;
+Zugangsdaten bleiben im gerätegebundenen Keychain/Keystore und sensible lokale Inhalte bleiben
+verschlüsselt. Diese Schutzmechanismen sind von der Screenshot-Entscheidung unabhängig.
 
-- **Notenspiegel-Übersicht** (`grades_overview_screen.dart`) und die Moodle-Bewertungschips —
-  Noten sind im App-Switcher lesbar und lassen sich uneingeschränkt per Screenshot teilen.
-- **Mail-Nachrichtenansicht** (`mail_message_screen.dart`) — dasselbe gilt für Nachrichteninhalte.
-- Stundenplan, Mensa, News und alle weiteren Übersichten.
-
-Das ist der ausdrücklich entschiedene Umfang und **keine** Lücke in der Umsetzung: Der ursprüngliche
-Befund GRAD-8 („Noten sichtbar im App-Switcher", hoch) und MAIL-4 nannten diese Inhaltsbildschirme,
-die Abwägung fiel bewusst zugunsten der Teilbarkeit aus. Wer eine Note oder eine Nachricht
-weiterschickt, tut das in aller Regel absichtlich; eine App-weite Sperre nimmt diesen Normalfall
-weg, um einen Blick über die Schulter zu erschweren, den sie ohnehin nicht verhindert. Geschützt
-wird deshalb nur, was zum Zeitpunkt der Eingabe ein _Geheimnis_ auf dem Bildschirm hat.
-
-Wer diesen Umfang ändern will, ändert eine Produktentscheidung, nicht einen Bug.
-
-Umgesetzt über einen eigenen Plattformkanal
-(`apps/mobile/lib/core/security/screen_protection.dart`), nicht über ein zusätzliches Paket:
-
-- **Android** setzt `FLAG_SECURE`. Das unterbindet Screenshots **und** schwärzt die
-  Recents-Vorschau.
-- **iOS** kennt kein Äquivalent. Die App legt beim `resignActive` eine deckende Fläche über das
-  Fenster — genau der Moment, in dem der Snapshot für den App-Switcher entsteht — und entfernt sie
-  beim `didBecomeActive` wieder. **Screenshots bleiben auf iOS möglich.**
-
-Die Anforderungen sind zählend, damit verschachtelte geschützte Bildschirme sich nicht gegenseitig
-aufdecken. Nicht behauptet wird ein Schutz gegen gerootete Geräte, privilegierte Bildschirmaufnahme
-oder jemanden mit dem Telefon in der Hand.
-
-**Nicht auf Geräten verifiziert.** Die Zählerlogik ist durch Widget-Tests abgedeckt; die
-tatsächliche Wirkung auf die Recents-Vorschau und den iOS-Snapshot muss auf echter Hardware
-geprüft werden.
+Ein Quelltest prüft, dass in Flutter kein Screenshot-Schutz angefordert wird, Android kein
+gesichertes Fenster setzt und iOS keinen Capture- oder App-Switcher-Überleger registriert.
 
 ## Schichten
 

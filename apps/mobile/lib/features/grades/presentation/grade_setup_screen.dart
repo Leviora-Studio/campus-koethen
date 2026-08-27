@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
-import '../../../core/security/screen_protection.dart';
 import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/theme/app_dimensions.dart';
@@ -116,147 +115,141 @@ class _GradeSetupScreenState extends ConsumerState<GradeSetupScreen> {
     final AppLocalizations l10n = context.l10n;
     final TextTheme text = Theme.of(context).textTheme;
 
-    // Kept out of screenshots and the app-switcher preview:
-    // the university password is typed here. Selective by
-    // decision — the rest of the app stays shareable.
-    return ProtectedScreen(
-      child: ScreenScaffold(
-        eyebrow: ModuleCategory.study.label(l10n),
-        title: l10n.gradesTitle,
-        body: SafeArea(
-          child: Form(
-            key: _formKey,
-            // Without this a password manager has nothing to fill and nothing to
-            // save, so the university password gets typed by hand.
-            child: AutofillGroup(
-              child: ListView(
-                padding: EdgeInsets.all(context.metrics.screenPadding),
-                children: <Widget>[
-                  Text(l10n.gradeSetupHeadline, style: text.titleLarge),
-                  const SizedBox(height: AppSpacing.md),
-                  _InfoCard(
-                    icon: AppIcons.lock_outline,
-                    text: l10n.gradeSetupIntro,
+    return ScreenScaffold(
+      eyebrow: ModuleCategory.study.label(l10n),
+      title: l10n.gradesTitle,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          // Without this a password manager has nothing to fill and nothing to
+          // save, so the university password gets typed by hand.
+          child: AutofillGroup(
+            child: ListView(
+              padding: EdgeInsets.all(context.metrics.screenPadding),
+              children: <Widget>[
+                Text(l10n.gradeSetupHeadline, style: text.titleLarge),
+                const SizedBox(height: AppSpacing.md),
+                _InfoCard(
+                  icon: AppIcons.lock_outline,
+                  text: l10n.gradeSetupIntro,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _InfoCard(
+                  icon: AppIcons.shield_outlined,
+                  text: l10n.gradeSetupPrivacy,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _InfoCard(
+                  icon: AppIcons.info_outline,
+                  text: l10n.aboutIndependenceNotice,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                TextFormField(
+                  controller: _usernameController,
+                  focusNode: _usernameFocus,
+                  enabled: !_busy,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const <String>[AutofillHints.username],
+                  decoration: InputDecoration(
+                    labelText: l10n.gradeSetupUsernameLabel,
+                    prefixIcon: const Icon(AppIcons.person_outline),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _InfoCard(
-                    icon: AppIcons.shield_outlined,
-                    text: l10n.gradeSetupPrivacy,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _InfoCard(
-                    icon: AppIcons.info_outline,
-                    text: l10n.aboutIndependenceNotice,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextFormField(
-                    controller: _usernameController,
-                    focusNode: _usernameFocus,
-                    enabled: !_busy,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const <String>[AutofillHints.username],
-                    decoration: InputDecoration(
-                      labelText: l10n.gradeSetupUsernameLabel,
-                      prefixIcon: const Icon(AppIcons.person_outline),
+                  validator: (String? value) => isValidUsername(value)
+                      ? null
+                      : l10n.gradeSetupUsernameRequired,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _passwordController,
+                  focusNode: _passwordFocus,
+                  enabled: !_busy,
+                  obscureText: _obscurePassword,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const <String>[AutofillHints.password],
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: l10n.gradeSetupPasswordLabel,
+                    prefixIcon: const Icon(AppIcons.password_outlined),
+                    suffixIcon: IconButton(
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      // The state has to be spoken, not only drawn: the glyph
+                      // alone tells a screen reader nothing about whether the
+                      // password is currently on screen.
+                      tooltip: _obscurePassword
+                          ? l10n.gradesShowPassword
+                          : l10n.gradesHidePassword,
+                      icon: Icon(
+                        _obscurePassword
+                            ? AppIcons.visibility_outlined
+                            : AppIcons.visibility_off_outlined,
+                      ),
                     ),
-                    validator: (String? value) => isValidUsername(value)
-                        ? null
-                        : l10n.gradeSetupUsernameRequired,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(
-                    controller: _passwordController,
-                    focusNode: _passwordFocus,
-                    enabled: !_busy,
-                    obscureText: _obscurePassword,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const <String>[AutofillHints.password],
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: l10n.gradeSetupPasswordLabel,
-                      prefixIcon: const Icon(AppIcons.password_outlined),
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                        // The state has to be spoken, not only drawn: the glyph
-                        // alone tells a screen reader nothing about whether the
-                        // password is currently on screen.
-                        tooltip: _obscurePassword
-                            ? l10n.gradesShowPassword
-                            : l10n.gradesHidePassword,
-                        icon: Icon(
-                          _obscurePassword
-                              ? AppIcons.visibility_outlined
-                              : AppIcons.visibility_off_outlined,
+                  validator: (String? value) => isValidPassword(value)
+                      ? null
+                      : l10n.gradeSetupPasswordRequired,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                CheckboxListTile(
+                  value: _consent,
+                  onChanged: _busy
+                      ? null
+                      : (bool? v) => setState(() {
+                          _consent = v ?? false;
+                          if (_consent) _consentMissing = false;
+                        }),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  isError: _consentMissing,
+                  title: Text(l10n.gradeSetupConsent, style: text.bodyMedium),
+                ),
+                if (_consentMissing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        l10n.gradeSetupConsentRequired,
+                        style: text.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
                     ),
-                    validator: (String? value) => isValidPassword(value)
-                        ? null
-                        : l10n.gradeSetupPasswordRequired,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  CheckboxListTile(
-                    value: _consent,
-                    onChanged: _busy
-                        ? null
-                        : (bool? v) => setState(() {
-                            _consent = v ?? false;
-                            if (_consent) _consentMissing = false;
-                          }),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    isError: _consentMissing,
-                    title: Text(l10n.gradeSetupConsent, style: text.bodyMedium),
+                const SizedBox(height: AppSpacing.md),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? const SizedBox(
+                          height: AppSizes.icon,
+                          width: AppSizes.icon,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.gradeSetupSubmit),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextButton.icon(
+                  onPressed: _busy ? null : _openPortal,
+                  icon: const Icon(AppIcons.open_in_new),
+                  label: Text(l10n.gradesOpenPortalLink),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                // The automatic portal choice was invisible here, so the old
+                // fixed "QIS portal" link quietly sent HISinOne students to the
+                // wrong place. Saying it out loud is half the fix; the link
+                // steering below is the other half.
+                Text(
+                  l10n.gradesPortalAutodetectHint,
+                  style: text.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  if (_consentMissing)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          l10n.gradeSetupConsentRequired,
-                          style: text.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: AppSpacing.md),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox(
-                            height: AppSizes.icon,
-                            width: AppSizes.icon,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.gradeSetupSubmit),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextButton.icon(
-                    onPressed: _busy ? null : _openPortal,
-                    icon: const Icon(AppIcons.open_in_new),
-                    label: Text(l10n.gradesOpenPortalLink),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  // The automatic portal choice was invisible here, so the old
-                  // fixed "QIS portal" link quietly sent HISinOne students to the
-                  // wrong place. Saying it out loud is half the fix; the link
-                  // steering below is the other half.
-                  Text(
-                    l10n.gradesPortalAutodetectHint,
-                    style: text.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

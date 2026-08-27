@@ -22,7 +22,5 @@ import flutter_local_notifications
       GeneratedPluginRegistrant.register(with: registry)
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    // The app's own channel, alongside the generated plugin registrations.
-    ScreenProtection.shared.register(with: engineBridge.applicationRegistrar.messenger())
   }
 }

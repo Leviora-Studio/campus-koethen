@@ -399,6 +399,3 @@ werden:
 9. **Reale Gebäudepläne** — Herkunft, Bearbeitungs- und Veröffentlichungsrecht, Ausschluss
    sicherheitsrelevanter Pläne (Flucht-, Rettungs- und Schließpläne), Personenbezug bei Büros und
    ein Pflegeprozess für Umbauten. Bis dahin bleibt es beim fiktiven Demo-Plan.
-10. **App-Switcher-Vorschau des Notenbildschirms** — bewusst offene Datenschutzentscheidung; eine
-    saubere, plattformübergreifende Lösung ohne globale Nebenwirkungen liegt nicht vor. Siehe
-    [`../grades.md`](../grades.md).

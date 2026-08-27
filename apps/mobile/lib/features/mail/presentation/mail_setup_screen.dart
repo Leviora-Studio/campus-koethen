@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
-import '../../../core/security/screen_protection.dart';
 import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/prefs/settings_controller.dart';
 import '../../../core/theme/app_metrics.dart';
@@ -122,155 +121,144 @@ class _MailSetupScreenState extends ConsumerState<MailSetupScreen> {
     final TextTheme text = Theme.of(context).textTheme;
     final AppSettings settings = ref.watch(settingsProvider);
 
-    // Kept out of screenshots and the app-switcher preview:
-    // the university password is typed here. Selective by
-    // decision — the rest of the app stays shareable.
-    return ProtectedScreen(
-      child: ScreenScaffold(
-        eyebrow: ModuleCategory.study.label(l10n),
-        title: l10n.mailTitle,
-        body: SafeArea(
-          child: Form(
-            key: _formKey,
-            // Without this a password manager has nothing to fill and nothing to
-            // save, so the university password gets typed by hand — or pasted
-            // through the clipboard, which is worse.
-            child: AutofillGroup(
-              child: ListView(
-                padding: EdgeInsets.all(context.metrics.screenPadding),
-                children: <Widget>[
-                  Text(l10n.mailSetupHeadline, style: text.titleLarge),
-                  const SizedBox(height: AppSpacing.md),
-                  _InfoCard(
-                    icon: AppIcons.lock_outline,
-                    child: Text(l10n.mailSetupIntro),
+    return ScreenScaffold(
+      eyebrow: ModuleCategory.study.label(l10n),
+      title: l10n.mailTitle,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          // Without this a password manager has nothing to fill and nothing to
+          // save, so the university password gets typed by hand — or pasted
+          // through the clipboard, which is worse.
+          child: AutofillGroup(
+            child: ListView(
+              padding: EdgeInsets.all(context.metrics.screenPadding),
+              children: <Widget>[
+                Text(l10n.mailSetupHeadline, style: text.titleLarge),
+                const SizedBox(height: AppSpacing.md),
+                _InfoCard(
+                  icon: AppIcons.lock_outline,
+                  child: Text(l10n.mailSetupIntro),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _InfoCard(
+                  icon: AppIcons.shield_outlined,
+                  child: Text(l10n.mailSetupPrivacy),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _InfoCard(
+                  icon: AppIcons.info_outline,
+                  child: Text(l10n.aboutIndependenceNotice),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                TextFormField(
+                  controller: _nameController,
+                  enabled: !_busy,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const <String>[AutofillHints.name],
+                  decoration: InputDecoration(
+                    labelText: l10n.mailSetupNameLabel,
+                    helperText: l10n.mailSetupNameHint,
+                    helperMaxLines: 2,
+                    prefixIcon: const Icon(AppIcons.badge_outlined),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _InfoCard(
-                    icon: AppIcons.shield_outlined,
-                    child: Text(l10n.mailSetupPrivacy),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _emailController,
+                  focusNode: _emailFocus,
+                  enabled: !_busy,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const <String>[
+                    AutofillHints.username,
+                    AutofillHints.email,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: l10n.mailSetupEmailLabel,
+                    hintText: l10n.mailSetupEmailHint,
+                    prefixIcon: const Icon(AppIcons.alternate_email),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _InfoCard(
-                    icon: AppIcons.info_outline,
-                    child: Text(l10n.aboutIndependenceNotice),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextFormField(
-                    controller: _nameController,
-                    enabled: !_busy,
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const <String>[AutofillHints.name],
-                    decoration: InputDecoration(
-                      labelText: l10n.mailSetupNameLabel,
-                      helperText: l10n.mailSetupNameHint,
-                      helperMaxLines: 2,
-                      prefixIcon: const Icon(AppIcons.badge_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(
-                    controller: _emailController,
-                    focusNode: _emailFocus,
-                    enabled: !_busy,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const <String>[
-                      AutofillHints.username,
-                      AutofillHints.email,
-                    ],
-                    decoration: InputDecoration(
-                      labelText: l10n.mailSetupEmailLabel,
-                      hintText: l10n.mailSetupEmailHint,
-                      prefixIcon: const Icon(AppIcons.alternate_email),
-                    ),
-                    validator: (String? value) =>
-                        isValidEmailAddress(normalizeEmailAddress(value ?? ''))
-                        ? null
-                        : l10n.mailSetupInvalidEmail,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(
-                    controller: _passwordController,
-                    focusNode: _passwordFocus,
-                    enabled: !_busy,
-                    obscureText: _obscurePassword,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const <String>[AutofillHints.password],
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: l10n.mailSetupPasswordLabel,
-                      prefixIcon: const Icon(AppIcons.password_outlined),
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                        // The one icon button on this screen that used to have no
-                        // name at all, on the field where getting it wrong costs
-                        // the most. The label states what the tap will do.
-                        tooltip: _obscurePassword
-                            ? l10n.mailShowPassword
-                            : l10n.mailHidePassword,
-                        icon: Icon(
-                          _obscurePassword
-                              ? AppIcons.visibility_outlined
-                              : AppIcons.visibility_off_outlined,
-                        ),
+                  validator: (String? value) =>
+                      isValidEmailAddress(normalizeEmailAddress(value ?? ''))
+                      ? null
+                      : l10n.mailSetupInvalidEmail,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _passwordController,
+                  focusNode: _passwordFocus,
+                  enabled: !_busy,
+                  obscureText: _obscurePassword,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const <String>[AutofillHints.password],
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: l10n.mailSetupPasswordLabel,
+                    prefixIcon: const Icon(AppIcons.password_outlined),
+                    suffixIcon: IconButton(
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      // The one icon button on this screen that used to have no
+                      // name at all, on the field where getting it wrong costs
+                      // the most. The label states what the tap will do.
+                      tooltip: _obscurePassword
+                          ? l10n.mailShowPassword
+                          : l10n.mailHidePassword,
+                      icon: Icon(
+                        _obscurePassword
+                            ? AppIcons.visibility_outlined
+                            : AppIcons.visibility_off_outlined,
                       ),
                     ),
-                    validator: (String? value) =>
-                        (value == null || value.isEmpty)
-                        ? l10n.mailSetupPasswordRequired
-                        : null,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    secondary: const Icon(AppIcons.download_outlined),
-                    title: Text(l10n.settingsMailDownloadAttachments),
-                    subtitle: Text(
-                      l10n.settingsMailDownloadAttachmentsSubtitle,
-                    ),
-                    value: settings.mailDownloadAttachments,
-                    onChanged: _busy
-                        ? null
-                        : (bool value) => ref
-                              .read(settingsProvider.notifier)
-                              .setMailDownloadAttachments(value),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              const SizedBox(
-                                height: AppSizes.icon,
-                                width: AppSizes.icon,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Text(l10n.mailSetupChecking),
-                            ],
-                          )
-                        : Text(l10n.mailSetupSubmit),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextButton.icon(
-                    onPressed: _busy ? null : _openWebmail,
-                    icon: const Icon(AppIcons.open_in_new),
-                    label: Text(l10n.mailSetupWebmailLink),
-                  ),
-                ],
-              ),
+                  validator: (String? value) => (value == null || value.isEmpty)
+                      ? l10n.mailSetupPasswordRequired
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(AppIcons.download_outlined),
+                  title: Text(l10n.settingsMailDownloadAttachments),
+                  subtitle: Text(l10n.settingsMailDownloadAttachmentsSubtitle),
+                  value: settings.mailDownloadAttachments,
+                  onChanged: _busy
+                      ? null
+                      : (bool value) => ref
+                            .read(settingsProvider.notifier)
+                            .setMailDownloadAttachments(value),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const SizedBox(
+                              height: AppSizes.icon,
+                              width: AppSizes.icon,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(l10n.mailSetupChecking),
+                          ],
+                        )
+                      : Text(l10n.mailSetupSubmit),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextButton.icon(
+                  onPressed: _busy ? null : _openWebmail,
+                  icon: const Icon(AppIcons.open_in_new),
+                  label: Text(l10n.mailSetupWebmailLink),
+                ),
+              ],
             ),
           ),
         ),

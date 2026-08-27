@@ -287,9 +287,8 @@ anhängen (kein Typfilter, kein Upload-Limit über die Gerätespeichergrenzen hi
 weiterhin **keinen** eigenen Entwürfe-Ordner, **keine** automatische Kompression und **keinen**
 Cloud-Speicher für Anhänge; sie leben nur im Arbeitsspeicher des Compose-Screens bis zum Senden.
 
-**Screenshot- und App-Switcher-Schutz gilt nur für den Anmeldebildschirm** (`ProtectedScreen` in
-`mail_setup_screen.dart`), nicht für die Nachrichtenansicht. Mailinhalte sind im App-Switcher
-lesbar und lassen sich per Screenshot teilen. Das ist der in LEVIORA-179 entschiedene und in
-LEVIORA-181 bestätigte Umfang — geschützt wird, wo ein Passwort eingegeben wird, nicht, was man
-absichtlich weiterleiten können soll. Begründung und Gesamtumfang: [grades.md](grades.md),
-Abschnitt „App-Switcher-Vorschau".
+**Screenshots und App-Switcher-Vorschauen sind in der gesamten App erlaubt**, auch auf dem
+Mail-Anmeldebildschirm und in der Nachrichtenansicht. Die App setzt auf Android und iOS keinen
+Capture-Schutz. Passwortfelder bleiben verdeckt und Zugangsdaten weiterhin im gerätegebundenen
+Keychain/Keystore. Begründung und Gesamtumfang: [grades.md](grades.md), Abschnitt „Screenshots und
+App-Switcher-Vorschau“.

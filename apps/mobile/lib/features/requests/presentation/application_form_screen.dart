@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_routes.dart';
-import '../../../core/security/screen_protection.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/widgets/state_views.dart';
@@ -193,14 +192,9 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
     final AppLocalizations l10n = context.l10n;
     final FinanceApplicationDraft? draft = _draft;
 
-    // Kept out of screenshots and the app-switcher preview:
-    // this form carries the copy of a student ID. Selective by
-    // decision — the rest of the app stays shareable.
-    return ProtectedScreen(
-      child: ScreenScaffold(
-        title: l10n.requestsApplicationFormTitle,
-        body: draft == null ? const LoadingView() : _form(context, l10n, draft),
-      ),
+    return ScreenScaffold(
+      title: l10n.requestsApplicationFormTitle,
+      body: draft == null ? const LoadingView() : _form(context, l10n, draft),
     );
   }
 

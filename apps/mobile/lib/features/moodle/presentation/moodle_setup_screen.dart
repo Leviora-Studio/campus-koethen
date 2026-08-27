@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
-import '../../../core/security/screen_protection.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_colors.dart';
@@ -75,104 +74,97 @@ class _MoodleSetupScreenState extends ConsumerState<MoodleSetupScreen> {
     final AppLocalizations l10n = context.l10n;
     final TextTheme text = Theme.of(context).textTheme;
 
-    // Kept out of screenshots and the app-switcher preview:
-    // the university password is typed here. Selective by
-    // decision — the rest of the app stays shareable.
-    return ProtectedScreen(
-      child: ScreenScaffold(
-        eyebrow: ModuleCategory.study.label(l10n),
-        title: l10n.moodleTitle,
-        body: SafeArea(
-          child: Form(
-            key: _formKey,
-            // Without this a password manager has nothing to fill and nothing to
-            // save, so the university password gets typed by hand.
-            child: AutofillGroup(
-              child: ListView(
-                padding: EdgeInsets.all(context.metrics.screenPadding),
-                children: <Widget>[
-                  Text(l10n.moodleSetupHeadline, style: text.titleLarge),
-                  const SizedBox(height: AppSpacing.md),
-                  _InfoCard(
-                    icon: AppIcons.lock_outline,
-                    iconColor: context.colors.primary,
-                    text: l10n.moodleSetupIntro,
+    return ScreenScaffold(
+      eyebrow: ModuleCategory.study.label(l10n),
+      title: l10n.moodleTitle,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          // Without this a password manager has nothing to fill and nothing to
+          // save, so the university password gets typed by hand.
+          child: AutofillGroup(
+            child: ListView(
+              padding: EdgeInsets.all(context.metrics.screenPadding),
+              children: <Widget>[
+                Text(l10n.moodleSetupHeadline, style: text.titleLarge),
+                const SizedBox(height: AppSpacing.md),
+                _InfoCard(
+                  icon: AppIcons.lock_outline,
+                  iconColor: context.colors.primary,
+                  text: l10n.moodleSetupIntro,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _InfoCard(
+                  icon: AppIcons.shield_outlined,
+                  iconColor: context.colors.primary,
+                  text: l10n.moodlePrivacyNote,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _InfoCard(
+                  icon: AppIcons.info_outline,
+                  text: l10n.aboutIndependenceNotice,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                TextFormField(
+                  controller: _usernameController,
+                  enabled: !_busy,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const <String>[AutofillHints.username],
+                  decoration: InputDecoration(
+                    labelText: l10n.moodleUsernameLabel,
+                    prefixIcon: const Icon(AppIcons.person_outline),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _InfoCard(
-                    icon: AppIcons.shield_outlined,
-                    iconColor: context.colors.primary,
-                    text: l10n.moodlePrivacyNote,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _InfoCard(
-                    icon: AppIcons.info_outline,
-                    text: l10n.aboutIndependenceNotice,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextFormField(
-                    controller: _usernameController,
-                    enabled: !_busy,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const <String>[AutofillHints.username],
-                    decoration: InputDecoration(
-                      labelText: l10n.moodleUsernameLabel,
-                      prefixIcon: const Icon(AppIcons.person_outline),
-                    ),
-                    validator: (String? value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? l10n.moodleUsernameRequired
-                        : null,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(
-                    controller: _passwordController,
-                    enabled: !_busy,
-                    obscureText: _obscurePassword,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const <String>[AutofillHints.password],
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: l10n.moodlePasswordLabel,
-                      prefixIcon: const Icon(AppIcons.password_outlined),
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                        // Without a name this is the one control on the screen a
-                        // screen reader cannot describe — on the password field.
-                        tooltip: _obscurePassword
-                            ? l10n.moodleShowPassword
-                            : l10n.moodleHidePassword,
-                        icon: Icon(
-                          _obscurePassword
-                              ? AppIcons.visibility_outlined
-                              : AppIcons.visibility_off_outlined,
-                        ),
+                  validator: (String? value) =>
+                      (value == null || value.trim().isEmpty)
+                      ? l10n.moodleUsernameRequired
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _passwordController,
+                  enabled: !_busy,
+                  obscureText: _obscurePassword,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const <String>[AutofillHints.password],
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: l10n.moodlePasswordLabel,
+                    prefixIcon: const Icon(AppIcons.password_outlined),
+                    suffixIcon: IconButton(
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      // Without a name this is the one control on the screen a
+                      // screen reader cannot describe — on the password field.
+                      tooltip: _obscurePassword
+                          ? l10n.moodleShowPassword
+                          : l10n.moodleHidePassword,
+                      icon: Icon(
+                        _obscurePassword
+                            ? AppIcons.visibility_outlined
+                            : AppIcons.visibility_off_outlined,
                       ),
                     ),
-                    validator: (String? value) =>
-                        (value == null || value.isEmpty)
-                        ? l10n.moodlePasswordRequired
-                        : null,
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox(
-                            height: AppSizes.icon,
-                            width: AppSizes.icon,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.moodleConnectButton),
-                  ),
-                ],
-              ),
+                  validator: (String? value) => (value == null || value.isEmpty)
+                      ? l10n.moodlePasswordRequired
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? const SizedBox(
+                          height: AppSizes.icon,
+                          width: AppSizes.icon,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.moodleConnectButton),
+                ),
+              ],
             ),
           ),
         ),
