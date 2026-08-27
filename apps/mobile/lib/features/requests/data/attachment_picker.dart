@@ -51,32 +51,50 @@ abstract interface class AttachmentPicker {
   Future<PickResult> pickFor(ApplicationFileSlot slot);
 }
 
+typedef AttachmentFileOpener =
+    Future<XFile?> Function(List<XTypeGroup> acceptedTypeGroups);
+
+Future<XFile?> _openAttachmentFile(List<XTypeGroup> acceptedTypeGroups) =>
+    openFile(acceptedTypeGroups: acceptedTypeGroups);
+
 /// Picks a file and hands its bytes to the encrypted store.
 ///
 /// Type and size are checked **before** anything is stored, so a file that
 /// cannot be sent never reaches the device's storage in the first place.
 class SecureAttachmentPicker implements AttachmentPicker {
-  const SecureAttachmentPicker(this._store);
+  const SecureAttachmentPicker(
+    this._store, [
+    this._fileOpener = _openAttachmentFile,
+  ]);
 
   final AttachmentStore _store;
+  final AttachmentFileOpener _fileOpener;
 
   @override
   Future<PickResult> pickFor(ApplicationFileSlot slot) async {
-    final XFile? chosen = await openFile(
-      acceptedTypeGroups: <XTypeGroup>[
+    try {
+      final XFile? chosen = await _fileOpener(<XTypeGroup>[
         XTypeGroup(
           label: slot.field,
+          // Android filters by extension. iOS ignores extensions and
+          // requires UTIs instead, so both representations must stay here.
           extensions: slot.extensions.toList(growable: false),
+          uniformTypeIdentifiers: switch (slot) {
+            ApplicationFileSlot.studentCard => const <String>[
+              'com.adobe.pdf',
+              'public.png',
+              'public.jpeg',
+            ],
+            _ => const <String>['com.adobe.pdf'],
+          },
         ),
-      ],
-    );
-    if (chosen == null) return const PickCancelled();
+      ]);
+      if (chosen == null) return const PickCancelled();
 
-    // The dialog's own filter is a convenience, not a guarantee — on both
-    // platforms the user can still end up with something else.
-    if (!slot.accepts(chosen.name)) return const PickWrongType();
+      // The dialog's own filter is a convenience, not a guarantee — on both
+      // platforms the user can still end up with something else.
+      if (!slot.accepts(chosen.name)) return const PickWrongType();
 
-    try {
       final Uint8List bytes = await chosen.readAsBytes();
       if (!slot.acceptsSize(bytes.length)) return const PickTooLarge();
       final RequestAttachment? stored = await _store.put(chosen.name, bytes);
