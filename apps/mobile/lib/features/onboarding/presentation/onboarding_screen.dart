@@ -42,6 +42,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _notificationsEnabled = true;
 
   static const List<OnboardingStep> _steps = <OnboardingStep>[
+    OnboardingStep.language,
     OnboardingStep.welcome,
     OnboardingStep.campus,
     OnboardingStep.content,
@@ -103,7 +104,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     return Scaffold(
       // The step counter lives in the body, right above the bar it describes:
-      // "Schritt 4 von 4" and "Alles überspringen" cannot share an app bar on
+      // "Schritt 5 von 5" and "Alles überspringen" cannot share an app bar on
       // a 320 px phone with scaled text. The action itself collapses to an
       // icon at that point, keeping its tooltip and accessible name.
       appBar: AppBar(
@@ -135,7 +136,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
-                // "Schritt 2 von 4" is a count, so it is set in the data face.
+                // "Schritt 2 von 5" is a count, so it is set in the data face.
                 child: Text(
                   l10n.onboardingStepOf(_index + 1, _steps.length),
                   style: context.type.dataSmall,

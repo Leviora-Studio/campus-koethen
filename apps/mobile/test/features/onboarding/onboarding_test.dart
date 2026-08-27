@@ -46,9 +46,17 @@ Future<ProviderContainer> pumpApp(
     tester.view.resetDevicePixelRatio();
   });
 
+  final KeyValueStore effectiveStore = store ?? InMemoryKeyValueStore();
+  if (locale == AppLocales.english) {
+    await effectiveStore.setString(
+      PreferenceKeys.localeMode,
+      LocaleMode.english.storageValue,
+    );
+  }
+
   final ProviderContainer container = ProviderContainer(
     overrides: <Override>[
-      keyValueStoreProvider.overrideWithValue(store ?? InMemoryKeyValueStore()),
+      keyValueStoreProvider.overrideWithValue(effectiveStore),
       contentCacheProvider.overrideWithValue(
         SafeContentCache(MemoryContentCache()),
       ),
@@ -78,12 +86,21 @@ Future<ProviderContainer> pumpApp(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(
-        theme: AppTheme.light(),
-        locale: locale,
-        supportedLocales: AppLocales.supported,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        routerConfig: container.read(appRouterProvider),
+      child: Consumer(
+        builder: (BuildContext context, WidgetRef ref, Widget? child) {
+          final LocaleMode localeMode = ref.watch(
+            settingsProvider.select(
+              (AppSettings settings) => settings.localeMode,
+            ),
+          );
+          return MaterialApp.router(
+            theme: AppTheme.light(),
+            locale: localeMode.locale,
+            supportedLocales: AppLocales.supported,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            routerConfig: container.read(appRouterProvider),
+          );
+        },
       ),
     ),
   );
@@ -99,13 +116,41 @@ void main() {
 
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(find.byType(NewsListScreen), findsNothing);
-    expect(find.text('Willkommen'), findsOneWidget);
+    expect(find.text('Sprache auswählen'), findsOneWidget);
+    expect(find.text('Schritt 1 von 5'), findsOneWidget);
   });
+
+  testWidgets(
+    'the first choice changes and persists the language immediately',
+    (WidgetTester tester) async {
+      final InMemoryKeyValueStore store = InMemoryKeyValueStore();
+      final ProviderContainer container = await pumpApp(tester, store: store);
+
+      expect(find.text('Sprache auswählen'), findsOneWidget);
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose your language'), findsOneWidget);
+      expect(find.text('Step 1 of 5'), findsOneWidget);
+      expect(find.text('Skip all'), findsOneWidget);
+      expect(container.read(settingsProvider).localeMode, LocaleMode.english);
+      expect(
+        store.getString(PreferenceKeys.localeMode),
+        LocaleMode.english.storageValue,
+      );
+
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Welcome'), findsOneWidget);
+    },
+  );
 
   testWidgets('the welcome step carries the independence notice', (
     WidgetTester tester,
   ) async {
     await pumpApp(tester);
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
     // A project rule, not a footnote: the app must never look official.
     expect(find.textContaining('unabhängig'), findsOneWidget);
   });
@@ -149,16 +194,16 @@ void main() {
     WidgetTester tester,
   ) async {
     await pumpApp(tester);
-    expect(find.text('Schritt 1 von 4'), findsOneWidget);
+    expect(find.text('Schritt 1 von 5'), findsOneWidget);
 
     await tester.tap(find.text('Überspringen'));
     await tester.pumpAndSettle();
-    expect(find.text('Schritt 2 von 4'), findsOneWidget);
-    expect(find.text('Dein Campus'), findsOneWidget);
+    expect(find.text('Schritt 2 von 5'), findsOneWidget);
+    expect(find.text('Willkommen'), findsOneWidget);
 
     await tester.tap(find.text('Zurück'));
     await tester.pumpAndSettle();
-    expect(find.text('Schritt 1 von 4'), findsOneWidget);
+    expect(find.text('Schritt 1 von 5'), findsOneWidget);
   });
 
   testWidgets('asks only for what the app actually needs', (
@@ -183,9 +228,11 @@ void main() {
     final InMemoryKeyValueStore store = InMemoryKeyValueStore();
     final ProviderContainer container = await pumpApp(tester, store: store);
 
-    // Step 2 is the campus step. What is asserted here is that a choice made
+    // Step 3 is the campus step. What is asserted here is that a choice made
     // during setup is persisted — the controller is the thing under test, not
     // whether a bundled asset happened to load within this frame budget.
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
     expect(find.text('Dein Campus'), findsOneWidget);
@@ -217,9 +264,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
 
     expect(
-      find.text('Schritt 3 von 4'),
+      find.text('Schritt 4 von 5'),
       findsOneWidget,
       reason: 'the content step',
     );
@@ -227,7 +276,7 @@ void main() {
     // redirect would bounce straight back to step one.
     expect(find.text('News-Kanäle wählen'), findsOneWidget);
     expect(find.text('Öffentliche Kalender wählen'), findsOneWidget);
-    expect(find.text('Schritt 1 von 4'), findsNothing);
+    expect(find.text('Schritt 1 von 5'), findsNothing);
   });
 
   testWidgets('an unavailable source is stated instead of blocking', (
@@ -239,26 +288,28 @@ void main() {
 
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Dein Campus'), findsOneWidget);
     expect(find.text('Es sind noch keine Mensen hinterlegt.'), findsOneWidget);
     // …and moving on still works.
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
-    expect(find.text('Schritt 3 von 4'), findsOneWidget);
+    expect(find.text('Schritt 4 von 5'), findsOneWidget);
   });
 
-  testWidgets('the notification step is fourth and enabled by default', (
+  testWidgets('the notification step is fifth and enabled by default', (
     WidgetTester tester,
   ) async {
     await pumpApp(tester);
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Schritt 4 von 4'), findsOneWidget);
+    expect(find.text('Schritt 5 von 5'), findsOneWidget);
     expect(find.text('Benachrichtigungen'), findsOneWidget);
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
@@ -278,11 +329,11 @@ void main() {
       notificationGateway: gateway,
     );
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
-    expect(find.text('Schritt 4 von 4'), findsOneWidget);
+    expect(find.text('Schritt 5 von 5'), findsOneWidget);
 
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
@@ -305,7 +356,7 @@ void main() {
       notificationGateway: gateway,
     );
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
@@ -322,9 +373,9 @@ void main() {
 
   testWidgets('renders in English', (WidgetTester tester) async {
     await pumpApp(tester, locale: AppLocales.english);
-    expect(find.text('Welcome'), findsOneWidget);
+    expect(find.text('Choose your language'), findsOneWidget);
     expect(find.text('Skip all'), findsOneWidget);
-    expect(find.text('Step 1 of 4'), findsOneWidget);
+    expect(find.text('Step 1 of 5'), findsOneWidget);
   });
 
   testWidgets('survives a small phone with doubled text', (
@@ -380,12 +431,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Schritt 4 von 4'), findsOneWidget);
+    expect(find.text('Schritt 5 von 5'), findsOneWidget);
     expect(find.text('Benachrichtigungen'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

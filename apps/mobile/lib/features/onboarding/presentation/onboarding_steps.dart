@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
+import '../../../core/locale/locale_mode.dart';
 import '../../../core/network/loaded.dart';
 import '../../../core/prefs/settings_controller.dart';
 import '../../../core/theme/app_colors.dart';
@@ -28,8 +29,9 @@ import '../../timetable/data/timetable_models.dart';
 /// preferences a student changes when they feel like it, not decisions the app
 /// needs before it can be useful — and asking for them up front made the setup
 /// twice as long as what it actually had to establish. They live in the
-/// settings, where they always did.
-enum OnboardingStep { welcome, campus, content, notifications }
+/// settings, where they always did. Language is the deliberate exception: it
+/// comes first so every explanation after it is immediately understandable.
+enum OnboardingStep { language, welcome, campus, content, notifications }
 
 /// Renders one step.
 class OnboardingStepView extends StatelessWidget {
@@ -48,15 +50,21 @@ class OnboardingStepView extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     return switch (step) {
+      OnboardingStep.language => _StepScaffold(
+        title: l10n.onboardingLanguageTitle,
+        body: l10n.onboardingLanguageBody,
+        icon: AppIcons.language_outlined,
+        children: const <Widget>[_LanguageStep()],
+      ),
       OnboardingStep.welcome => _StepScaffold(
         title: l10n.onboardingWelcomeTitle,
         body: l10n.onboardingWelcomeBody,
-        // The first screen of the app is the one place the mark introduces
-        // itself, so it stands in for the step's glyph rather than beside it.
+        // The welcome screen is where the mark introduces itself, so it stands
+        // in for the step's glyph rather than beside it.
         lead: const BrandWordmark(),
         children: <Widget>[
-          // The independence notice is part of the very first thing a user
-          // sees. It is a project rule, not a footnote.
+          // The independence notice is part of the introduction immediately
+          // after the language choice. It is a project rule, not a footnote.
           Panel(
             child: Text(
               l10n.aboutIndependenceNotice,
@@ -93,6 +101,51 @@ class OnboardingStepView extends StatelessWidget {
         ],
       ),
     };
+  }
+}
+
+/// Chooses the app locale before any content-specific setup begins.
+///
+/// This writes through the regular settings controller rather than keeping an
+/// onboarding-only value. [CampusApp] therefore rebuilds immediately and the
+/// rest of this page, the navigation controls and every following step switch
+/// to the selected language in the same session.
+class _LanguageStep extends ConsumerWidget {
+  const _LanguageStep();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final LocaleMode selected = ref.watch(
+      settingsProvider.select((AppSettings settings) => settings.localeMode),
+    );
+
+    String label(LocaleMode mode) => switch (mode) {
+      LocaleMode.german => l10n.onboardingLanguageGerman,
+      LocaleMode.english => l10n.onboardingLanguageEnglish,
+    };
+
+    return RadioGroup<LocaleMode>(
+      groupValue: selected,
+      onChanged: (LocaleMode? value) {
+        if (value == null || value == selected) return;
+        // Let the adaptive radio finish its interaction before changing the
+        // locale at the MaterialApp root, mirroring the settings screen.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          ref.read(settingsProvider.notifier).setLocaleMode(value);
+        });
+      },
+      child: Column(
+        children: <Widget>[
+          for (final LocaleMode mode in LocaleMode.values)
+            RadioListTile<LocaleMode>.adaptive(
+              value: mode,
+              title: Text(label(mode)),
+            ),
+        ],
+      ),
+    );
   }
 }
 
