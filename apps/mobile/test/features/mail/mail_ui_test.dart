@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:campus_koethen/core/documents/document_viewer_screen.dart';
 import 'package:campus_koethen/core/links/safe_link_launcher.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
+import 'package:campus_koethen/features/mail/application/mail_inbox_controller.dart';
 import 'package:campus_koethen/features/mail/application/mail_providers.dart';
 import 'package:campus_koethen/features/mail/data/mail_attachment_picker.dart';
 import 'package:campus_koethen/features/mail/data/mail_cache.dart';
@@ -231,6 +232,44 @@ void main() {
       expect(find.text('Posteingang'), findsOneWidget);
       expect(find.text('Alice'), findsOneWidget);
       expect(find.text('Hallo Welt'), findsOneWidget);
+    });
+
+    testWidgets('offers loading 100 older messages at the end of the inbox', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final MemoryMailCache cache = MemoryMailCache();
+      await cache.saveHeaders(
+        List<MailMessageHeader>.generate(
+          50,
+          (int index) => _header(id: '${150 - index}'),
+        ),
+      );
+      final gateway = FakeMailGateway(
+        olderInbox: <MailMessageHeader>[_header(id: '100')],
+      );
+      final container = await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('100 ältere E-Mails laden'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text('100 ältere E-Mails laden'), findsOneWidget);
+
+      await tester.tap(find.text('100 ältere E-Mails laden'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.lastFetchHeadersBeforeId, '101');
+      expect(gateway.lastFetchHeadersLimit, 100);
+      expect(await cache.readHeaders(), hasLength(51));
+      expect(container.read(mailPaginationProvider).hasMore, isFalse);
     });
   });
 
@@ -511,6 +550,7 @@ void main() {
 
       expect(find.text('Betreff'), findsOneWidget);
       expect(find.text('Dies ist der Nachrichtentext.'), findsOneWidget);
+      expect(find.byIcon(AppIcons.image_not_supported_outlined), findsNothing);
       expect(gateway.markedSeen, contains('1'));
       // Attachments are listed; the image previews inline automatically.
       expect(find.text('Anhänge'), findsOneWidget);

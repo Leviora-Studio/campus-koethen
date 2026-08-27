@@ -373,6 +373,55 @@ void main() {
       expect(result.first.id, '7');
     });
 
+    test('loads older inbox headers in stable 100-message pages', () async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final cache = MemoryMailCache();
+      await cache.saveHeaders(<MailMessageHeader>[_hdr('300'), _hdr('200')]);
+      final Completer<void> olderGate = Completer<void>();
+      final Completer<void> olderStarted = Completer<void>();
+      final gateway = FakeMailGateway(
+        olderInbox: List<MailMessageHeader>.generate(
+          100,
+          (int index) => _hdr('${199 - index}'),
+        ),
+        fetchOlderHeadersGate: olderGate,
+        fetchOlderHeadersStarted: olderStarted,
+      );
+      final container = _container(
+        gateway: gateway,
+        store: store,
+        cache: cache,
+      );
+      await container.read(mailAccountControllerProvider.future);
+      await container.read(mailInboxControllerProvider.future);
+
+      final Future<void> firstPage = container
+          .read(mailInboxControllerProvider.notifier)
+          .loadOlder();
+      await olderStarted.future;
+      expect(container.read(mailPaginationProvider).isLoading, isTrue);
+      olderGate.complete();
+      await firstPage;
+
+      expect(gateway.lastFetchHeadersBeforeId, '200');
+      expect(gateway.lastFetchHeadersLimit, 100);
+      expect(await cache.readHeaders(), hasLength(102));
+      expect(container.read(mailPaginationProvider).hasMore, isTrue);
+
+      gateway
+        ..olderInbox = List<MailMessageHeader>.generate(
+          50,
+          (int index) => _hdr('${99 - index}'),
+        )
+        ..fetchOlderHeadersGate = null
+        ..fetchOlderHeadersStarted = null;
+      await container.read(mailInboxControllerProvider.notifier).loadOlder();
+
+      expect(gateway.lastFetchHeadersBeforeId, '100');
+      expect(await cache.readHeaders(), hasLength(152));
+      expect(container.read(mailPaginationProvider).hasMore, isFalse);
+    });
+
     test(
       'opening a cached message marks it seen locally and rebuilds the list',
       () async {

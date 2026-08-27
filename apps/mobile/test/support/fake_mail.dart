@@ -57,6 +57,7 @@ class FakeMailGateway implements MailGateway {
   FakeMailGateway({
     this.verifyError,
     this.inbox = const <MailMessageHeader>[],
+    this.olderInbox = const <MailMessageHeader>[],
     this.detail,
     this.fetchInboxError,
     this.sendError,
@@ -66,6 +67,8 @@ class FakeMailGateway implements MailGateway {
     this.searchResults = const <MailMessageHeader>[],
     this.fetchHeadersGate,
     this.fetchHeadersStarted,
+    this.fetchOlderHeadersGate,
+    this.fetchOlderHeadersStarted,
     this.verifyGate,
     this.verifyStarted,
     this.searchError,
@@ -80,6 +83,7 @@ class FakeMailGateway implements MailGateway {
   MailFailure? fetchInboxError;
   MailFailure? sendError;
   List<MailMessageHeader> inbox;
+  List<MailMessageHeader> olderInbox;
   MailMessageDetail? detail;
   SentCopyResult sentCopy;
   List<MailFolder> folders;
@@ -91,6 +95,8 @@ class FakeMailGateway implements MailGateway {
   List<MailMessageHeader> searchResults;
   Completer<void>? fetchHeadersGate;
   Completer<void>? fetchHeadersStarted;
+  Completer<void>? fetchOlderHeadersGate;
+  Completer<void>? fetchOlderHeadersStarted;
 
   /// Lets a test hold [verifyConnection] open (simulating a hang) and signal
   /// once the call has actually started, so it can assert on the loading
@@ -122,6 +128,8 @@ class FakeMailGateway implements MailGateway {
   bool lastIncludeAttachmentBytes = false;
   final List<String> markedSeen = <String>[];
   final List<String> fetchedMailboxes = <String>[];
+  String? lastFetchHeadersBeforeId;
+  int? lastFetchHeadersLimit;
   final List<OutgoingMessage> sent = <OutgoingMessage>[];
   final List<OutgoingMessage> appended = <OutgoingMessage>[];
 
@@ -145,14 +153,24 @@ class FakeMailGateway implements MailGateway {
     MailCredentials credentials, {
     String mailboxPath = kInboxPath,
     int limit = 50,
+    String? beforeId,
   }) async {
     fetchedMailboxes.add(mailboxPath);
-    if (!(fetchHeadersStarted?.isCompleted ?? true)) {
-      fetchHeadersStarted!.complete();
+    lastFetchHeadersBeforeId = beforeId;
+    lastFetchHeadersLimit = limit;
+    if (beforeId == null) {
+      if (!(fetchHeadersStarted?.isCompleted ?? true)) {
+        fetchHeadersStarted!.complete();
+      }
+      await fetchHeadersGate?.future;
+    } else {
+      if (!(fetchOlderHeadersStarted?.isCompleted ?? true)) {
+        fetchOlderHeadersStarted!.complete();
+      }
+      await fetchOlderHeadersGate?.future;
     }
-    await fetchHeadersGate?.future;
     if (fetchInboxError != null) throw fetchInboxError!;
-    return inbox;
+    return beforeId == null ? inbox : olderInbox;
   }
 
   @override

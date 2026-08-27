@@ -248,6 +248,7 @@ class EnoughMailGateway implements MailGateway {
     domain.MailCredentials credentials, {
     String mailboxPath = kInboxPath,
     int limit = 50,
+    String? beforeId,
   }) async {
     return _guard(() async {
       return _withImap<List<model.MailMessageHeader>>(credentials, (
@@ -257,6 +258,30 @@ class EnoughMailGateway implements MailGateway {
             ? await client.selectInbox()
             : await client.selectMailboxByPath(mailboxPath);
         if (inbox.messagesExists == 0) return <model.MailMessageHeader>[];
+
+        if (beforeId != null) {
+          final int? beforeUid = int.tryParse(beforeId);
+          if (beforeUid == null) {
+            throw const MailFailure(MailFailureKind.protocol);
+          }
+          if (beforeUid <= 1) return <model.MailMessageHeader>[];
+          final SearchImapResult search = await client.uidSearchMessages(
+            searchCriteria: 'UID 1:${beforeUid - 1}',
+            responseTimeout: _commandTimeout,
+          );
+          final MessageSequence? matches = search.matchingSequence;
+          if (matches == null || matches.isEmpty) {
+            return <model.MailMessageHeader>[];
+          }
+          final List<int> uids = matches.toList()..sort();
+          final List<int> page = uids.reversed.take(limit).toList();
+          final FetchImapResult result = await client.uidFetchMessages(
+            MessageSequence.fromIds(page, isUid: true),
+            '(UID FLAGS ENVELOPE BODYSTRUCTURE)',
+            responseTimeout: _commandTimeout,
+          );
+          return result.messages.map(_toHeader).toList()..sort(_newestFirst);
+        }
 
         final int upper = inbox.messagesExists;
         final int lower = (upper - limit + 1).clamp(1, upper);

@@ -166,12 +166,6 @@ class _MessageBody extends StatelessWidget {
             attachments: detail.attachments,
           ),
         ],
-        const SizedBox(height: AppSpacing.xl),
-        _NoticeBanner(
-          icon: AppIcons.image_not_supported_outlined,
-          text: l10n.mailMessageRemoteImagesBlocked,
-          muted: true,
-        ),
       ],
     );
   }
@@ -231,39 +225,4 @@ class _AttachmentListState extends ConsumerState<_AttachmentList> {
         ),
     ],
   );
-}
-
-class _NoticeBanner extends StatelessWidget {
-  const _NoticeBanner({
-    required this.icon,
-    required this.text,
-    this.muted = false,
-  });
-
-  final IconData icon;
-  final String text;
-  final bool muted;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme theme = Theme.of(context).textTheme;
-    final Color? color = muted
-        ? Theme.of(context).colorScheme.onSurfaceVariant
-        : null;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Icon(icon, size: AppSizes.icon, color: color),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            text,
-            style: (muted ? theme.bodySmall : theme.bodyMedium)?.copyWith(
-              color: color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }

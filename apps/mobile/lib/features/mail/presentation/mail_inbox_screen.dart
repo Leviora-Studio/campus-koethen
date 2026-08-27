@@ -83,6 +83,7 @@ class MailInboxScreen extends ConsumerWidget {
     // Shows sync progress; the periodic/app-start scheduling itself lives in the
     // app shell.
     final MailSyncStatus sync = ref.watch(mailSyncControllerProvider);
+    final MailPaginationStatus pagination = ref.watch(mailPaginationProvider);
     final bool cacheDegraded = ref.watch(mailCacheDegradedProvider);
 
     return ScreenScaffold(
@@ -166,6 +167,8 @@ class MailInboxScreen extends ConsumerWidget {
           // unrendered, a refresh in flight mode ended in silence and an empty
           // cache read as an empty mailbox.
           final bool syncFailed = folder.isInbox && sync.error != null;
+          final bool showPagination =
+              headers.length >= kInboxLimit || pagination.hasAttempted;
 
           if (headers.isEmpty) {
             // First run: the cache is empty while the initial sync is still
@@ -211,7 +214,7 @@ class MailInboxScreen extends ConsumerWidget {
               // One extra leading row for the sync banner and the freshness
               // line, so both scroll with the list instead of stealing height
               // from it.
-              itemCount: headers.length + 1,
+              itemCount: headers.length + 1 + (showPagination ? 1 : 0),
               separatorBuilder: (_, int index) => index == 0
                   ? const SizedBox.shrink()
                   : const Divider(height: 1),
@@ -227,12 +230,82 @@ class MailInboxScreen extends ConsumerWidget {
                         .refresh(),
                   );
                 }
+                if (showPagination && index == headers.length + 1) {
+                  return _OlderMessagesFooter(
+                    status: pagination,
+                    onLoad: () => ref
+                        .read(mailInboxControllerProvider.notifier)
+                        .loadOlder(),
+                  );
+                }
                 final MailMessageHeader header = headers[index - 1];
                 return MailHeaderTile(header: header, locale: locale);
               },
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _OlderMessagesFooter extends StatelessWidget {
+  const _OlderMessagesFooter({required this.status, required this.onLoad});
+
+  final MailPaginationStatus status;
+  final VoidCallback onLoad;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.metrics.screenPadding,
+        AppSpacing.lg,
+        context.metrics.screenPadding,
+        AppSpacing.xxxl,
+      ),
+      child: Center(
+        child: status.isLoading
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const SizedBox(
+                    width: AppSizes.icon,
+                    height: AppSizes.icon,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(l10n.mailLoadingOlder),
+                ],
+              )
+            : status.error != null
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    mailFailureMessage(l10n, status.error),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    onPressed: onLoad,
+                    icon: const Icon(AppIcons.refresh),
+                    label: Text(l10n.mailRetry),
+                  ),
+                ],
+              )
+            : status.hasMore
+            ? OutlinedButton.icon(
+                onPressed: onLoad,
+                icon: const Icon(AppIcons.download_outlined),
+                label: Text(l10n.mailLoadOlder),
+              )
+            : Text(
+                l10n.mailNoOlderMessages,
+                style: context.type.dataSmall,
+                textAlign: TextAlign.center,
+              ),
       ),
     );
   }

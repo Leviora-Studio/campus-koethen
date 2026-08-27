@@ -31,11 +31,16 @@ abstract interface class MailGateway {
   /// Lists all mailboxes (folders) on the server via IMAP LIST.
   Future<List<MailFolder>> fetchMailboxes(MailCredentials credentials);
 
-  /// Loads up to [limit] newest headers from [mailboxPath]. No bodies.
+  /// Loads up to [limit] headers from [mailboxPath]. No bodies.
+  ///
+  /// Without [beforeId], the newest headers are returned. When [beforeId] is
+  /// set, only messages with an older IMAP UID are considered; this provides a
+  /// stable cursor even while new mail arrives or other messages are deleted.
   Future<List<MailMessageHeader>> fetchHeaders(
     MailCredentials credentials, {
     String mailboxPath = kInboxPath,
     int limit = 50,
+    String? beforeId,
   });
 
   /// Server-side search (IMAP SEARCH) over [mailboxPath]. Matches [query] in

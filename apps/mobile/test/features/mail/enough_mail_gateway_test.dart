@@ -52,6 +52,49 @@ void main() {
     await server.close();
   });
 
+  group('EnoughMailGateway.fetchHeaders', () {
+    test('loads the newest page before a stable UID cursor', () async {
+      final EnoughMailGateway gateway = await gatewayFor(
+        fakeSearchHits(<int>[1, 2, 3]),
+        fakeFetchHandler(<int, FakeImapMessage>{
+          2: const FakeImapMessage(
+            uid: 2,
+            subject: 'Older',
+            fromName: 'Alice',
+            fromLocal: 'alice',
+            fromDomain: 'hs-anhalt.de',
+            date: 'Mon, 1 Jun 2026 08:00:00 +0200',
+          ),
+          3: const FakeImapMessage(
+            uid: 3,
+            subject: 'Newer',
+            fromName: 'Bob',
+            fromLocal: 'bob',
+            fromDomain: 'hs-anhalt.de',
+            date: 'Tue, 2 Jun 2026 08:00:00 +0200',
+          ),
+        }),
+      );
+
+      final List<MailMessageHeader> result = await gateway.fetchHeaders(
+        _credentials,
+        beforeId: '4',
+        limit: 2,
+      );
+
+      expect(result.map((MailMessageHeader header) => header.id), <String>[
+        '3',
+        '2',
+      ]);
+      expect(
+        server.receivedCommands.singleWhere(
+          (String command) => command.contains('UID SEARCH'),
+        ),
+        contains('UID 1:3'),
+      );
+    });
+  });
+
   group('EnoughMailGateway.searchMessages', () {
     test('a stalled IMAP login surfaces a typed timeout', () async {
       server = await FakeImapServer.start((String tag, String command) {

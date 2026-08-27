@@ -16,6 +16,53 @@ import 'mail_providers.dart';
 import 'mail_sync_controller.dart';
 
 const int kInboxLimit = 50;
+const int kOlderMailPageSize = 100;
+
+class MailPaginationStatus {
+  const MailPaginationStatus({
+    this.isLoading = false,
+    this.hasMore = true,
+    this.hasAttempted = false,
+    this.error,
+  });
+
+  final bool isLoading;
+  final bool hasMore;
+  final bool hasAttempted;
+  final Object? error;
+}
+
+class MailPaginationController extends Notifier<MailPaginationStatus> {
+  @override
+  MailPaginationStatus build() {
+    ref.watch(mailSessionGenerationProvider);
+    ref.watch(selectedMailboxProvider);
+    return const MailPaginationStatus();
+  }
+
+  void start() => state = MailPaginationStatus(
+    isLoading: true,
+    hasMore: state.hasMore,
+    hasAttempted: state.hasAttempted,
+  );
+
+  void succeed({required bool hasMore}) =>
+      state = MailPaginationStatus(hasMore: hasMore, hasAttempted: true);
+
+  void fail(Object error) => state = MailPaginationStatus(
+    hasMore: state.hasMore,
+    hasAttempted: state.hasAttempted,
+    error: error,
+  );
+
+  void reset() => state = const MailPaginationStatus();
+}
+
+final NotifierProvider<MailPaginationController, MailPaginationStatus>
+mailPaginationProvider =
+    NotifierProvider<MailPaginationController, MailPaginationStatus>(
+      MailPaginationController.new,
+    );
 
 /// Provides the message list of the currently selected mailbox.
 ///
@@ -59,6 +106,7 @@ class MailInboxController extends AsyncNotifier<List<MailMessageHeader>> {
       await ref.read(mailSyncControllerProvider.notifier).syncNow();
       return;
     }
+    ref.read(mailPaginationProvider.notifier).reset();
     state = const AsyncLoading<List<MailMessageHeader>>();
     state = await AsyncValue.guard(() async {
       final credentials = await ref
@@ -72,6 +120,80 @@ class MailInboxController extends AsyncNotifier<List<MailMessageHeader>> {
             limit: kInboxLimit,
           );
     });
+  }
+
+  /// Loads the next 100 headers older than every currently visible message.
+  /// The cursor is the smallest cached IMAP UID, not a numeric page offset, so
+  /// concurrent mailbox changes cannot shift or duplicate the next page.
+  Future<void> loadOlder() async {
+    final MailPaginationStatus pagination = ref.read(mailPaginationProvider);
+    if (pagination.isLoading || !pagination.hasMore) return;
+    final MailFolder folder = ref.read(selectedMailboxProvider);
+    final List<MailMessageHeader>? current = folder.isInbox
+        ? await ref.read(mailCacheStoreProvider).readHeaders()
+        : state.value;
+    if (ref.read(selectedMailboxProvider).path != folder.path) return;
+    if (current == null || current.isEmpty) return;
+
+    int? oldestUid;
+    for (final MailMessageHeader header in current) {
+      final int? uid = int.tryParse(header.id);
+      if (uid != null && (oldestUid == null || uid < oldestUid)) {
+        oldestUid = uid;
+      }
+    }
+    if (oldestUid == null) {
+      ref
+          .read(mailPaginationProvider.notifier)
+          .fail(const MailFailure(MailFailureKind.protocol));
+      return;
+    }
+
+    final MailPaginationController paginationController = ref.read(
+      mailPaginationProvider.notifier,
+    );
+    paginationController.start();
+    try {
+      final MailCredentials credentials = await ref
+          .read(mailAccountControllerProvider.notifier)
+          .requireCredentials();
+      final MailAccountController accountController = ref.read(
+        mailAccountControllerProvider.notifier,
+      );
+      final int generation = accountController.sessionGeneration;
+      final List<MailMessageHeader> older = await ref
+          .read(mailGatewayProvider)
+          .fetchHeaders(
+            credentials,
+            mailboxPath: folder.path,
+            limit: kOlderMailPageSize,
+            beforeId: oldestUid.toString(),
+          );
+      if (!accountController.isSessionCurrent(generation)) return;
+      if (ref.read(selectedMailboxProvider).path != folder.path) return;
+
+      if (folder.isInbox) {
+        final cache = ref.read(mailCacheStoreProvider);
+        final List<MailMessageHeader> merged = mergeInboxHeaders(
+          await cache.readHeaders(),
+          older,
+        );
+        if (!accountController.isSessionCurrent(generation)) return;
+        if (ref.read(selectedMailboxProvider).path != folder.path) return;
+        await cache.saveHeaders(merged);
+        if (!accountController.isSessionCurrent(generation)) return;
+        ref.read(mailCacheRevisionProvider.notifier).bump();
+      } else {
+        state = AsyncData<List<MailMessageHeader>>(
+          mergeInboxHeaders(current, older),
+        );
+      }
+      paginationController.succeed(hasMore: older.length == kOlderMailPageSize);
+    } catch (error) {
+      if (ref.read(selectedMailboxProvider).path == folder.path) {
+        paginationController.fail(error);
+      }
+    }
   }
 
   /// Downloads the complete message again so attachment bytes that were left

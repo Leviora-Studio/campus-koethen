@@ -62,6 +62,11 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
 - Der Sync holt die **50 neuesten** INBOX-Header, **akkumuliert** sie in den Cache
   (nichts wird gelöscht — der Offline-Bestand wächst über 50 hinaus) und lädt die
   vollständigen Inhalte **neuer** Nachrichten im Hintergrund nach.
+- Am Ende der Nachrichtenliste lädt „100 ältere E-Mails laden“ die jeweils nächsten
+  bis zu 100 Header vor der ältesten bereits sichtbaren IMAP-UID. Weitere Seiten werden
+  mit demselben Button geladen. Die UID dient als stabiler Cursor; neue oder gelöschte
+  Nachrichten verschieben die Seite daher nicht. INBOX-Header werden verschlüsselt lokal
+  ergänzt, der vollständige Inhalt einer älteren Nachricht erst beim Öffnen geladen.
 - **Anhänge herunterladen** ist optional und wird sowohl bei der Mail-Einrichtung als auch unter
   Einstellungen → Studentische E-Mail angeboten. Nur bei aktivierter Einstellung werden
   Nicht-Bild-Anhänge automatisch für die Offline-Nutzung geladen. Ist sie aus, lädt ein bewusster
@@ -192,8 +197,10 @@ Einrichtung / Sicherheit
 
 Posteingang / Detail
 
-- [ ] Es werden bis zu 50 aktuelle Nachrichten des gewählten Ordners (neueste zuerst)
+- [ ] Es werden zunächst bis zu 50 aktuelle Nachrichten des gewählten Ordners (neueste zuerst)
       angezeigt.
+- [ ] Am Listenende lädt „100 ältere E-Mails laden“ bis zu 100 weitere Header. Nach dem
+      Nachladen erscheint der Button erneut, solange eine volle Seite geliefert wurde.
 - [ ] Ungelesene sind nicht nur über Farbe erkennbar (Icon/Fettung).
 - [ ] Öffnen einer Nachricht zeigt reinen Text; sie wird als gelesen markiert.
 - [ ] HTML-Mail wird als Text dargestellt; entfernte Bilder werden **nicht** geladen.
