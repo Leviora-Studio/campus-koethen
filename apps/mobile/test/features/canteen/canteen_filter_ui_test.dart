@@ -7,6 +7,7 @@ import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/widgets/sheet_body.dart';
+import 'package:campus_koethen/core/widgets/state_views.dart';
 import 'package:campus_koethen/features/canteen/application/canteen_filter_controller.dart';
 import 'package:campus_koethen/features/canteen/application/canteen_providers.dart';
 import 'package:campus_koethen/features/canteen/presentation/canteen_screen.dart';
@@ -357,6 +358,25 @@ void main() {
     // Different from "nothing on offer", and this one has a remedy.
     expect(find.text('Kein Gericht passt zu deinem Filter.'), findsOneWidget);
     expect(find.text('Filter zurücksetzen'), findsWidgets);
+  });
+
+  testWidgets('an empty menu uses the canteen navigation icon', (
+    WidgetTester tester,
+  ) async {
+    await pumpCanteen(tester, meals: <Map<String, dynamic>>[]);
+
+    final Finder emptyView = find.byType(EmptyView);
+    expect(
+      find.descendant(of: emptyView, matching: find.byIcon(AppIcons.soup)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: emptyView,
+        matching: find.byIcon(AppIcons.no_meals_outlined),
+      ),
+      findsNothing,
+    );
   });
 
   group('prices', () {

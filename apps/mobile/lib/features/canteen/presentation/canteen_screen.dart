@@ -292,7 +292,7 @@ class _MenuContent extends ConsumerWidget {
                 // former for both.
                 final bool outsideWindow = !menu.covers(selectedDay);
                 return EmptyView(
-                  icon: AppIcons.no_meals_outlined,
+                  icon: AppIcons.soup,
                   title: l10n.canteenNoMealsTitle,
                   message: outsideWindow
                       ? l10n.canteenNoDataForDay
