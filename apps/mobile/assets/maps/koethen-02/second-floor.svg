@@ -5,7 +5,12 @@
 <!-- ignores <style> blocks, which would leave every room unstyled.      -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img">
   <rect width="1600" height="1000" fill="#F4F2F8" />
+  <g id="header">
+    <text class="map-text" x="70" y="62" fill="#383244" font-family="Arial,sans-serif" font-size="22px" font-weight="600" stroke="none">2. Obergeschoss</text>
+    <text class="map-text" x="1530" y="58" fill="#383244" font-family="Arial,sans-serif" font-size="22px" font-weight="600" text-anchor="end" stroke="none">Gebäude 02 · Grünes Gebäude</text>
+  </g>
   <rect x="1320" y="112" width="34" height="24" rx="6" fill="#0C5B4B" />
+  <text class="map-text" x="1368" y="132" font-size="22px" font-family="Arial,sans-serif" font-weight="600" fill="#383244" stroke="none">Treppen</text>
   <path class="corridor" d="M100 380H1500V480H890V620H710V480H100Z" fill="#EDEAF4" stroke="#4E4761" stroke-width="4" />
   <g id="room-koethen-02-second-floor-2-09" class="room" data-room-key="koethen-02-second-floor-2-09" data-room-number="2.09" data-building-key="koethen-02" data-floor-key="koethen-02-second-floor" data-focus-x="160" data-focus-y="275" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="100" y="220" width="120" height="110" rx="14" />
@@ -96,9 +101,14 @@
     <text class="room-number map-text" x="1395" y="540" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">2.19</text>
   </g>
   <rect class="roof" x="650" y="705" width="300" height="190" rx="18" fill="#FDFBFC" stroke="#AAA3B4" stroke-width="3" stroke-dasharray="12 10" />
+  <text class="label map-text" x="800" y="805" text-anchor="middle" font-family="Arial,sans-serif" font-size="20px" font-weight="600" fill="#625B70" stroke="none">Dachfläche des Hörsaals</text>
   <g class="stair" fill="#0C5B4B" stroke="#4E4761" stroke-width="4">
     <circle cx="72" cy="430" r="42" />
     <path class="stair-line" d="M72 400c25 0 25 34 0 34s-25 34 0 34" fill="none" stroke="#FFF" stroke-width="4" />
   </g>
   <path class="outline" d="M100 220H1500V600H880V705H950V895H650V705H720V600H100Z" fill="none" stroke="#4E4761" stroke-width="7" stroke-linejoin="round" />
+  <g id="footer" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400">
+    <text class="map-text" x="70" y="970" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">Schematischer Etagenplan</text>
+    <text class="map-text" x="1530" y="970" text-anchor="end" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">Nicht maßstabsgetreu · kein Flucht- und Rettungsplan</text>
+  </g>
 </svg>

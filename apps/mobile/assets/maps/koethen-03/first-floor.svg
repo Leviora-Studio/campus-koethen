@@ -5,95 +5,127 @@
 <!-- ignores <style> blocks, which would leave every room unstyled.      -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img">
   <rect width="1600" height="1000" fill="#F4F2F8" />
+  <g id="header">
+    <text class="map-text" x="70" y="62" fill="#383244" font-size="22px" font-weight="600" font-family="Arial,sans-serif" stroke="none">1. Obergeschoss</text>
+    <text class="map-text" x="1530" y="58" fill="#383244" font-size="22px" font-weight="600" text-anchor="end" font-family="Arial,sans-serif" stroke="none">Gebäude 03 · Weißes Gebäude</text>
+  </g>
   <rect class="corridor" x="100" y="410" width="1400" height="110" rx="12" fill="#EDEAF4" stroke="#4E4761" stroke-width="4" />
   <g class="core" fill="#D8EAF5" stroke="#4E4761" stroke-width="4">
     <rect x="100" y="210" width="140" height="200" rx="14" />
+    <text class="core-label map-text" x="170" y="290" font-family="Arial,sans-serif" font-size="17px" font-weight="600" fill="#383244" stroke="none" text-anchor="middle">Sanitär</text>
+    <text class="core-label map-text" x="170" y="320" font-family="Arial,sans-serif" font-size="17px" font-weight="600" fill="#383244" stroke="none" text-anchor="middle">/ Service</text>
   </g>
   <g class="core" fill="#D8EAF5" stroke="#4E4761" stroke-width="4">
     <rect x="100" y="520" width="140" height="160" rx="14" />
     <rect x="112" y="535" width="54" height="125" rx="8" />
+    <text class="core-label map-text" x="139" y="600" font-family="Arial,sans-serif" font-size="17px" font-weight="600" fill="#383244" stroke="none" text-anchor="middle">Aufzug</text>
     <rect class="stair" x="166" y="535" width="62" height="125" rx="8" fill="#0C5B4B" stroke="#4E4761" stroke-width="4" />
     <path class="stair-line" d="M178 642h38m-32-22h26m-20-22h14m-8-22h4" fill="none" stroke="#FFF" stroke-width="4" />
   </g>
   <g id="room-koethen-03-first-floor-103" class="room" data-room-number="103" data-room-key="koethen-03-first-floor-103" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="305" data-focus-y="310" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="240" y="210" width="130" height="200" rx="14" />
     <text class="room-number map-text" x="305" y="292" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">103</text>
+    <text class="label map-text" x="305" y="326" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Marketing</text>
   </g>
   <g id="room-koethen-03-first-floor-104" class="room service" data-room-number="104" data-room-key="koethen-03-first-floor-104" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="410" data-focus-y="310" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="370" y="210" width="80" height="200" rx="14" />
     <text class="room-number map-text" x="410" y="286" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">104</text>
+    <text class="label map-text" x="410" y="320" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Kopier-</text>
+    <text class="label map-text" x="410" y="342" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">raum</text>
   </g>
   <g id="room-koethen-03-first-floor-105" class="room" data-room-number="105" data-room-key="koethen-03-first-floor-105" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="525" data-focus-y="310" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="450" y="210" width="150" height="200" rx="14" />
     <text class="room-number map-text" x="525" y="292" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">105</text>
+    <text class="label map-text" x="525" y="326" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Marketing</text>
   </g>
   <g id="room-koethen-03-first-floor-106" class="room service" data-room-number="106" data-room-key="koethen-03-first-floor-106" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="640" data-focus-y="310" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="600" y="210" width="80" height="200" rx="14" />
     <text class="room-number map-text" x="640" y="286" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">106</text>
+    <text class="label map-text" x="640" y="324" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Teeküche</text>
   </g>
   <g id="room-koethen-03-first-floor-107" class="room" data-room-number="107" data-room-key="koethen-03-first-floor-107" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="805" data-focus-y="310" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="680" y="210" width="250" height="200" rx="14" />
     <text class="room-number map-text" x="805" y="292" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">107</text>
+    <text class="label map-text" x="805" y="326" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Sitzungszimmer</text>
   </g>
   <g id="room-koethen-03-first-floor-108" class="room" data-room-number="108" data-room-key="koethen-03-first-floor-108" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="1000" data-focus-y="310" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="930" y="210" width="140" height="200" rx="14" />
     <text class="room-number map-text" x="1000" y="292" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">108</text>
+    <text class="label map-text" x="1000" y="326" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Sitzungszimmer</text>
   </g>
   <g class="stair" fill="#0C5B4B" stroke="#4E4761" stroke-width="4">
     <rect x="1070" y="190" width="210" height="330" rx="14" />
     <path class="stair-line" d="M1105 350h140m-125-30h110m-95-30h80m-65-30h50m-100 145h150m-130 30h110m-90 30h70" fill="none" stroke="#FFF" stroke-width="4" />
+    <text class="stair-label map-text" x="1175" y="235" font-family="Arial,sans-serif" font-size="17px" font-weight="600" fill="#FFF" stroke="none" text-anchor="middle">Treppe</text>
   </g>
   <g id="room-koethen-03-first-floor-109" class="room" data-room-number="109" data-room-key="koethen-03-first-floor-109" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="1390" data-focus-y="310" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="1280" y="210" width="220" height="200" rx="14" />
     <text class="room-number map-text" x="1390" y="292" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">109</text>
+    <text class="label map-text" x="1390" y="326" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Zentralverwaltung</text>
   </g>
   <g id="room-koethen-03-first-floor-125" class="room service" data-room-number="125" data-room-key="koethen-03-first-floor-125" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="170" data-focus-y="720" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="100" y="680" width="140" height="80" rx="14" />
     <text class="room-number map-text" x="170" y="708" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">125</text>
+    <text class="label map-text" x="170" y="738" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Lager</text>
   </g>
   <g id="room-koethen-03-first-floor-124" class="room" data-room-number="124" data-room-key="koethen-03-first-floor-124" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="310" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="240" y="520" width="140" height="240" rx="14" />
     <text class="room-number map-text" x="310" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">124</text>
+    <text class="label map-text" x="310" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Büro</text>
   </g>
   <g id="room-koethen-03-first-floor-123" class="room" data-room-number="123" data-room-key="koethen-03-first-floor-123" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="420" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="380" y="520" width="80" height="240" rx="14" />
     <text class="room-number map-text" x="420" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">123</text>
+    <text class="label map-text" x="420" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Büro</text>
   </g>
   <g id="room-koethen-03-first-floor-122" class="room" data-room-number="122" data-room-key="koethen-03-first-floor-122" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="500" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="460" y="520" width="80" height="240" rx="14" />
     <text class="room-number map-text" x="500" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">122</text>
+    <text class="label map-text" x="500" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Büro</text>
   </g>
   <g id="room-koethen-03-first-floor-121" class="room" data-room-number="121" data-room-key="koethen-03-first-floor-121" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="580" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="540" y="520" width="80" height="240" rx="14" />
     <text class="room-number map-text" x="580" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">121</text>
+    <text class="label map-text" x="580" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Büro</text>
   </g>
   <g id="room-koethen-03-first-floor-120" class="room" data-room-number="120" data-room-key="koethen-03-first-floor-120" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="665" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="620" y="520" width="90" height="240" rx="14" />
     <text class="room-number map-text" x="665" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">120</text>
+    <text class="label map-text" x="665" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Büro</text>
   </g>
   <g id="room-koethen-03-first-floor-119" class="room" data-room-number="119" data-room-key="koethen-03-first-floor-119" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="790" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="710" y="520" width="160" height="240" rx="14" />
     <text class="room-number map-text" x="790" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">119</text>
+    <text class="label map-text" x="790" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">QM / Sys.akr.</text>
   </g>
   <g id="room-koethen-03-first-floor-118" class="room" data-room-number="118" data-room-key="koethen-03-first-floor-118" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="945" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="870" y="520" width="150" height="240" rx="14" />
     <text class="room-number map-text" x="945" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">118</text>
+    <text class="label map-text" x="945" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">QM / Sys.akr.</text>
   </g>
   <g id="room-koethen-03-first-floor-117" class="room" data-room-number="117" data-room-key="koethen-03-first-floor-117" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="1095" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="1020" y="520" width="150" height="240" rx="14" />
     <text class="room-number map-text" x="1095" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">117</text>
+    <text class="label map-text" x="1095" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">QM / Sys.akr.</text>
   </g>
   <g id="room-koethen-03-first-floor-116" class="room" data-room-number="116" data-room-key="koethen-03-first-floor-116" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="1235" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="1170" y="520" width="130" height="240" rx="14" />
     <text class="room-number map-text" x="1235" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">116</text>
+    <text class="label map-text" x="1235" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Präsidium</text>
   </g>
   <g id="room-koethen-03-first-floor-115" class="room" data-room-number="115" data-room-key="koethen-03-first-floor-115" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="1350" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="1300" y="520" width="100" height="240" rx="14" />
     <text class="room-number map-text" x="1350" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">115</text>
+    <text class="label map-text" x="1350" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Präsidium</text>
   </g>
   <g id="room-koethen-03-first-floor-114" class="room" data-room-number="114" data-room-key="koethen-03-first-floor-114" data-building-key="koethen-03" data-floor-key="koethen-03-first-floor" data-focus-x="1450" data-focus-y="640" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="1400" y="520" width="100" height="240" rx="14" />
     <text class="room-number map-text" x="1450" y="624" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">114</text>
+    <text class="label map-text" x="1450" y="658" font-family="Arial,sans-serif" font-size="16px" font-weight="500" fill="#625B70" stroke="none">Präsidium</text>
   </g>
   <path class="outline" d="M100 210H1500V760H100Z" fill="none" stroke="#4E4761" stroke-width="7" stroke-linejoin="round" />
+  <g id="footer" fill="#706A80" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400">
+    <text class="map-text" x="70" y="970" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">Schematischer Etagenplan</text>
+    <text class="map-text" x="1530" y="970" text-anchor="end" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">Nicht maßstabsgetreu · kein Flucht- und Rettungsplan</text>
+  </g>
 </svg>

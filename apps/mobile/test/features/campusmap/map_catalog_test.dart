@@ -13,30 +13,21 @@ void main() {
       final MapCatalog catalog = await const MapAssetLoader().load();
 
       expect(catalog.mapVersion, isNotEmpty);
-      // Fourteen approved real storeys plus the campus overview.
+      // Fourteen approved real storeys across four buildings.
       expect(catalog.rooms, hasLength(292));
-      expect(catalog.floors, hasLength(15));
-      expect(catalog.buildings, hasLength(5));
+      expect(catalog.floors, hasLength(14));
+      expect(catalog.buildings, hasLength(4));
       expect(catalog.buildings.map((MapBuilding b) => b.buildingKey), <String>[
         'ratke-gebaeude',
         'koethen-01',
         'koethen-02',
         'koethen-03',
-        'koethen-campus-overview',
       ]);
       expect(catalog.hasSeveralBuildings, isTrue);
     });
 
     test('carries building and floor names in both languages', () async {
       final MapCatalog catalog = await const MapAssetLoader().load();
-
-      final MapBuilding overview = catalog.building('koethen-campus-overview')!;
-      expect(overview.name.resolve('de'), 'Campus Köthen – Übersicht');
-      expect(overview.name.resolve('en'), 'Campus Köthen – Overview');
-
-      final MapFloor floor = catalog.floor('koethen-campus-overview-level')!;
-      expect(floor.name.resolve('de'), 'Campusübersicht');
-      expect(floor.name.resolve('en'), 'Campus overview');
 
       final MapBuilding ratke = catalog.building('ratke-gebaeude')!;
       expect(ratke.buildingNumber, '23');
@@ -72,37 +63,15 @@ void main() {
         whiteBuilding.resolvedSourceAttribution('de'),
         'Hochschule Anhalt',
       );
-      expect(overview.resolvedSourceAttribution('de'), isNull);
-      expect(overview.buildingNumber, isNull);
-
       // An unsupported locale falls back to German rather than to a key.
-      expect(overview.name.resolve('fr'), 'Campus Köthen – Übersicht');
+      expect(ratke.name.resolve('fr'), 'Ratke-Gebäude');
     });
 
     test('states what kind of drawing each building is', () async {
       final MapCatalog catalog = await const MapAssetLoader().load();
 
       expect(catalog.building('ratke-gebaeude')!.planKind, PlanKind.schematic);
-      expect(
-        catalog.building('koethen-campus-overview')!.planKind,
-        PlanKind.schematic,
-      );
       expect(PlanKind.fromName('schematic'), PlanKind.schematic);
-    });
-
-    test('a building without rooms is a normal state, not an error', () async {
-      final MapCatalog catalog = await const MapAssetLoader().load();
-
-      final List<MapFloor> floors = catalog.floorsOf('koethen-campus-overview');
-      expect(floors, hasLength(1));
-      expect(floors.single.floorKey, 'koethen-campus-overview-level');
-      expect(floors.single.svgAsset, 'assets/maps/campus/koethen-overview.svg');
-      expect(
-        catalog.rooms.where(
-          (MapRoomGeometry r) => r.buildingKey == 'koethen-campus-overview',
-        ),
-        isEmpty,
-      );
     });
 
     test('floors are scoped to their building', () async {
@@ -144,10 +113,6 @@ void main() {
       expect(
         catalog.buildingOfFloor('ratke-gebaeude-first-floor'),
         'ratke-gebaeude',
-      );
-      expect(
-        catalog.buildingOfFloor('koethen-campus-overview-level'),
-        'koethen-campus-overview',
       );
       expect(catalog.buildingOfFloor('nope'), isNull);
       expect(catalog.building('nope'), isNull);

@@ -5,7 +5,12 @@
 <!-- ignores <style> blocks, which would leave every room unstyled.      -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img">
   <rect width="1600" height="1000" fill="#F4F2F8" />
+  <g id="header">
+    <text class="map-text" x="70" y="62" fill="#383244" font-family="Arial,sans-serif" font-size="22px" font-weight="600" stroke="none">Erdgeschoss</text>
+    <text class="map-text" x="1530" y="58" fill="#383244" font-family="Arial,sans-serif" font-size="22px" font-weight="600" text-anchor="end" stroke="none">Gebäude 02 · Grünes Gebäude</text>
+  </g>
   <rect x="1320" y="112" width="34" height="24" rx="6" fill="#0C5B4B" />
+  <text class="map-text" x="1368" y="132" font-size="22px" font-family="Arial,sans-serif" font-weight="600" fill="#383244" stroke="none">Treppen</text>
   <path class="corridor" d="M100 380H1500V480H900V660H700V480H100Z" fill="#EDEAF4" stroke="#4E4761" stroke-width="4" />
   <g id="room-koethen-02-ground-floor-0-07" class="room" data-room-key="koethen-02-ground-floor-0-07" data-room-number="0.07" data-building-key="koethen-02" data-floor-key="koethen-02-ground-floor" data-focus-x="210" data-focus-y="410" fill="#E5DEF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="100" y="220" width="220" height="380" rx="14" />
@@ -82,6 +87,7 @@
   <g id="room-koethen-02-ground-floor-0-28" class="room lecture" data-room-key="koethen-02-ground-floor-0-28" data-room-number="0.28" data-building-key="koethen-02" data-floor-key="koethen-02-ground-floor" data-focus-x="800" data-focus-y="770" fill="#F8E3BF" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="620" y="660" width="360" height="220" rx="18" />
     <text class="room-number map-text" x="800" y="745" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">0.28</text>
+    <text class="label map-text" x="800" y="785" font-family="Arial,sans-serif" font-size="20px" font-weight="600" fill="#625B70" stroke="none">Großer Hörsaal</text>
   </g>
   <g id="room-koethen-02-ground-floor-0-30" class="room service" data-room-key="koethen-02-ground-floor-0-30" data-room-number="0.30" data-building-key="koethen-02" data-floor-key="koethen-02-ground-floor" data-focus-x="672.5" data-focus-y="850" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" text-anchor="middle" dominant-baseline="middle">
     <rect x="620" y="820" width="105" height="60" rx="10" />
@@ -104,4 +110,8 @@
     <path class="stair-line" d="M72 400c25 0 25 34 0 34s-25 34 0 34" fill="none" stroke="#FFF" stroke-width="4" />
   </g>
   <path class="outline" d="M100 220H1500V600H980V880H620V600H100Z" fill="none" stroke="#4E4761" stroke-width="7" stroke-linejoin="round" />
+  <g id="footer" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400">
+    <text class="map-text" x="70" y="970" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">Schematischer Etagenplan</text>
+    <text class="map-text" x="1530" y="970" text-anchor="end" font-family="Arial,sans-serif" font-size="22px" font-weight="600" fill="#383244" stroke="none">Nicht maßstabsgetreu · kein Flucht- und Rettungsplan</text>
+  </g>
 </svg>

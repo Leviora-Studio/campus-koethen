@@ -6,34 +6,29 @@ Lageplan mit Gebäude- und Etagenauswahl sowie Raumsuche unter „Mehr → Lagep
 ist ein selbst erstelltes, versioniertes Asset im Repository; Raumbezeichnungen und redaktionelle
 Texte kommen über die Campus API und werden offline gecacht.
 
-Der Kartenkatalog enthält die realen schematischen Pläne von vier Gebäuden und eine Campusübersicht:
+Der Kartenkatalog enthält die realen schematischen Pläne von vier Gebäuden:
 
-| Gebäude                     | `buildingKey`             | Ebene                           | Räume |
-| --------------------------- | ------------------------- | ------------------------------- | ----- |
-| Ratke-Gebäude (schematisch) | `ratke-gebaeude`          | Erdgeschoss                     | 28    |
-| Ratke-Gebäude (schematisch) | `ratke-gebaeude`          | 1. Obergeschoss                 | 30    |
-| Rotes Gebäude 01            | `koethen-01`              | Kellergeschoss                  | 21    |
-| Rotes Gebäude 01            | `koethen-01`              | 1. Obergeschoss                 | 11    |
-| Rotes Gebäude 01            | `koethen-01`              | 2. Obergeschoss                 | 22    |
-| Rotes Gebäude 01            | `koethen-01`              | 3. Obergeschoss                 | 13    |
-| Rotes Gebäude 01            | `koethen-01`              | Dachgeschoss                    | 25    |
-| Grünes Gebäude 02           | `koethen-02`              | Kellergeschoss                  | 31    |
-| Grünes Gebäude 02           | `koethen-02`              | Erdgeschoss                     | 20    |
-| Grünes Gebäude 02           | `koethen-02`              | 1. Obergeschoss                 | 16    |
-| Grünes Gebäude 02           | `koethen-02`              | 2. Obergeschoss                 | 20    |
-| Weißes Gebäude 03           | `koethen-03`              | Erdgeschoss                     | 14    |
-| Weißes Gebäude 03           | `koethen-03`              | 1. Obergeschoss                 | 19    |
-| Weißes Gebäude 03           | `koethen-03`              | 2. Obergeschoss                 | 22    |
-| Campus Köthen – Übersicht   | `koethen-campus-overview` | `koethen-campus-overview-level` | 0     |
+| Gebäude                     | `buildingKey`    | Ebene           | Räume |
+| --------------------------- | ---------------- | --------------- | ----- |
+| Ratke-Gebäude (schematisch) | `ratke-gebaeude` | Erdgeschoss     | 28    |
+| Ratke-Gebäude (schematisch) | `ratke-gebaeude` | 1. Obergeschoss | 30    |
+| Rotes Gebäude 01            | `koethen-01`     | Kellergeschoss  | 21    |
+| Rotes Gebäude 01            | `koethen-01`     | 1. Obergeschoss | 11    |
+| Rotes Gebäude 01            | `koethen-01`     | 2. Obergeschoss | 22    |
+| Rotes Gebäude 01            | `koethen-01`     | 3. Obergeschoss | 13    |
+| Rotes Gebäude 01            | `koethen-01`     | Dachgeschoss    | 25    |
+| Grünes Gebäude 02           | `koethen-02`     | Kellergeschoss  | 31    |
+| Grünes Gebäude 02           | `koethen-02`     | Erdgeschoss     | 20    |
+| Grünes Gebäude 02           | `koethen-02`     | 1. Obergeschoss | 16    |
+| Grünes Gebäude 02           | `koethen-02`     | 2. Obergeschoss | 20    |
+| Weißes Gebäude 03           | `koethen-03`     | Erdgeschoss     | 14    |
+| Weißes Gebäude 03           | `koethen-03`     | 1. Obergeschoss | 19    |
+| Weißes Gebäude 03           | `koethen-03`     | 2. Obergeschoss | 22    |
 
 > **Gebäudepläne:** Plangrundlage für Ratke-Gebäude, Rotes Gebäude 01, Grünes Gebäude 02 und
 > Weißes Gebäude 03: **Hochschule Anhalt**. Die schematischen SVG-Umsetzungen wurden für dieses
 > Projekt selbst erstellt. Bearbeitung und öffentliche Veröffentlichung der Grundlagen wurden
 > bestätigt.
-
-> ⚠️ **Die Campusübersicht ist schematisch.** Sie ist vereinfacht, nicht maßstabsgetreu und
-> **kein** Flucht-, Rettungs- oder amtlicher Lageplan. Sie enthält **keine** Räume und **keine**
-> Innengeometrie.
 
 Die Einordnung bleibt als `planKind` (`schematic`) **im Katalog**. Die App legt darüber kein
 zusätzliches anklickbares Badge; Hinweise innerhalb der kanonischen SVG-Pläne bleiben davon
@@ -47,13 +42,11 @@ packages/campus-map/                    ── kanonische Quellen (im Repository
   buildings/koethen-01/*.svg               Rotes Gebäude (Keller, 1.–3. OG, Dach)
   buildings/koethen-02/*.svg               Grünes Gebäude (Keller, EG, 1.–2. OG)
   buildings/koethen-03/*.svg               Weißes Gebäude (EG, 1.–2. OG)
-  campus/koethen-overview.svg              Geometrie (Campusübersicht)
   catalog/campus-map.catalog.json          strukturierte technische Wahrheit
         │
         │  validate + generate (deterministisch, dependency-frei)
         ├────────────────────────────▶ apps/mobile/assets/maps/    (gebündelt in der App)
-        │                                map_catalog.json · ratke-gebaeude/*.svg
-        │                                campus/koethen-overview.svg
+        │                                map_catalog.json · Gebäude-SVGs
         │
         ├── rooms:sync ──▶ Strapi (room) ─┐
         │                  Schlüssel, Label│
@@ -79,7 +72,6 @@ Schreibweg aus der App ins CMS.
 | `buildings/koethen-01/*.svg`      | Geometriequelle: Rotes Gebäude, fünf vorhandene Etagen    |
 | `buildings/koethen-02/*.svg`      | Geometriequelle: Grünes Gebäude, Keller bis 2. OG         |
 | `buildings/koethen-03/*.svg`      | Geometriequelle: Weißes Gebäude, EG bis 2. OG             |
-| `campus/koethen-overview.svg`     | Geometriequelle: 21 Gebäudegruppen, Wege, Grün, Symbole   |
 | `catalog/campus-map.catalog.json` | strukturierte Quelle: Schlüssel, Typen, Fokus, Sortierung |
 
 Der Katalog enthält `schemaVersion`, `mapVersion`, Gebäude (lokalisierte Namen DE/EN und optional
@@ -121,21 +113,10 @@ vollständigem Erfolg. Eine ungültige Eingabe hinterlässt daher **keine** halb
 
 Zwei Gründe, beide durch Tests abgesichert:
 
-1. **Sprache.** Die kanonischen Zeichnungen enthalten deutsche Überschriften, eine deutsche Legende
-   und deutsche Beschriftungen („Hörsaal“, „Treppe West“, „Aufzug“, „Mensa“, „KITA“,
-   „Richtung City“). Sie würden die DE/EN-Regel unterlaufen. Im generierten Asset überleben nur
-   sprachneutrale Beschriftungen; alles andere rendert Flutter aus der l10n. Die Auswahl erfolgt
-   über eine **Allowlist** von Textklassen — ein Denylist-Ansatz hatte beim ersten unbekannten
-   Klassennamen prompt deutschen Text durchgelassen:
-
-   | Klasse        | überlebt                                                           |
-   | ------------- | ------------------------------------------------------------------ |
-   | `room-number` | Raumnummern des Etagenplans (`216`)                                |
-   | `map-label`   | Gebäudecodes (`01`, `W VII`, `TZK`), Straßennamen, Maßstabsangaben |
-
-   Die Campusübersicht verliert dadurch bewusst die Beschriftungen „Mensa“, „KITA“ und
-   „Richtung City“: Es sind Gattungsbegriffe mit englischer Entsprechung, keine sprachneutralen
-   Codes. `data-building-number` trägt sie weiterhin als **Metadaten**, die nichts zeichnen.
+1. **Sprache.** Die kanonischen Zeichnungen enthalten deutsche Überschriften, Legenden und
+   Beschriftungen. Diese Texte sind Teil der genehmigten Plandarstellung und bleiben im
+   generierten SVG erhalten. Sie werden deshalb auch bei englischer App-Sprache auf Deutsch
+   angezeigt; die übrige Flutter-Oberfläche bleibt vollständig lokalisiert.
 
 2. **Renderer.** `flutter_svg` unterstützt **keine** `<style>`-Blöcke (`unhandled element <style/>`)
    und verwirft die gesamte Stylesheet — jeder Raum wäre ungestylt. Der Generator löst die
@@ -143,11 +124,7 @@ Zwei Gründe, beide durch Tests abgesichert:
    ebenfalls entfernt, weil der Renderer sie ignoriert. Ein Widget-Test rendert die gebündelten
    Assets und schlägt fehl, sobald wieder eine nicht unterstützte Konstruktion auftaucht.
 
-   `<defs>` mit lokalen `<use xlink:href="#id">`-Fragmenten bleiben dagegen **erhalten**: Die
-   Campusübersicht zeichnet Bäume, Parkplätze und Sammelpunkte darüber. Dass der Renderer sie
-   wirklich malt, prüft ein Test, der das Ergebnis **rastert** und mit derselben Zeichnung ohne
-   `<use>` vergleicht — ein ignoriertes `<use>` würde weder eine Warnung noch eine Exception
-   erzeugen, die Karte wäre nur leer. Der Reader lässt Fragment-`href`s zu, externe nicht.
+   Lokale Fragment-`href`s lässt der Reader weiterhin zu, externe Referenzen dagegen nicht.
 
 ## 4. Strapi: `room`
 

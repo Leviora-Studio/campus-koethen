@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mapVersion": "campus-koethen-2026-08-26-buildings-01-02-03",
-  "notice": "The Ratke building, Red Building (01), Green Building (02), and White Building (03) are simplified, not-to-scale schematic transcriptions created for this project. Plan source: Hochschule Anhalt. The SVG implementations are original project work. The campus overview remains a simplified schematic site overview. None of the drawings is a fire, escape or official floor plan.",
+  "notice": "The Ratke building, Red Building (01), Green Building (02), and White Building (03) are simplified, not-to-scale schematic transcriptions created for this project. Plan source: Hochschule Anhalt. The SVG implementations are original project work. None of the drawings is a fire, escape or official floor plan.",
   "buildings": [
     {
       "buildingKey": "ratke-gebaeude",
@@ -42,13 +42,6 @@
       "sortOrder": 40,
       "sourceAttributionDe": "Hochschule Anhalt",
       "sourceAttributionEn": "Hochschule Anhalt"
-    },
-    {
-      "buildingKey": "koethen-campus-overview",
-      "nameDe": "Campus Köthen – Übersicht",
-      "nameEn": "Campus Köthen – Overview",
-      "planKind": "schematic",
-      "sortOrder": 100
     }
   ],
   "floors": [
@@ -83,22 +76,6 @@
       },
       "expectedRoomCount": 30,
       "sortOrder": 20
-    },
-    {
-      "floorKey": "koethen-campus-overview-level",
-      "buildingKey": "koethen-campus-overview",
-      "level": 0,
-      "nameDe": "Campusübersicht",
-      "nameEn": "Campus overview",
-      "svgPath": "campus/koethen-overview.svg",
-      "viewBox": {
-        "minX": 0,
-        "minY": 0,
-        "width": 1748,
-        "height": 900
-      },
-      "expectedRoomCount": 0,
-      "sortOrder": 10
     },
     {
       "floorKey": "koethen-01-basement",

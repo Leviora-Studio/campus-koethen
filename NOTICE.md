@@ -79,19 +79,14 @@ visuelle Logoimitation. Das finale App-Icon ist ein offenes Release-Gate.
 Die kanonischen Kartenquellen liegen unter `packages/campus-map/`; die daraus erzeugten lokalen
 App-Assets unter `apps/mobile/assets/maps/`. Die App lädt keine Kartengeometrie aus dem Netz.
 
-| Plan                        | Art                                                          | Lizenz- und Freigabestatus                                                                       |
-| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Ratke-Gebäude, EG und 1. OG | schematische SVG-Umsetzung; Plangrundlage: Hochschule Anhalt | SVG: Eigenentwicklung, `AGPL-3.0-only`; Grundlage mit bestätigter Nutzungserlaubnis              |
-| Campus Köthen – Übersicht   | vereinfacht, schematisch, nicht maßstäblich                  | Herkunft und Rechte der zugrunde liegenden Vorlage sind vor Veröffentlichung weiterhin zu klären |
+| Plan                                     | Art                                                          | Lizenz- und Freigabestatus                                                         |
+| ---------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Ratke-Gebäude, EG und 1. OG              | schematische SVG-Umsetzung; Plangrundlage: Hochschule Anhalt | SVG: Eigenentwicklung, `AGPL-3.0-only`; bestätigte Nutzungserlaubnis der Grundlage |
+| Gebäude 01, 02 und 03, vorhandene Etagen | schematische SVG-Umsetzung; Plangrundlage: Hochschule Anhalt | SVG: Eigenentwicklung, `AGPL-3.0-only`; bestätigte Nutzungserlaubnis der Grundlage |
 
-Campusübersicht und Ratke-Gebäude sind weder amtliche Lagepläne noch Flucht-, Rettungs-,
-Sicherheits- oder Schließpläne. Sie enthalten keine Logos oder Markenassets der Hochschule Anhalt
-oder des Studentenwerks Halle.
-
-Die noch ungeklärten Rechte der Campusübersicht bleiben ein offenes Release-Gate. Die technische
-Integration und Kennzeichnung als schematisch ersetzen dort keine Freigabe; der betroffene Plan darf erst nach
-geklärter Herkunft sowie Bearbeitungs- und Veröffentlichungsberechtigung veröffentlicht werden.
-Details und Prüfkriterien:
+Die Gebäudepläne sind weder amtliche Lagepläne noch Flucht-, Rettungs-, Sicherheits- oder
+Schließpläne. Sie enthalten keine Logos oder Markenassets der Hochschule Anhalt oder des
+Studentenwerks Halle. Details und Prüfkriterien:
 [`docs/campus-map.md`](docs/campus-map.md#8-herkunft-und-freigabe-realer-gebäudepläne).
 
 ## 3. Datenquellen

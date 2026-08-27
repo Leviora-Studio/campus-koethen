@@ -269,24 +269,21 @@ test('a building source attribution must be complete in both locales', () => {
 });
 
 test('a floor without rooms is valid', () => {
-  const { catalog, readSvg } = loadCanonical();
-  const overview = catalog.floors.find((f) => f.floorKey === 'koethen-campus-overview-level');
-  assert.ok(overview, 'the campus overview floor must exist');
-  assert.equal(overview.expectedRoomCount, 0);
-  assert.equal(catalog.rooms.filter((r) => r.floorKey === overview.floorKey).length, 0);
-
-  const { problems } = validate(catalog, readSvg);
+  const f = fixture();
+  f.catalog.floors[0].expectedRoomCount = 0;
+  f.catalog.rooms = [];
+  f.svgs['b/l1.svg'] = svgFor([]);
+  const { problems } = run(f);
   assert.deepEqual(problems, [], 'a room-less floor must not be an error');
 });
 
 test('a room-less floor still rejects stray room elements', () => {
-  const { catalog, readSvg } = loadCanonical();
-  const patched = structuredClone(catalog);
-  const overview = patched.floors.find((f) => f.floorKey === 'koethen-campus-overview-level');
-  overview.expectedRoomCount = 1;
-  const { problems } = validate(patched, readSvg);
+  const f = fixture();
+  f.catalog.floors[0].expectedRoomCount = 0;
+  f.catalog.rooms = [];
+  const { problems } = run(f);
   assert.ok(
-    problems.some((p) => p.includes('expected 1 rooms, found 0')),
-    'the expected count must still be enforced at zero',
+    problems.some((p) => p.includes('expected 0 rooms, found 2')),
+    'the zero expectation must still be enforced',
   );
 });

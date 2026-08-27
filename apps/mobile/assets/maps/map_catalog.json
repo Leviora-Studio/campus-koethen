@@ -42,13 +42,6 @@
       "sourceAttributionDe": "Hochschule Anhalt",
       "sourceAttributionEn": "Hochschule Anhalt",
       "sortOrder": 40
-    },
-    {
-      "buildingKey": "koethen-campus-overview",
-      "nameDe": "Campus Köthen – Übersicht",
-      "nameEn": "Campus Köthen – Overview",
-      "planKind": "schematic",
-      "sortOrder": 100
     }
   ],
   "floors": [
@@ -94,21 +87,6 @@
         "minY": 0,
         "width": 1600,
         "height": 1000
-      },
-      "sortOrder": 10
-    },
-    {
-      "floorKey": "koethen-campus-overview-level",
-      "buildingKey": "koethen-campus-overview",
-      "level": 0,
-      "nameDe": "Campusübersicht",
-      "nameEn": "Campus overview",
-      "svgAsset": "assets/maps/campus/koethen-overview.svg",
-      "viewBox": {
-        "minX": 0,
-        "minY": 0,
-        "width": 1748,
-        "height": 900
       },
       "sortOrder": 10
     },

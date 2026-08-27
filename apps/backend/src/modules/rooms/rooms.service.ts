@@ -88,8 +88,22 @@ export class RoomsService {
 
   private async fetch(query: Record<string, unknown>): Promise<Raw[]> {
     try {
-      const response = await this.strapi.get<StrapiListResponse<Raw>>(ROOMS_PATH, query);
-      return Array.isArray(response?.data) ? response.data : [];
+      const rows: Raw[] = [];
+
+      for (let page = 1; ; page += 1) {
+        const response = await this.strapi.get<StrapiListResponse<Raw>>(ROOMS_PATH, {
+          ...query,
+          pagination: { page, pageSize: 100 },
+        });
+        if (Array.isArray(response?.data)) rows.push(...response.data);
+
+        const pageCount = response?.meta?.pagination?.pageCount;
+        if (typeof pageCount !== 'number' || !Number.isInteger(pageCount) || page >= pageCount) {
+          break;
+        }
+      }
+
+      return rows;
     } catch (error) {
       if (error instanceof StrapiRequestError) {
         throw new ApiError(error.kind === 'timeout' ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_UNAVAILABLE');
@@ -137,7 +151,6 @@ export class RoomsService {
         filters: { catalogActive: { $eq: true }, isVisible: { $eq: true } },
         fields: [...ROOM_FIELDS],
         sort: ['roomKey:asc'],
-        pagination: { pageSize: 500 },
       });
 
       return rows

@@ -16,6 +16,7 @@ const room = (roomKey: string, over: Record<string, unknown> = {}) => ({
 });
 
 const groundFloorRoom = 'ratke-gebaeude-ground-floor-101';
+const anotherFirstFloorRoom = 'ratke-gebaeude-first-floor-210';
 const firstFloorRoom = 'ratke-gebaeude-first-floor-216';
 const de = { requestedLocale: 'de', resolvedLocale: 'de' } as const;
 const en = { requestedLocale: 'en', resolvedLocale: 'en' } as const;
@@ -83,6 +84,36 @@ describe('RoomsService', () => {
         'descriptionDe',
         'descriptionEn',
       ]);
+    });
+
+    it('loads every Strapi page instead of stopping at the REST limit', async () => {
+      const pages = new Map<number, string[]>([
+        [1, [groundFloorRoom]],
+        [2, [anotherFirstFloorRoom]],
+        [3, [firstFloorRoom]],
+      ]);
+      const client = makeClient((query) => {
+        const pagination = query.pagination as { page?: number; pageSize?: number };
+        const page = pagination.page ?? 1;
+        return {
+          data: (pages.get(page) ?? []).map((roomKey) => room(roomKey)),
+          meta: {
+            pagination: { page, pageSize: 100, pageCount: 3, total: 3 },
+          },
+        };
+      });
+
+      const result = await new RoomsService(client).listRooms(de, {});
+
+      expect(result.data.map((entry) => entry.roomKey)).toEqual(
+        expect.arrayContaining([groundFloorRoom, anotherFirstFloorRoom, firstFloorRoom]),
+      );
+      expect(result.data).toHaveLength(3);
+      const calls = (client.get as jest.Mock).mock.calls;
+      expect(calls).toHaveLength(3);
+      for (const [, query] of calls) {
+        expect(query.pagination.pageSize).toBe(100);
+      }
     });
 
     it('applies building and floor filters against the bundled catalogue', async () => {

@@ -18,8 +18,13 @@
     </g>
   </defs>
   <rect width="1600" height="1000" fill="#F4F2F8" />
+  <g id="header">
+    <text x="70" y="62" fill="#242235" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">1. Obergeschoss</text>
+    <text x="1530" y="58" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="18" text-anchor="end">Schematischer Etagenplan</text>
+  </g>
   <path d="M332 170H412V700H1188V170H1268V780H332Z" fill="#EDEAF4" stroke="#C8C3D2" stroke-width="4" />
   <rect x="605" y="418" width="390" height="272" rx="18" fill="#FDFBFC" stroke="#DDD8E5" stroke-width="3" stroke-dasharray="10 10" />
+  <text x="800" y="555" fill="#AAA4B4" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">Innenhof</text>
   <g fill="#E5DEF5" stroke="#4E4761" stroke-width="4">
     <rect id="room-ratke-gebaeude-first-floor-209" class="room room" data-room-key="ratke-gebaeude-first-floor-209" data-room-number="209" data-building-key="ratke-gebaeude" data-floor-key="ratke-gebaeude-first-floor" data-focus-x="232" data-focus-y="199" x="142" y="128" width="180" height="142" rx="10" />
     <rect id="room-ratke-gebaeude-first-floor-208" class="room room" data-room-key="ratke-gebaeude-first-floor-208" data-room-number="208" data-building-key="ratke-gebaeude" data-floor-key="ratke-gebaeude-first-floor" data-focus-x="243.5" data-focus-y="388" x="165" y="333" width="157" height="110" rx="10" />
@@ -31,6 +36,7 @@
     <rect id="room-ratke-gebaeude-first-floor-213" class="room room" data-room-key="ratke-gebaeude-first-floor-213" data-room-number="213" data-building-key="ratke-gebaeude" data-floor-key="ratke-gebaeude-first-floor" data-focus-x="499.5" data-focus-y="578" x="422" y="536" width="155" height="84" rx="10" />
   </g>
   <rect x="165" y="282" width="157" height="39" rx="8" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" />
+  <text x="208" y="308" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">WC</text>
   <use href="#wc-women" transform="translate(274 302) scale(.55)" />
   <rect x="422" y="632" width="155" height="48" rx="8" fill="#D9D8DF" stroke="#4E4761" stroke-width="4" />
   <g fill="#E5DEF5" stroke="#4E4761" stroke-width="4">
@@ -46,14 +52,19 @@
     <rect id="room-ratke-gebaeude-first-floor-233" class="room room" data-room-key="ratke-gebaeude-first-floor-233" data-room-number="233" data-building-key="ratke-gebaeude" data-floor-key="ratke-gebaeude-first-floor" data-focus-x="1356.5" data-focus-y="660.5" x="1278" y="619" width="157" height="83" rx="10" />
   </g>
   <rect x="1023" y="658" width="155" height="44" rx="8" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" />
+  <text x="1062" y="687" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">WC</text>
   <use href="#wc-women" transform="translate(1128 680) scale(.48)" />
   <use href="#wc-men" transform="translate(1155 680) scale(.48)" />
   <rect x="1278" y="282" width="157" height="39" rx="8" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" />
+  <text x="1319" y="308" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">WC</text>
   <use href="#wc-men" transform="translate(1383 302) scale(.55)" />
   <rect id="room-ratke-gebaeude-first-floor-216" class="room lecture" data-room-key="ratke-gebaeude-first-floor-216" data-room-number="216" data-building-key="ratke-gebaeude" data-floor-key="ratke-gebaeude-first-floor" data-focus-x="800" data-focus-y="292.5" x="650" y="190" width="300" height="205" rx="14" fill="#F8E3BF" stroke="#4E4761" stroke-width="5" />
+  <text x="800" y="273" fill="#242235" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" text-anchor="middle">Großer Hörsaal</text>
   <text class="room-number" x="800" y="310" fill="#6B6274" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" text-anchor="middle">216</text>
   <rect x="650" y="430" width="104" height="50" rx="9" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" />
   <rect x="650" y="492" width="104" height="50" rx="9" fill="#D8EAF5" stroke="#4E4761" stroke-width="4" />
+  <text x="675" y="462" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">WC</text>
+  <text x="675" y="524" fill="#425C75" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">WC</text>
   <use href="#wc-men" transform="translate(727 456) scale(.48)" />
   <use href="#wc-women" transform="translate(727 518) scale(.48)" />
   <use href="#stairs" transform="translate(654 564)" />
@@ -103,5 +114,16 @@
     <text class="room-number" x="1011" y="816">237</text>
     <text class="room-number" x="1173" y="816">236</text>
     <text class="room-number" x="1360" y="824">234</text>
+  </g>
+  <text x="380" y="900" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">Ostflügel</text>
+  <text x="1220" y="900" fill="#706A80" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">Westflügel</text>
+  <g id="legend" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#706A80">
+    <rect x="70" y="955" width="18" height="18" rx="4" fill="#E5DEF5" stroke="#4E4761" stroke-width="2" />
+    <text x="98" y="970">Raum</text>
+    <rect x="178" y="955" width="18" height="18" rx="4" fill="#F8E3BF" stroke="#4E4761" stroke-width="2" />
+    <text x="206" y="970">Hörsaal</text>
+    <rect x="300" y="955" width="18" height="18" rx="4" fill="#D8EAF5" stroke="#4E4761" stroke-width="2" />
+    <text x="328" y="970">Sanitär</text>
+    <text x="1530" y="970" text-anchor="end">Nicht maßstabsgetreu · kein Flucht- und Rettungsplan</text>
   </g>
 </svg>

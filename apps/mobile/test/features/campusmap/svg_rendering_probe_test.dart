@@ -47,15 +47,6 @@ void expectNoUnhandled(WidgetTester tester, List<String> messages) {
 }
 
 void main() {
-  testWidgets('the campus overview renders without unsupported constructs', (
-    WidgetTester tester,
-  ) async {
-    expectNoUnhandled(
-      tester,
-      await renderLog(tester, 'assets/maps/campus/koethen-overview.svg'),
-    );
-  });
-
   testWidgets('all real floor plans render without unsupported constructs', (
     WidgetTester tester,
   ) async {

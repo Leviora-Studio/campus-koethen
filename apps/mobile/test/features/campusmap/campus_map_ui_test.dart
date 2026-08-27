@@ -790,9 +790,9 @@ void main() {
 
 /// Building and floor selection.
 ///
-/// Every real floor plan and the campus overview share one bundled catalogue,
-/// so switching between them has to keep the plan, the floor and any room
-/// selection describing the same place.
+/// Every real floor plan shares one bundled catalogue, so switching between
+/// buildings has to keep the plan, the floor and any room selection describing
+/// the same place.
 void _selectionTests() {
   String buildingName(String key, {String locale = 'de'}) =>
       testCatalog.building(key)!.name.resolve(locale);
@@ -800,10 +800,8 @@ void _selectionTests() {
       testCatalog.floor(key)!.name.resolve(locale);
 
   const String ratke = 'ratke-gebaeude';
-  const String overview = 'koethen-campus-overview';
   const String ratkeGroundFloor = 'ratke-gebaeude-ground-floor';
   const String ratkeFirstFloor = 'ratke-gebaeude-first-floor';
-  const String overviewFloor = 'koethen-campus-overview-level';
 
   Future<void> switchTo(WidgetTester tester, String label) async {
     await tester.tap(find.text(label).hitTestable().first);
@@ -823,7 +821,6 @@ void _selectionTests() {
     expect(find.text(buildingName('koethen-01')), findsOneWidget);
     expect(find.text(buildingName('koethen-02')), findsOneWidget);
     expect(find.text(buildingName('koethen-03')), findsOneWidget);
-    expect(find.text(buildingName(overview)), findsOneWidget);
   });
 
   testWidgets('the new buildings open on their lowest approved floor', (
@@ -853,74 +850,17 @@ void _selectionTests() {
     expect(view.floor.svgAsset, 'assets/maps/koethen-03/ground-floor.svg');
   });
 
-  testWidgets('switching to the overview shows its own plan', (
-    WidgetTester tester,
-  ) async {
-    await pumpMap(tester);
-    expect(
-      tester.widget<FloorMapView>(find.byType(FloorMapView)).floor.svgAsset,
-      'assets/maps/ratke-gebaeude/ground-floor.svg',
-    );
-
-    await tester.tap(find.text(buildingName(ratke)));
-    await tester.pumpAndSettle();
-    await switchTo(tester, buildingName(overview));
-
-    final FloorMapView view = tester.widget<FloorMapView>(
-      find.byType(FloorMapView),
-    );
-    expect(view.floor.floorKey, overviewFloor);
-    expect(view.floor.svgAsset, 'assets/maps/campus/koethen-overview.svg');
-    // A building without rooms is a normal state: no selection, no error.
-    expect(view.selected, isNull);
-    expect(find.textContaining('Ausgewählt:'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('the floor picker is limited to the active building', (
-    WidgetTester tester,
-  ) async {
-    await pumpMap(tester);
-    expect(find.text(floorName(ratkeGroundFloor)), findsOneWidget);
-    expect(find.text(floorName(overviewFloor)), findsNothing);
-
-    await tester.tap(find.text(buildingName(ratke)));
-    await tester.pumpAndSettle();
-    await switchTo(tester, buildingName(overview));
-
-    expect(find.text(floorName(overviewFloor)), findsOneWidget);
-    expect(find.text(floorName(ratkeGroundFloor)), findsNothing);
-  });
-
-  testWidgets('switching back shows the Ratke plan again', (
-    WidgetTester tester,
-  ) async {
-    await pumpMap(tester);
-    await tester.tap(find.text(buildingName(ratke)));
-    await tester.pumpAndSettle();
-    await switchTo(tester, buildingName(overview));
-    await tester.tap(find.text(buildingName(overview)));
-    await tester.pumpAndSettle();
-    await switchTo(tester, buildingName(ratke));
-
-    expect(
-      tester.widget<FloorMapView>(find.byType(FloorMapView)).floor.floorKey,
-      ratkeGroundFloor,
-    );
-    expect(find.text(floorName(ratkeGroundFloor)), findsOneWidget);
-  });
-
   testWidgets('picking a search result switches building and floor', (
     WidgetTester tester,
   ) async {
     await pumpMap(tester);
-    // Start on the campus overview, which has no rooms at all.
+    // Start in another building so the result has to switch both controls.
     await tester.tap(find.text(buildingName(ratke)));
     await tester.pumpAndSettle();
-    await switchTo(tester, buildingName(overview));
+    await switchTo(tester, buildingName('koethen-03'));
     expect(
       tester.widget<FloorMapView>(find.byType(FloorMapView)).floor.floorKey,
-      overviewFloor,
+      'koethen-03-ground-floor',
     );
 
     // Search stays global, so the room is still findable from here.

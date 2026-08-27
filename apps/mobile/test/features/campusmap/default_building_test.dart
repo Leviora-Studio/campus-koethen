@@ -80,8 +80,8 @@ void main() {
   testWidgets('the chosen default building is the one that opens', (
     WidgetTester tester,
   ) async {
-    await pumpMap(tester, defaultBuilding: 'koethen-campus-overview');
-    expect(_shownFloorKey(tester), 'koethen-campus-overview-level');
+    await pumpMap(tester, defaultBuilding: 'koethen-03');
+    expect(_shownFloorKey(tester), 'koethen-03-ground-floor');
   });
 
   testWidgets('a stale building key falls back instead of breaking', (

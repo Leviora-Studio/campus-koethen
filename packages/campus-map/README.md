@@ -4,14 +4,13 @@
 
 Kanonischer Kartenkatalog, SVG-Validator und Generator der gebündelten Flutter-Kartenassets.
 
-Der Katalog enthält fünf klar gekennzeichnete Kartenbereiche:
+Der Katalog enthält vier klar gekennzeichnete Kartenbereiche:
 
 - das **Ratke-Gebäude** als vereinfachte, nicht maßstabsgetreue Übertragung der bereitgestellten
   Etagenübersichten (EG und 1. OG, 58 Raumflächen),
 - das **Rote Gebäude (01)** mit Keller, 1.–3. OG und Dachgeschoss (92 Raumflächen),
 - das **Grüne Gebäude (02)** mit Keller, EG sowie 1.–2. OG (87 Raumflächen),
-- das **Weiße Gebäude (03)** mit EG sowie 1.–2. OG (55 Raumflächen),
-- die **Campusübersicht** ohne Innengeometrie.
+- das **Weiße Gebäude (03)** mit EG sowie 1.–2. OG (55 Raumflächen).
 
 Plangrundlage aller vier Gebäude: **Hochschule Anhalt**. Die SVG-Umsetzungen wurden für dieses
 Projekt selbst erstellt. Die Bearbeitung und öffentliche Verwendung der Grundlagen wurden
@@ -58,9 +57,9 @@ Entity-Expansion-Angriffsfläche gar nicht erst.
 
 Zwei Gründe, beide durch Tests festgehalten:
 
-- Die kanonische Zeichnung enthält **deutsche** Überschriften, Legende und Beschriftungen. Im
-  generierten Asset überleben nur sprachneutrale Raumnummern; alles andere rendert Flutter aus der
-  l10n.
+- Die kanonischen Zeichnungen enthalten **deutsche** Überschriften, Legenden und Beschriftungen.
+  Sie bleiben als Bestandteil des jeweiligen Plans im generierten Asset erhalten und werden auch
+  bei englischer App-Sprache auf Deutsch angezeigt.
 - `flutter_svg` unterstützt **keine** `<style>`-Blöcke und verwirft die gesamte Stylesheet. Die
   CSS-Klassenregeln werden deshalb in Präsentationsattribute aufgelöst; `<marker>` und `marker-*`
   entfallen, weil der Renderer sie ignoriert.

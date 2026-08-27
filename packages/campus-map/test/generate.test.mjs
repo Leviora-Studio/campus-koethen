@@ -15,7 +15,6 @@ function outputs() {
 }
 
 const MOBILE_CATALOG = 'apps/mobile/assets/maps/map_catalog.json';
-const MOBILE_CAMPUS_SVG = 'apps/mobile/assets/maps/campus/koethen-overview.svg';
 const MOBILE_RATKE_GROUND = 'apps/mobile/assets/maps/ratke-gebaeude/ground-floor.svg';
 const MOBILE_RATKE_FIRST = 'apps/mobile/assets/maps/ratke-gebaeude/first-floor.svg';
 const MOBILE_NEW_BUILDING_FLOORS = [
@@ -54,13 +53,7 @@ test('emits exactly the expected generated files', () => {
   const { files } = outputs();
   assert.deepEqual(
     [...files.keys()].sort(),
-    [
-      MOBILE_CATALOG,
-      MOBILE_CAMPUS_SVG,
-      MOBILE_RATKE_GROUND,
-      MOBILE_RATKE_FIRST,
-      ...MOBILE_NEW_BUILDING_FLOORS,
-    ].sort(),
+    [MOBILE_CATALOG, MOBILE_RATKE_GROUND, MOBILE_RATKE_FIRST, ...MOBILE_NEW_BUILDING_FLOORS].sort(),
   );
 });
 
@@ -79,8 +72,8 @@ test('the mobile catalogue carries the mapping Flutter needs', () => {
   assert.equal(mobile.mapVersion, catalog.mapVersion);
   assert.equal(mobile.schemaVersion, catalog.schemaVersion);
   assert.equal(mobile.rooms.length, 292);
-  assert.equal(mobile.floors.length, 15);
-  assert.equal(mobile.buildings.length, 5);
+  assert.equal(mobile.floors.length, 14);
+  assert.equal(mobile.buildings.length, 4);
 
   const ratke = mobile.buildings.find((building) => building.buildingKey === 'ratke-gebaeude');
   assert.equal(ratke.buildingNumber, '23');
@@ -186,10 +179,8 @@ test('the mobile catalogue carries building and floor names, but no room prose',
   const { files } = outputs();
   const mobile = JSON.parse(files.get(MOBILE_CATALOG));
 
-  // Building and floor names are bundled ON PURPOSE. They name the map's own
-  // navigation, and a building without rooms — the campus overview — has no
-  // room DTO through which the Campus API could ever deliver them. Bundling
-  // both languages keeps the picker translated without a network round-trip.
+  // Building and floor names are bundled on purpose. They name the map's own
+  // navigation and keep the picker translated without a network round-trip.
   for (const building of mobile.buildings) {
     assert.ok(building.nameDe.length > 0, `${building.buildingKey} is missing nameDe`);
     assert.ok(building.nameEn.length > 0, `${building.buildingKey} is missing nameEn`);
@@ -199,20 +190,10 @@ test('the mobile catalogue carries building and floor names, but no room prose',
     assert.ok(floor.nameEn.length > 0, `${floor.floorKey} is missing nameEn`);
   }
 
-  const overview = mobile.buildings.find((b) => b.buildingKey === 'koethen-campus-overview');
-  assert.equal(overview.nameDe, 'Campus Köthen – Übersicht');
-  assert.equal(overview.nameEn, 'Campus Köthen – Overview');
-
-  // The app shows a different notice per kind of drawing, so the claim travels
-  // with the data and a new building cannot inherit the wrong one.
-  assert.equal(overview.planKind, 'schematic');
   assert.equal(
     mobile.buildings.find((b) => b.buildingKey === 'ratke-gebaeude').planKind,
     'schematic',
   );
-  const overviewFloor = mobile.floors.find((f) => f.floorKey === 'koethen-campus-overview-level');
-  assert.equal(overviewFloor.nameDe, 'Campusübersicht');
-  assert.equal(overviewFloor.nameEn, 'Campus overview');
 
   // Room-level prose stays with the Campus API, which serves it per locale and
   // lets the editorial team change it without an app release.
@@ -220,65 +201,6 @@ test('the mobile catalogue carries building and floor names, but no room prose',
     for (const forbidden of ['displayName', 'description', 'nameDe', 'nameEn']) {
       assert.ok(!(forbidden in room), `room ${room.roomKey} must not carry ${forbidden}`);
     }
-  }
-});
-
-test('a floor without rooms is generated and carries no rooms', () => {
-  const { files } = outputs();
-  const mobile = JSON.parse(files.get(MOBILE_CATALOG));
-
-  const overviewFloor = mobile.floors.find((f) => f.floorKey === 'koethen-campus-overview-level');
-  assert.ok(overviewFloor, 'the campus overview floor must be generated');
-  assert.equal(overviewFloor.svgAsset, 'assets/maps/campus/koethen-overview.svg');
-  assert.equal(overviewFloor.viewBox.width, 1748);
-  assert.equal(overviewFloor.viewBox.height, 900);
-  assert.equal(
-    mobile.rooms.filter((r) => r.floorKey === 'koethen-campus-overview-level').length,
-    0,
-  );
-  // No invented geometry sneaks in through the second building either.
-  assert.equal(mobile.rooms.filter((r) => r.buildingKey === 'koethen-campus-overview').length, 0);
-});
-
-test('the campus overview keeps its building groups and drops German labels', () => {
-  const { files } = outputs();
-  const svg = files.get(MOBILE_CAMPUS_SVG);
-  const root = parseSvgDocument(svg);
-
-  const keys = [];
-  let uses = 0;
-  let defs = 0;
-  for (const element of walkElements(root)) {
-    if (element.attrs?.['data-building-key']) keys.push(element.attrs['data-building-key']);
-    if (element.name === 'use') uses += 1;
-    if (element.name === 'defs') defs += 1;
-  }
-  assert.equal(keys.length, 21, 'all 21 building groups must survive generation');
-  assert.equal(new Set(keys).size, 21, 'building keys must stay unique');
-
-  // Local fragment references are kept because flutter_svg renders them; a
-  // pixel probe in the Flutter suite is what actually proves that.
-  assert.equal(defs, 1);
-  assert.ok(uses > 0, '<use> references must survive');
-
-  // Language-neutral building codes stay; German category words do not. The
-  // check walks TEXT NODES rather than the raw string: `data-building-number`
-  // still carries "Mensa" as metadata, and metadata renders nothing.
-  const rendered = [];
-  for (const element of walkElements(root)) {
-    assert.ok(!['title', 'desc'].includes(element.name), `<${element.name}> must be stripped`);
-    if (element.name !== 'text' && element.name !== 'tspan') continue;
-    const value = (element.children ?? [])
-      .filter((child) => child.type === 'text')
-      .map((child) => child.value.trim())
-      .join('')
-      .trim();
-    if (value.length > 0) rendered.push(value);
-  }
-  assert.ok(rendered.includes('TZK'), 'neutral building codes must survive');
-  assert.ok(rendered.includes('Bernburger Straße'), 'street proper nouns must survive');
-  for (const german of ['Mensa', 'KITA', 'Richtung City']) {
-    assert.ok(!rendered.includes(german), `"${german}" must not be drawn in the asset`);
   }
 });
 
@@ -294,7 +216,20 @@ test('the mobile SVG keeps every room element and its geometry', () => {
   }
 });
 
-test('the Ratke assets keep every room and only language-neutral room numbers', () => {
+test('the mobile floor plans keep their German labels and legends', () => {
+  const { files } = outputs();
+  const ratkeGround = files.get(MOBILE_RATKE_GROUND);
+  const redBasement = files.get('apps/mobile/assets/maps/koethen-01/basement.svg');
+
+  for (const label of ['Erdgeschoss', 'Mensa', 'Haupteingang', 'Raum', 'Sanitär']) {
+    assert.ok(ratkeGround.includes(`>${label}<`), `Ratke plan is missing "${label}"`);
+  }
+  for (const label of ['Kellergeschoss', 'Innenhof', 'Werkstatt', 'Treppe / Technik']) {
+    assert.ok(redBasement.includes(`>${label}<`), `Building 01 plan is missing "${label}"`);
+  }
+});
+
+test('the Ratke assets keep every approved room', () => {
   const { files, catalog } = outputs();
   const cases = [
     [MOBILE_RATKE_GROUND, 'ratke-gebaeude-ground-floor', 28],
@@ -305,22 +240,11 @@ test('the Ratke assets keep every room and only language-neutral room numbers', 
     const rooms = findRooms(root);
     assert.equal(rooms.length, count);
     assert.equal(new Set(rooms.map((room) => room.attrs['data-room-key'])).size, count);
-    const expectedNumbers = new Set(
-      catalog.rooms.filter((room) => room.floorKey === floorKey).map((room) => room.roomNumber),
-    );
-    for (const element of walkElements(root)) {
-      if (element.name !== 'text' && element.name !== 'tspan') continue;
-      const value = (element.children ?? [])
-        .filter((child) => child.type === 'text')
-        .map((child) => child.value.trim())
-        .join('')
-        .trim();
-      if (value.length > 0) assert.ok(expectedNumbers.has(value), `unexpected text: ${value}`);
-    }
+    assert.equal(catalog.rooms.filter((room) => room.floorKey === floorKey).length, count);
   }
 });
 
-test('the new building assets keep every approved room and no surrounding prose', () => {
+test('the new building assets keep every approved room and supported SVG constructs', () => {
   const { files, catalog } = outputs();
   const floors = catalog.floors.filter(
     (floor) =>
@@ -340,46 +264,9 @@ test('the new building assets keep every approved room and no surrounding prose'
       `${floor.floorKey} room keys`,
     );
 
-    const expectedNumbers = new Set(
-      catalog.rooms
-        .filter((room) => room.floorKey === floor.floorKey)
-        .flatMap((room) => [room.roomNumber, room.roomNumber.replace(/-0$/, '')]),
-    );
     for (const element of walkElements(root)) {
       assert.ok(!['title', 'desc', 'style'].includes(element.name));
-      if (element.name !== 'text' && element.name !== 'tspan') continue;
-      const value = (element.children ?? [])
-        .filter((child) => child.type === 'text')
-        .map((child) => child.value.trim())
-        .join('')
-        .trim();
-      if (value.length > 0) {
-        assert.ok(expectedNumbers.has(value), `${floor.floorKey} has unexpected text: ${value}`);
-      }
     }
-  }
-});
-
-test('the mobile SVG contains no language-specific text beyond room numbers', () => {
-  const { files, catalog } = outputs();
-  const root = parseSvgDocument(files.get(MOBILE_SVG));
-  const numbers = new Set(catalog.rooms.map((r) => r.roomNumber));
-
-  for (const element of walkElements(root)) {
-    if (['title', 'desc'].includes(element.name)) {
-      assert.fail(`<${element.name}> carries prose and must be stripped`);
-    }
-    if (element.name !== 'text' && element.name !== 'tspan') continue;
-    const value = (element.children ?? [])
-      .filter((child) => child.type === 'text')
-      .map((child) => child.value.trim())
-      .join('')
-      .trim();
-    if (value.length === 0) continue;
-    assert.ok(
-      numbers.has(value),
-      `"${value}" is prose; only language-neutral room numbers may remain`,
-    );
   }
 });
 

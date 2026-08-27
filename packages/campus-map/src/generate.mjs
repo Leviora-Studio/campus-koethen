@@ -13,17 +13,13 @@
  *     served per locale by the Campus API, so bundling them would bypass the
  *     DE/EN contract and freeze editorial text into a release.
  *
- *     BUILDING and FLOOR names are bundled in both languages, because they
- *     name the map's own navigation rather than editorial content — and a
- *     building without rooms, such as the campus overview, has no room DTO
- *     through which the API could ever deliver them. Bundling both languages
- *     keeps the picker translated and works offline.
+ *     BUILDING and FLOOR names are bundled in both languages because they name
+ *     the map's own navigation rather than editorial content. Bundling both
+ *     languages keeps the picker translated and works offline.
  *
- *  2. A cleaned SVG carrying geometry and language-neutral room numbers only.
- *     The canonical drawing contains German headings, a German legend and
- *     German facility/room-type labels; shipping those would violate the
- *     "no hardcoded visible text" rule, so headings, legend and every prose
- *     label are stripped and rendered from Flutter l10n instead.
+ *  2. A cleaned SVG carrying geometry and the German labels from the approved
+ *     source plan. The labels and legends are part of the drawing rather than
+ *     Flutter UI copy and deliberately remain German in both app locales.
  *
  * Generation is pure: `buildOutputs` returns an in-memory map and throws on an
  * invalid catalogue, so a failed run can never leave half-written files behind.
@@ -41,26 +37,7 @@ export const REPO_ROOT = join(PACKAGE_ROOT, '..', '..');
 const MOBILE_ASSET_DIR = 'apps/mobile/assets/maps';
 const FLUTTER_ASSET_PREFIX = 'assets/maps';
 
-/** Groups whose only purpose is German prose. */
-const DROPPED_GROUP_IDS = new Set(['header', 'footer', 'legend']);
-/**
- * Text is handled with an ALLOWLIST, not a denylist: only classes that are
- * genuinely language-neutral survive. A denylist looked simpler but silently
- * leaked German prose the first time the drawing gained a class nobody had
- * listed (`entrance-text`), so anything unrecognised is now dropped by default
- * and rendered from Flutter l10n instead.
- */
-const KEPT_TEXT_CLASSES = new Set(['room-number', 'map-label']);
 const DROPPED_ELEMENTS = new Set(['title', 'desc']);
-
-/**
- * `map-label` marks the cartographic labels of the campus overview that carry
- * no language: building codes (`01`, `W VII`, `TZK`), street proper nouns and
- * scale-bar distances. The German category words on that drawing — `Mensa`,
- * `KITA`, `Richtung City` — deliberately do NOT carry the class and therefore
- * never reach the bundle, exactly as `Hörsaal` and `Aufzug` do not reach it
- * from the floor plan.
- */
 
 /**
  * Elements and attributes the Flutter renderer cannot handle.
@@ -159,22 +136,17 @@ function resolvedStyle(element, rules) {
   return resolved;
 }
 
-/** True when a node carries prose that must not ship inside the asset. */
+/** True when a node is unsupported or carries redundant SVG metadata. */
 function isDropped(node) {
   if (node.type === 'comment') return true;
   if (node.type !== 'element' && !node.name) return false;
   if (DROPPED_ELEMENTS.has(node.name)) return true;
   if (UNSUPPORTED_ELEMENTS.has(node.name)) return true;
-  if (node.name === 'g' && DROPPED_GROUP_IDS.has(node.attrs?.id)) return true;
-  if (node.name === 'text' || node.name === 'tspan') {
-    const classes = classesOf(node);
-    return ![...classes].some((name) => KEPT_TEXT_CLASSES.has(name));
-  }
   return false;
 }
 
 /**
- * Serialises a node tree back to XML, dropping prose nodes.
+ * Serialises a node tree back to XML, preserving visible map text.
  * Attribute order follows the source, so the output is reproducible.
  */
 function serialise(node, rules, indent = 0) {
@@ -220,13 +192,13 @@ function serialise(node, rules, indent = 0) {
 }
 
 /**
- * Attributes on the root that only make sense together with the prose nodes
+ * Attributes on the root that only make sense together with the metadata nodes
  * this generator strips. Accessibility text comes from Flutter Semantics, so a
  * reference to a removed `<title>`/`<desc>` would just dangle.
  */
 const DROPPED_ROOT_ATTRS = ['aria-labelledby', 'aria-describedby'];
 
-/** The cleaned, language-neutral SVG that ships with the app. */
+/** The cleaned SVG that ships with the app. */
 export function buildMobileSvg(root) {
   const cleanedRoot = {
     ...root,
