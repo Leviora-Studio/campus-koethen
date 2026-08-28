@@ -83,10 +83,8 @@ class AppShell extends ConsumerWidget {
       bottomNavigationBar: TaktNavigationBar(
         semanticLabel: l10n.navigationSemanticLabel,
         selectedIndex: selected,
-        onSelected: (int barIndex) => navigationShell.goBranch(
-          branchOf(barIndex),
-          initialLocation: true,
-        ),
+        onSelected: (int barIndex) =>
+            navigationShell.goBranch(branchOf(barIndex), initialLocation: true),
         destinations: <TaktDestination>[
           for (final AppModule module in tabs)
             TaktDestination(
