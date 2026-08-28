@@ -85,9 +85,7 @@ class AppShell extends ConsumerWidget {
         selectedIndex: selected,
         onSelected: (int barIndex) => navigationShell.goBranch(
           branchOf(barIndex),
-          // Tapping the tab you are already on returns to that module's
-          // root — the behaviour both platforms have trained users to expect.
-          initialLocation: branchOf(barIndex) == navigationShell.currentIndex,
+          initialLocation: true,
         ),
         destinations: <TaktDestination>[
           for (final AppModule module in tabs)
