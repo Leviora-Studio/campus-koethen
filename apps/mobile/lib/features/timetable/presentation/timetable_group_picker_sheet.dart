@@ -59,7 +59,9 @@ Future<void> showTimetableGroupPickerSheet(
 
 /// Searchable list of all study groups. Exactly one group can be selected.
 class TimetableGroupPickerList extends ConsumerStatefulWidget {
-  const TimetableGroupPickerList({super.key});
+  const TimetableGroupPickerList({this.dismissOnSelection = true, super.key});
+
+  final bool dismissOnSelection;
 
   @override
   ConsumerState<TimetableGroupPickerList> createState() =>
@@ -101,7 +103,7 @@ class _TimetableGroupPickerListState
       groupValue: selected,
       onChanged: (String? value) async {
         await ref.read(settingsProvider.notifier).setTimetableGroup(value);
-        if (mounted) await navigator.maybePop();
+        if (mounted && widget.dismissOnSelection) await navigator.maybePop();
       },
       child: CustomScrollView(
         slivers: <Widget>[

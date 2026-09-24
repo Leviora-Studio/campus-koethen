@@ -103,7 +103,7 @@ class _CanteenScreenState extends ConsumerState<CanteenScreen>
           tooltip: l10n.canteenFavouritesTitle,
           onPressed: () =>
               GoRouter.of(context).push(AppRoutes.canteenFavourites),
-          icon: const Icon(AppIcons.star_outline),
+          icon: const Icon(AppIcons.star),
         ),
         if (slug != null) ...<Widget>[
           IconButton(

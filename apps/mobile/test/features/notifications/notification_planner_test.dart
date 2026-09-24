@@ -161,7 +161,7 @@ void main() {
       );
     });
 
-    test('a fixed-time category outside the window is dropped, not moved', () {
+    test('the chosen overview time is allowed outside the delivery window', () {
       final tz.TZDateTime now = tz.TZDateTime(berlin, 2026, 9, 1);
       final NotificationPlan plan = planIn(berlin, now, <NotificationRequest>[
         NotificationRequest(
@@ -173,12 +173,12 @@ void main() {
         ),
       ]);
 
-      expect(plan.notifications, isEmpty);
+      expect(plan.notifications.single.scheduledAt.hour, 4);
       expect(
         plan.diagnostics.droppedFor(
           NotificationDropReason.outsideDeliveryWindow,
         ),
-        1,
+        0,
       );
     });
   });

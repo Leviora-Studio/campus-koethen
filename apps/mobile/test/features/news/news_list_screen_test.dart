@@ -140,7 +140,8 @@ void main() {
   ) async {
     await _pumpFeed(tester, adapter: workingApi());
 
-    expect(find.text('Campus News'), findsOneWidget);
+    // The title and its byline may carry the same exact channel name.
+    expect(find.text('Campus News'), findsNWidgets(2));
     expect(find.text('Semesterstart 2026'), findsOneWidget);
     // Exactly one action at the top, and no search.
     expect(find.byType(IconButton), findsOneWidget);

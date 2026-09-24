@@ -84,6 +84,17 @@ void main() {
     expect(find.textContaining('3,20'), findsOneWidget);
   });
 
+  testWidgets('tapping the meal name opens its price overview', (
+    WidgetTester tester,
+  ) async {
+    await _pump(tester);
+
+    await tester.tap(find.text('Bulgur-Pfanne'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Preisübersicht'), findsOneWidget);
+  });
+
   testWidgets('uses the supplied price colours in light and dark mode', (
     WidgetTester tester,
   ) async {

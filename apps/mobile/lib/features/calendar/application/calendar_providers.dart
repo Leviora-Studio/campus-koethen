@@ -144,11 +144,15 @@ class CalendarEnabledSourcesController extends Notifier<Set<CalendarSource>> {
             .whereType<CalendarSource>()
             .toSet();
     return kMergeableCalendarSources
-        .where((CalendarSource s) => !off.contains(s))
+        .where(
+          (CalendarSource s) =>
+              s == CalendarSource.publicCalendar || !off.contains(s),
+        )
         .toSet();
   }
 
   Future<void> toggle(CalendarSource source) async {
+    if (source == CalendarSource.publicCalendar) return;
     final Set<CalendarSource> next = <CalendarSource>{...state};
     if (!next.remove(source)) next.add(source);
     state = next;
@@ -278,32 +282,59 @@ class CalendarDateWindow {
   final DateTime to;
 }
 
-/// Today plus the following 119 calendar days: exactly 120 days inclusive.
-CalendarDateWindow calendarListWindow(DateTime now) {
+/// The backend's advertised horizon, shifted with today so a cached catalogue
+/// does not gradually shorten the list. Older deployments keep their former
+/// 120-day window until they can provide the metadata.
+CalendarDateWindow calendarListWindow(
+  DateTime now,
+  String? availableFrom,
+  String? availableTo,
+) {
   final DateTime today = calendarDayKey(now);
-  return CalendarDateWindow(from: today, to: TimetableWeek.shift(today, 119));
+  final DateTime? parsedFrom = availableFrom == null
+      ? null
+      : DateTime.tryParse(availableFrom);
+  final DateTime? parsedTo = availableTo == null
+      ? null
+      : DateTime.tryParse(availableTo);
+  final int? horizonDays = parsedFrom == null || parsedTo == null
+      ? null
+      : DateTime.utc(parsedTo.year, parsedTo.month, parsedTo.day)
+            .difference(
+              DateTime.utc(parsedFrom.year, parsedFrom.month, parsedFrom.day),
+            )
+            .inDays;
+  final DateTime end = horizonDays == null
+      ? TimetableWeek.shift(today, 119)
+      : TimetableWeek.shift(today, horizonDays < 0 ? 0 : horizonDays);
+  return CalendarDateWindow(from: today, to: end);
 }
 
-/// Keeps entries whose start day lies inside [window], including both bounds.
-List<CalendarEntry> calendarEntriesInWindow(
-  Iterable<CalendarEntry> entries,
+/// Breaks an inclusive range into backend-sized requests without gaps.
+List<CalendarDateWindow> splitCalendarWindow(
   CalendarDateWindow window,
-) => entries
-    .where(
-      (CalendarEntry entry) =>
-          !entry.day.isBefore(window.from) && !entry.day.isAfter(window.to),
-    )
-    .toList(growable: false);
-
-List<DateTime> _weekStartsForWindow(CalendarDateWindow window) {
-  final List<DateTime> starts = <DateTime>[];
-  DateTime cursor = TimetableWeek.startOf(window.from);
+  int maxDays,
+) {
+  if (maxDays < 1) throw ArgumentError.value(maxDays, 'maxDays');
+  final List<CalendarDateWindow> parts = <CalendarDateWindow>[];
+  DateTime cursor = window.from;
   while (!cursor.isAfter(window.to)) {
-    starts.add(cursor);
-    cursor = TimetableWeek.shift(cursor, TimetableWeek.lengthInDays);
+    final DateTime candidate = TimetableWeek.shift(cursor, maxDays - 1);
+    final DateTime end = candidate.isAfter(window.to) ? window.to : candidate;
+    parts.add(CalendarDateWindow(from: cursor, to: end));
+    cursor = TimetableWeek.shift(end, 1);
   }
-  return starts;
+  return parts;
 }
+
+/// The list has no future cut-off: Moodle and saved entries can be arbitrarily
+/// far ahead, while backend sources supply their own advertised horizons.
+List<CalendarEntry> calendarEntriesFrom(
+  Iterable<CalendarEntry> entries,
+  DateTime from,
+) => entries
+    .where((CalendarEntry entry) => !entry.day.isBefore(calendarDayKey(from)))
+    .toList(growable: false);
 
 /// The aggregated calendar for the month around [anchor].
 ///
@@ -349,11 +380,7 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>(
   isAutoDispose: true,
 );
 
-/// The rolling 120-day aggregation used only by the list view.
-///
-/// The public calendar source can serve the complete window in one request.
-/// Timetable data keeps using its existing week-sized requests because that
-/// endpoint deliberately accepts a smaller maximum range.
+/// The list reads every source to the horizon advertised by its backend.
 final calendarListDataProvider = Provider.family<CalendarData, DateTime>(
   (Ref ref, DateTime today) =>
       ref.watch(_calendarListDataProvider(calendarDayKey(today))),
@@ -364,14 +391,28 @@ final _calendarListDataProvider = Provider.family<CalendarData, DateTime>((
   Ref ref,
   DateTime today,
 ) {
-  final CalendarDateWindow window = calendarListWindow(today);
+  final String? groupId = ref.watch(selectedTimetableGroupIdProvider);
+  final AsyncValue<Loaded<List<TimetableGroup>>>? groups = groupId == null
+      ? null
+      : ref.watch(timetableGroupsProvider);
+  final List<CalendarDateWindow> timetableRanges =
+      groups != null && groups.isLoading && groups.value == null
+      ? const <CalendarDateWindow>[]
+      : splitCalendarWindow(
+          calendarListWindow(
+            today,
+            groups?.value?.meta.from,
+            groups?.value?.meta.to,
+          ),
+          42,
+        );
   return _buildCalendarData(
     ref,
-    timetableWeekStarts: _weekStartsForWindow(window),
-    publicCalendarEntries: ref.watch(
-      publicCalendarListEntriesProvider(window.from),
-    ),
-    window: window,
+    timetableWeekStarts: const <DateTime>[],
+    timetableRanges: timetableRanges,
+    timetableMetadataLoading: groups?.isLoading ?? false,
+    publicCalendarEntries: ref.watch(publicCalendarListEntriesProvider(today)),
+    windowFrom: today,
   );
 }, isAutoDispose: true);
 
@@ -379,13 +420,15 @@ CalendarData _buildCalendarData(
   Ref ref, {
   required List<DateTime> timetableWeekStarts,
   required AsyncValue<List<CalendarEntry>> publicCalendarEntries,
-  CalendarDateWindow? window,
+  List<CalendarDateWindow>? timetableRanges,
+  bool timetableMetadataLoading = false,
+  DateTime? windowFrom,
 }) {
   final Set<CalendarSource> enabled = ref.watch(calendarEnabledSourcesProvider);
 
   // --- Source 1: timetable (Campus API), one week provider per visible week.
   final List<CalendarEntry> timetableEntries = <CalendarEntry>[];
-  bool timetableLoading = false;
+  bool timetableLoading = timetableMetadataLoading;
   bool timetableError = false;
   bool needsGroup = false;
   if (enabled.contains(CalendarSource.timetable)) {
@@ -393,18 +436,40 @@ CalendarData _buildCalendarData(
     if (groupId == null) {
       needsGroup = true;
     } else {
-      for (final DateTime weekStart in timetableWeekStarts) {
-        final AsyncValue<Loaded<Timetable>> week = ref.watch(
-          timetableWeekProvider(
-            TimetableWeekRequest(groupId: groupId, weekStart: weekStart),
-          ),
-        );
-        week.when(
-          data: (Loaded<Timetable> loaded) =>
-              timetableEntries.addAll(timetableToCalendarEntries(loaded.value)),
-          loading: () => timetableLoading = true,
-          error: (_, _) => timetableError = true,
-        );
+      if (timetableRanges != null) {
+        for (final CalendarDateWindow range in timetableRanges) {
+          final AsyncValue<Loaded<Timetable>> result = ref.watch(
+            timetableRangeProvider(
+              TimetableRangeRequest(
+                groupId: groupId,
+                from: range.from,
+                to: range.to,
+              ),
+            ),
+          );
+          result.when(
+            data: (Loaded<Timetable> loaded) => timetableEntries.addAll(
+              timetableToCalendarEntries(loaded.value),
+            ),
+            loading: () => timetableLoading = true,
+            error: (_, _) => timetableError = true,
+          );
+        }
+      } else {
+        for (final DateTime weekStart in timetableWeekStarts) {
+          final AsyncValue<Loaded<Timetable>> week = ref.watch(
+            timetableWeekProvider(
+              TimetableWeekRequest(groupId: groupId, weekStart: weekStart),
+            ),
+          );
+          week.when(
+            data: (Loaded<Timetable> loaded) => timetableEntries.addAll(
+              timetableToCalendarEntries(loaded.value),
+            ),
+            loading: () => timetableLoading = true,
+            error: (_, _) => timetableError = true,
+          );
+        }
       }
     }
   }
@@ -472,7 +537,9 @@ CalendarData _buildCalendarData(
     ...savedEventEntries,
   ]);
   return CalendarData(
-    entries: window == null ? merged : calendarEntriesInWindow(merged, window),
+    entries: windowFrom == null
+        ? merged
+        : calendarEntriesFrom(merged, windowFrom),
     enabledSources: enabled,
     timetableLoading: timetableLoading,
     moodleLoading: moodleLoading,

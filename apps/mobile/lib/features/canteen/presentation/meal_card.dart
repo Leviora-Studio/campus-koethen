@@ -86,127 +86,140 @@ class MealCard extends StatelessWidget {
         meal.sourceLanguage == 'de' &&
         Localizations.localeOf(context).languageCode != 'de';
 
-    return Panel(
-      live: isHighlighted,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (isHighlighted)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Text(
-                l10n.canteenHighlightedByNotification,
-                style: context.type.eyebrow.copyWith(color: colors.primary),
-              ),
-            ),
-          if (meal.isSprint)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Semantics(
-                label: l10n.canteenSprintSemanticLabel,
-                excludeSemantics: true,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      AppIcons.bolt_outlined,
-                      size: AppSizes.iconSmall,
-                      color: colors.primary,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      l10n.canteenSprintLabel,
-                      style: context.type.eyebrow.copyWith(
-                        color: colors.primary,
-                      ),
-                    ),
-                  ],
+    return Semantics(
+      container: true,
+      button: true,
+      label: l10n.canteenPriceOverviewOpenSemantic(meal.name),
+      explicitChildNodes: true,
+      child: Panel(
+        live: isHighlighted,
+        onTap: () => showMealPriceOverviewSheet(
+          context,
+          meal: meal,
+          priceGroup: priceGroup,
+          knownPriceGroups: knownPriceGroups,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (isHighlighted)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Text(
+                  l10n.canteenHighlightedByNotification,
+                  style: context.type.eyebrow.copyWith(color: colors.primary),
                 ),
               ),
-            ),
-
-          // Dish and price on one line. The price column is right-aligned and
-          // monospaced, so a list of meals has a straight edge of numbers.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
+            if (meal.isSprint)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: Semantics(
-                  header: true,
-                  label: <String>[
-                    if (isFavourite) l10n.canteenFavouriteSemantic,
-                    meal.name,
-                    if (showsOriginalLanguage) l10n.canteenMealOriginalLanguage,
-                  ].join('. '),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  label: l10n.canteenSprintSemanticLabel,
+                  excludeSemantics: true,
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(meal.name, style: text.titleMedium),
-                      if (showsOriginalLanguage)
-                        Text(
-                          l10n.canteenMealOriginalLanguage,
-                          style: text.bodySmall?.copyWith(
-                            color: colors.textSecondary,
-                          ),
+                      Icon(
+                        AppIcons.bolt_outlined,
+                        size: AppSizes.iconSmall,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        l10n.canteenSprintLabel,
+                        style: context.type.eyebrow.copyWith(
+                          color: colors.primary,
                         ),
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              _Price(
-                price: meal.priceFor(priceGroup),
-                meal: meal,
-                priceGroup: priceGroup,
-                knownPriceGroups: knownPriceGroups,
+
+            // Dish and price on one line. The price column is right-aligned and
+            // monospaced, so a list of meals has a straight edge of numbers.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    label: <String>[
+                      if (isFavourite) l10n.canteenFavouriteSemantic,
+                      meal.name,
+                      if (showsOriginalLanguage)
+                        l10n.canteenMealOriginalLanguage,
+                    ].join('. '),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(meal.name, style: text.titleMedium),
+                        if (showsOriginalLanguage)
+                          Text(
+                            l10n.canteenMealOriginalLanguage,
+                            style: text.bodySmall?.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                _Price(price: meal.priceFor(priceGroup)),
+              ],
+            ),
+
+            if (meal.subtitle != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                meal.subtitle!,
+                style: text.bodyMedium?.copyWith(color: colors.textSecondary),
               ),
             ],
-          ),
 
-          if (meal.subtitle != null) ...<Widget>[
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              meal.subtitle!,
-              style: text.bodyMedium?.copyWith(color: colors.textSecondary),
-            ),
-          ],
-
-          if (meal.extras.isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.md),
-            _LabelledWrap(label: l10n.canteenExtrasLabel, values: meal.extras),
-          ],
-          if (meal.nonIngredientMarkers.isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.md),
-            _LabelledWrap(
-              label: l10n.canteenMarkersLabel,
-              values: meal.nonIngredientMarkers
-                  .map((MealMarker marker) => marker.label)
-                  .toList(growable: false),
-            ),
-          ],
-
-          if (onToggleFavourite != null)
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              // Compact density is fine visually, but it also shrinks the tap
-              // target to about 40 dp — under the project's own 48 dp floor,
-              // on the main action of the card. The constraints keep the
-              // target while leaving the padding tight.
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(
-                  minWidth: AppSizes.minTouchTarget,
-                  minHeight: AppSizes.minTouchTarget,
-                ),
-                tooltip: isFavourite
-                    ? l10n.canteenFavouriteRemove
-                    : l10n.canteenFavouriteAdd,
-                onPressed: onToggleFavourite,
-                icon: Icon(isFavourite ? AppIcons.star : AppIcons.star_border),
+            if (meal.extras.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.md),
+              _LabelledWrap(
+                label: l10n.canteenExtrasLabel,
+                values: meal.extras,
               ),
-            ),
-        ],
+            ],
+            if (meal.nonIngredientMarkers.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.md),
+              _LabelledWrap(
+                label: l10n.canteenMarkersLabel,
+                values: meal.nonIngredientMarkers
+                    .map((MealMarker marker) => marker.label)
+                    .toList(growable: false),
+              ),
+            ],
+
+            if (onToggleFavourite != null)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                // Compact density is fine visually, but it also shrinks the tap
+                // target to about 40 dp — under the project's own 48 dp floor,
+                // on the main action of the card. The constraints keep the
+                // target while leaving the padding tight.
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(
+                    minWidth: AppSizes.minTouchTarget,
+                    minHeight: AppSizes.minTouchTarget,
+                  ),
+                  tooltip: isFavourite
+                      ? l10n.canteenFavouriteRemove
+                      : l10n.canteenFavouriteAdd,
+                  onPressed: onToggleFavourite,
+                  icon: Icon(
+                    isFavourite ? AppIcons.star : AppIcons.star_border,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -251,17 +264,9 @@ class _LabelledWrap extends StatelessWidget {
 /// A missing price is never replaced by another group's: that would be a
 /// different number for a different person, presented as if it were theirs.
 class _Price extends StatelessWidget {
-  const _Price({
-    required this.price,
-    required this.meal,
-    required this.priceGroup,
-    required this.knownPriceGroups,
-  });
+  const _Price({required this.price});
 
   final MealPrice? price;
-  final Meal meal;
-  final String priceGroup;
-  final List<MealPrice> knownPriceGroups;
 
   @override
   Widget build(BuildContext context) {
@@ -272,10 +277,7 @@ class _Price extends StatelessWidget {
     final MealPrice? price = this.price;
 
     final Widget content;
-    final String semanticLabel;
-
     if (price == null) {
-      semanticLabel = l10n.canteenPriceForGroupMissing;
       content = ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 120),
         child: Text(
@@ -295,7 +297,6 @@ class _Price extends StatelessWidget {
           ) ??
           l10n.canteenPriceMissing;
 
-      semanticLabel = l10n.canteenPriceSemanticLabel(price.label, formatted);
       content = Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
@@ -323,34 +324,14 @@ class _Price extends StatelessWidget {
       );
     }
 
-    return Semantics(
-      container: true,
-      button: true,
-      label:
-          '${l10n.canteenPriceOverviewOpenSemantic(meal.name)}. '
-          '$semanticLabel',
-      excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: AppSizes.minTouchTarget,
-          minHeight: AppSizes.minTouchTarget,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            onTap: () => showMealPriceOverviewSheet(
-              context,
-              meal: meal,
-              priceGroup: priceGroup,
-              knownPriceGroups: knownPriceGroups,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-              child: Align(alignment: Alignment.centerRight, child: content),
-            ),
-          ),
-        ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: AppSizes.minTouchTarget,
+        minHeight: AppSizes.minTouchTarget,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Align(alignment: Alignment.centerRight, child: content),
       ),
     );
   }

@@ -193,7 +193,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('@Campus Events'), findsOneWidget);
+      expect(find.text('Campus Events'), findsOneWidget);
     });
 
     testWidgets('shows the loading view while both sources are still pending', (

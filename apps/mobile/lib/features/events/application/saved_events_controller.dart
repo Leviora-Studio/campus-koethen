@@ -8,8 +8,7 @@ import '../domain/saved_event_snapshot.dart';
 import '../domain/saved_events_rules.dart';
 import '../domain/unified_event.dart';
 
-/// Riverpod front end of [SavedEventsStore], applying the cap, orphan and
-/// retention rules from `saved_events_rules.dart` around plain persistence.
+/// Riverpod front end of [SavedEventsStore], applying the cap and orphan rules from `saved_events_rules.dart` around plain persistence.
 class SavedEventsController extends AsyncNotifier<List<SavedEventSnapshot>> {
   SavedEventsStore get _store => ref.read(savedEventsStoreProvider);
   DateTime Function() get _now => ref.read(savedEventsClockProvider);
@@ -17,14 +16,7 @@ class SavedEventsController extends AsyncNotifier<List<SavedEventSnapshot>> {
   @override
   Future<List<SavedEventSnapshot>> build() async {
     final List<SavedEventSnapshot> loaded = await _store.readAll();
-    // The 365-day cleanup runs opportunistically on every load — no
-    // background job is needed for a locally-owned list this small.
-    final List<SavedEventSnapshot> pruned = pruneExpiredSavedEvents(
-      loaded,
-      now: _now(),
-    );
-    if (pruned.length != loaded.length) await _store.writeAll(pruned);
-    return pruned;
+    return loaded;
   }
 
   /// Saves [event]. Silently declines once the 500-entry cap is reached
@@ -47,8 +39,7 @@ class SavedEventsController extends AsyncNotifier<List<SavedEventSnapshot>> {
     return true;
   }
 
-  /// Explicit user removal — the only removal path besides the automatic
-  /// 365-day-after-end cleanup.
+  /// Explicit user removal is the only removal path.
   Future<void> remove(String eventRef) async {
     final List<SavedEventSnapshot> current =
         state.value ?? const <SavedEventSnapshot>[];
@@ -134,8 +125,8 @@ final Provider<Set<String>> savedEventRefsProvider = Provider<Set<String>>((
   };
 });
 
-/// Overridable clock, so tests can control "now" for the retention/orphan
-/// rules without depending on the wall clock.
+/// Overridable clock, so tests can control "now" for saving and orphan
+/// reconciliation without depending on the wall clock.
 final Provider<DateTime Function()> savedEventsClockProvider =
     Provider<DateTime Function()>((Ref ref) => DateTime.now);
 

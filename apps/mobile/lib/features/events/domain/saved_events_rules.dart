@@ -6,9 +6,6 @@ import 'saved_event_snapshot.dart';
 /// Maximum number of entries the saved-events list keeps.
 const int kSavedEventsCap = 500;
 
-/// How long a saved event survives past its end before automatic cleanup.
-const Duration kSavedEventsRetention = Duration(days: 365);
-
 /// Whether a new entry may be added without exceeding [kSavedEventsCap].
 bool canAddSavedEvent(
   List<SavedEventSnapshot> current, {
@@ -47,20 +44,6 @@ List<SavedEventSnapshot> reconcileOrphanStatus({
     final bool present = loadedEventRefs.contains(snapshot.eventRef);
     if (present == !snapshot.isOrphaned) return snapshot;
     return snapshot.copyWith(isOrphaned: !present);
-  }).toList();
-}
-
-/// Drops every snapshot whose reference point (end, or start when it has no
-/// end) is more than [kSavedEventsRetention] in the past — the automatic
-/// 365-day-after-end cleanup. Never touches an entry still inside the
-/// retention window, however old [now] otherwise is.
-List<SavedEventSnapshot> pruneExpiredSavedEvents(
-  List<SavedEventSnapshot> saved, {
-  required DateTime now,
-}) {
-  return saved.where((SavedEventSnapshot snapshot) {
-    final DateTime reference = snapshot.end ?? snapshot.start;
-    return now.difference(reference) < kSavedEventsRetention;
   }).toList();
 }
 

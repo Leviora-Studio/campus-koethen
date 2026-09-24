@@ -177,7 +177,7 @@ void main() {
     );
 
     test(
-      'hiding public calendars from the calendar view changes nothing',
+      'the removed global public-calendar switch cannot change the plan',
       () async {
         final ProviderContainer container = await containerWith(
           live: <CalendarEntry>[liveEvent()],
@@ -192,7 +192,7 @@ void main() {
           container
               .read(calendarEnabledSourcesProvider)
               .contains(CalendarSource.publicCalendar),
-          isFalse,
+          isTrue,
         );
         expect(entryIds(container), before);
       },

@@ -346,7 +346,7 @@ void main() {
       expect(find.text('Nicht verbunden'), findsOneWidget);
     });
 
-    testWidgets('marks a hidden source by a different glyph, not by a tint', (
+    testWidgets('ignores a legacy global public-calendar hide setting', (
       WidgetTester tester,
     ) async {
       final InMemoryKeyValueStore store = InMemoryKeyValueStore();
@@ -357,14 +357,14 @@ void main() {
       await pumpCalendar(tester, store: store);
       await openSources(tester);
 
-      // Three states, three glyphs: showing, switched off, and no account
-      // yet. None of them is told apart by a tint.
+      // Public calendars are now controlled individually, so a persisted
+      // all-calendars-off value must no longer hide them.
       Finder inSheet(IconData icon) => find.descendant(
         of: find.byType(ListTile),
         matching: find.byIcon(icon),
       );
 
-      expect(inSheet(AppIcons.visibility_off_outlined), findsOneWidget);
+      expect(inSheet(AppIcons.visibility_off_outlined), findsNothing);
       expect(inSheet(AppIcons.link_off), findsOneWidget);
       expect(
         inSheet(calendarSourceIcon(CalendarSource.timetable)),
@@ -372,16 +372,15 @@ void main() {
       );
       expect(
         inSheet(calendarSourceIcon(CalendarSource.publicCalendar)),
-        findsNothing,
-        reason: 'the hidden source shows the crossed-out eye in its place',
+        findsOneWidget,
+        reason: 'legacy global state cannot hide every public calendar',
       );
     });
 
-    testWidgets('says on the masthead when something is hidden', (
+    testWidgets('uses the one sources action on the masthead', (
       WidgetTester tester,
     ) async {
-      // A source switched off has to be visible from the outside, or a missing
-      // appointment looks like a bug. A different glyph, not a tint.
+      // The old global public-calendar hide value must not affect the icon.
       final InMemoryKeyValueStore store = InMemoryKeyValueStore();
       await store.setStringList(
         PreferenceKeys.calendarDisabledSources,
@@ -389,8 +388,8 @@ void main() {
       );
       await pumpCalendar(tester, store: store);
 
-      expect(find.byIcon(AppIcons.layers_clear_outlined), findsOneWidget);
-      expect(find.byIcon(AppIcons.layers_outlined), findsNothing);
+      expect(find.byIcon(AppIcons.tune), findsOneWidget);
+      expect(find.byTooltip('Quellen'), findsOneWidget);
     });
 
     testWidgets('leads into the timetable sheet', (WidgetTester tester) async {
@@ -455,10 +454,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Öffentliche Kalender'), findsOneWidget);
-      expect(
-        find.text('Ausgewählte in Google Kalender öffnen'),
-        findsOneWidget,
-      );
+      expect(find.text('Ausgewählte in Google Kalender öffnen'), findsNothing);
     });
   });
 

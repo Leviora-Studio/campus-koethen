@@ -177,6 +177,7 @@ void main() {
 
     test('the Android delivery receivers are declared', () {
       final String manifest = _manifestDeclarations();
+      expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
       expect(manifest, contains('RECEIVE_BOOT_COMPLETED'));
       expect(manifest, contains('ScheduledNotificationReceiver'));
       expect(manifest, contains('ScheduledNotificationBootReceiver'));

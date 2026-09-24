@@ -4,7 +4,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../l10n/l10n.dart';
@@ -41,22 +41,10 @@ class DocumentViewerScreen extends StatefulWidget {
 }
 
 class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
-  PdfControllerPinch? _pdf;
-
-  @override
-  void initState() {
-    super.initState();
-    final AppDocument doc = widget.document;
-    if (doc.isPdf) {
-      _pdf = PdfControllerPinch(document: PdfDocument.openData(doc.bytes));
-    }
-  }
-
-  @override
-  void dispose() {
-    _pdf?.dispose();
-    super.dispose();
-  }
+  // pdfrx uses this for its local document cache. Do not pass a downloaded
+  // filename here: mail subjects and application receipt names may be private.
+  final String _pdfSourceName =
+      'local-${DateTime.now().microsecondsSinceEpoch}.pdf';
 
   @override
   Widget build(BuildContext context) {
@@ -90,8 +78,14 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         ),
       );
     }
-    if (_pdf != null) {
-      return PdfViewPinch(controller: _pdf!);
+    if (doc.isPdf) {
+      return PdfViewer.data(
+        doc.bytes,
+        sourceName: _pdfSourceName,
+        params: const PdfViewerParams(
+          annotationRenderingMode: PdfAnnotationRenderingMode.annotationAndForms,
+        ),
+      );
     }
     if (doc.isText) {
       return SingleChildScrollView(

@@ -26,7 +26,7 @@ in [`../../NOTICE.md`](../../NOTICE.md) dokumentiert sind:
 | `dio`                    | `MIT`          | HTTPS-Transport (nur `moodle.hs-anhalt.de`), Datei-Download             |
 | `flutter_secure_storage` | `BSD-3-Clause` | Ablage des Web-Service-Tokens im Keychain/Keystore                      |
 | `hive_ce`                | `Apache-2.0`   | verschlüsselter lokaler Cache (256-Bit-Schlüssel in Secure Storage)     |
-| `pdfx`                   | `MIT`          | PDF-Vorschau heruntergeladener Materialien (geteilter DocumentViewer)   |
+| `pdfrx`                  | `MIT`          | PDF-Vorschau mit Formularfeldern (geteilter DocumentViewer)             |
 | `share_plus`             | `BSD-3-Clause` | „Teilen/Speichern" als sichere Alternative zur In-App-Vorschau          |
 | `html`                   | `BSD-3-Clause` | Reduktion von Moodle-HTML (Kurs-/Modulbeschreibungen) auf sicheren Text |
 | `url_launcher`           | `BSD-3-Clause` | Öffnen externer Moodle-Links **ohne** Token (nur `https`)               |

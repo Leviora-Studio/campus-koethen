@@ -20,9 +20,8 @@ import '../domain/planned_notification.dart';
 /// [PlannedNotification], a [NotificationPermissionStatus] — so the planner,
 /// the scheduler and the settings screen all run in plain `flutter test`.
 ///
-/// Every call fails soft. A notification centre that refuses to co-operate
-/// degrades the feature; it never takes the app down with it. The failure is
-/// counted and logged as a category, never as content.
+/// Platform failures are logged by category, never with notification content.
+/// Initialization is propagated to the host so it can retry on resume.
 class LocalNotificationGateway implements NotificationGateway {
   LocalNotificationGateway({
     fln.FlutterLocalNotificationsPlugin? plugin,
@@ -52,7 +51,6 @@ class LocalNotificationGateway implements NotificationGateway {
     required void Function(String? payload) onNotificationTapped,
   }) async {
     if (_initialized) return;
-    _initialized = true;
     try {
       await _plugin.initialize(
         settings: const fln.InitializationSettings(
@@ -70,8 +68,10 @@ class LocalNotificationGateway implements NotificationGateway {
         onDidReceiveNotificationResponse: (fln.NotificationResponse response) =>
             onNotificationTapped(response.payload),
       );
+      _initialized = true;
     } catch (error) {
       _report('initialize', error);
+      rethrow;
     }
   }
 

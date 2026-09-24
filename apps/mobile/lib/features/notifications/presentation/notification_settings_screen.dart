@@ -18,6 +18,7 @@ import '../domain/notification_permission.dart';
 import '../domain/notification_plan.dart';
 import '../domain/notification_preferences.dart';
 import 'pre_permission_sheet.dart';
+import 'daily_summary_time_tile.dart';
 
 /// `/more/settings/notifications` — the one place where the whole feature can
 /// be switched on, tuned and switched off again.
@@ -105,6 +106,7 @@ class _NotificationSettingsScreenState
               ),
             ),
           _MasterSwitch(preferences: preferences, blocked: blocked),
+          const DailySummaryTimeTile(),
           SectionHeader(label: l10n.notificationsSectionCategories),
           for (final NotificationCategory category
               in NotificationCategory.values)

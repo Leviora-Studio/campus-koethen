@@ -333,11 +333,8 @@ class _EventsSourceSheet extends ConsumerWidget {
     return _SourceSheet(
       title: l10n.calendarSectionPublic,
       children: const <Widget>[
-        _VisibilitySwitch(source: CalendarSource.publicCalendar),
-        Divider(),
         // The same list the manage screen shows, writing the same selection.
         PublicCalendarList(shrinkWrap: true),
-        PublicCalendarGoogleFooter(),
       ],
     );
   }

@@ -91,7 +91,7 @@ void main() {
     await _pumpCard(tester, _postEvent());
 
     expect(find.text('Sommerfest'), findsOneWidget);
-    expect(find.text('@Campus Events'), findsOneWidget);
+    expect(find.text('Campus Events'), findsOneWidget);
     expect(find.text('Mehr anzeigen'), findsNothing);
   });
 

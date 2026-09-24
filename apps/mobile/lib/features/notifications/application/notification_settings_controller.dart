@@ -11,7 +11,7 @@ import '../domain/notification_preferences.dart';
 
 /// Reads and writes [NotificationPreferences].
 ///
-/// Three scalars in `shared_preferences`, nothing more. They survive a restart
+/// Small scalar settings in `shared_preferences`, nothing more. They survive a restart
 /// because they are written the moment they change, and they survive a
 /// reinstall not at all — which is correct: an opt-in is a decision about this
 /// installation, and there is nowhere else it could have been kept.
@@ -26,7 +26,24 @@ class NotificationSettingsController extends Notifier<NotificationPreferences> {
       disabledCategories: _readDisabled(store),
       prePromptDeclined:
           store.getInt(PreferenceKeys.notificationsPrePromptDeclined) == 1,
+      dailySummaryMinutes: _readDailySummaryMinutes(store),
     );
+  }
+
+  static int _readDailySummaryMinutes(KeyValueStore store) {
+    final int? value = store.getInt(
+      PreferenceKeys.notificationsDailySummaryMinutes,
+    );
+    return value != null && value >= 0 && value < 24 * 60 ? value : 8 * 60;
+  }
+
+  Future<void> setDailySummaryMinutes(int value) async {
+    if (value < 0 || value >= 24 * 60) {
+      throw RangeError.range(value, 0, 24 * 60 - 1, 'value');
+    }
+    if (state.dailySummaryMinutes == value) return;
+    state = state.copyWith(dailySummaryMinutes: value);
+    await _store.setInt(PreferenceKeys.notificationsDailySummaryMinutes, value);
   }
 
   /// An unknown stored value is ignored rather than repaired: it can only come

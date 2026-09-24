@@ -5,6 +5,10 @@ import 'dart:ui' show Tristate;
 
 import 'package:campus_koethen/core/content/content_block.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
+import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
+import 'package:campus_koethen/features/events/application/saved_events_controller.dart';
+import 'package:campus_koethen/features/events/data/saved_events_store.dart';
 import 'package:campus_koethen/features/news/data/news_models.dart';
 import 'package:campus_koethen/features/news/presentation/article_block.dart';
 import 'package:campus_koethen/l10n/l10n.dart';
@@ -156,7 +160,7 @@ List<SemanticsNode> _linkNodes(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('shows the title, the handles and the article', (
+  testWidgets('shows the title, the exact channel names and the article', (
     WidgetTester tester,
   ) async {
     await _pumpCard(
@@ -164,7 +168,7 @@ void main() {
       _article(
         channels: const <NewsChannelRef>[
           NewsChannelRef(slug: 'fb5-news', name: 'FB5-News'),
-          NewsChannelRef(slug: 'fsr-ins', name: 'FSR INS'),
+          NewsChannelRef(slug: 'fsr-ins', name: 'FSR.INS'),
         ],
         content: <ContentBlock>[_p('Der Artikeltext.')],
       ),
@@ -174,10 +178,51 @@ void main() {
     // Each channel is its own tappable link, not one combined tap target for
     // the whole byline — so each handle is its own Text, not one joined
     // string.
-    expect(find.text('@fb5-news'), findsOneWidget);
-    expect(find.text('@fsrins'), findsOneWidget);
-    expect(find.text('@fb5-news @fsrins'), findsNothing);
+    expect(find.text('FB5-News'), findsOneWidget);
+    expect(find.text('FSR.INS'), findsOneWidget);
+    expect(find.text('FB5-News FSR.INS'), findsNothing);
     expect(find.text('Der Artikeltext.'), findsOneWidget);
+  });
+
+  testWidgets('an event post can be saved and unsaved from the news feed', (
+    WidgetTester tester,
+  ) async {
+    final MemorySavedEventsStore saved = MemorySavedEventsStore();
+    final InMemoryKeyValueStore preferences = InMemoryKeyValueStore();
+    await preferences.setInt(PreferenceKeys.notificationsPrePromptDeclined, 1);
+    final ProviderContainer container = await pumpScreen(
+      tester,
+      Scaffold(
+        body: ListView(
+          children: <Widget>[
+            ArticleBlock(
+              article: NewsArticle(
+                slug: 'campus-event',
+                title: 'Campus Event',
+                tag: _defaultTag,
+                primaryChannel: _defaultPrimaryChannel,
+                eventStart: DateTime.utc(2026, 10, 5, 10),
+              ),
+            ),
+          ],
+        ),
+      ),
+      keyValueStore: preferences,
+      overrides: <Override>[
+        frozenNewsClock(),
+        savedEventsStoreProvider.overrideWithValue(saved),
+      ],
+    );
+    await container.read(savedEventsControllerProvider.future);
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Event merken'));
+    await tester.pump();
+    expect((await saved.readAll()).single.eventRef, 'post:campus-event');
+
+    await tester.tap(find.byTooltip('Event nicht mehr merken'));
+    await tester.pump();
+    expect(await saved.readAll(), isEmpty);
   });
 
   group('channel links', () {
@@ -189,7 +234,7 @@ void main() {
         _article(
           channels: const <NewsChannelRef>[
             NewsChannelRef(slug: 'fb5-news', name: 'FB5-News'),
-            NewsChannelRef(slug: 'fsr-ins', name: 'FSR INS'),
+            NewsChannelRef(slug: 'fsr-ins', name: 'FSR.INS'),
           ],
         ),
       );
@@ -198,7 +243,7 @@ void main() {
 
       expect(
         linkNodes.map((SemanticsNode n) => n.label),
-        containsAll(<String>['Kanal FB5-News öffnen', 'Kanal FSR INS öffnen']),
+        containsAll(<String>['Kanal FB5-News öffnen', 'Kanal FSR.INS öffnen']),
       );
     });
 
@@ -218,7 +263,7 @@ void main() {
         // Still collapsed before the tap.
         expect(find.text('Mehr anzeigen'), findsOneWidget);
 
-        await tester.tap(find.text('@fb5-news'));
+        await tester.tap(find.text('FB5-News'));
         await tester.pumpAndSettle();
 
         // Navigation happened — the channel route is now on screen, and the
@@ -444,7 +489,7 @@ void main() {
     );
 
     final Rect title = tester.getRect(find.text('Semesterstart'));
-    final Rect handles = tester.getRect(find.text('@stura'));
+    final Rect handles = tester.getRect(find.text('StuRa'));
     final Rect age = tester.getRect(find.text('vor 3 h'));
 
     expect(

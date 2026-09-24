@@ -54,8 +54,11 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
   Timer? _dayRollover;
   String? _channelSignature;
   String? _timeZoneName;
+  Duration? _timeZoneOffset;
   DateTime? _plannedForDay;
   bool _launchPayloadHandled = false;
+  bool _gatewayReady = false;
+  Future<void> _channelSetup = Future<void>.value();
 
   @override
   void initState() {
@@ -72,18 +75,29 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
   }
 
   Future<void> _initializeGateway() async {
-    final NotificationGateway gateway = ref.read(notificationGatewayProvider);
-    await gateway.initialize(onNotificationTapped: _handlePayload);
-    // A cold start from a notification: the tap happened before this widget
-    // existed, so the platform kept the payload for exactly this question.
-    if (!_launchPayloadHandled) {
-      _launchPayloadHandled = true;
-      _handlePayload(await gateway.takeLaunchPayload());
+    try {
+      final NotificationGateway gateway = ref.read(notificationGatewayProvider);
+      await gateway.initialize(onNotificationTapped: _handlePayload);
+      // A cold start from a notification: the tap happened before this widget
+      // existed, so the platform kept the payload for exactly this question.
+      if (!_launchPayloadHandled) {
+        _launchPayloadHandled = true;
+        _handlePayload(await gateway.takeLaunchPayload());
+      }
+      _timeZoneName = await ref
+          .read(timeZoneResolverProvider)
+          .deviceTimeZoneName();
+      _timeZoneOffset = DateTime.now().timeZoneOffset;
+      _scheduleDayRollover();
+      if (mounted) setState(() => _gatewayReady = true);
+    } catch (error) {
+      // Some devices reject plugin startup transiently. Keep the plan pending;
+      // the next resume retries initialization instead of cancelling entries.
+      assert(() {
+        debugPrint('notifications: initialization failed (${error.runtimeType})');
+        return true;
+      }());
     }
-    _timeZoneName = await ref
-        .read(timeZoneResolverProvider)
-        .deviceTimeZoneName();
-    _scheduleDayRollover();
   }
 
   @override
@@ -94,6 +108,10 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
 
   /// Everything that can have changed while the app was away.
   Future<void> _onResumed() async {
+    if (!_gatewayReady) {
+      await _initializeGateway();
+      if (!_gatewayReady) return;
+    }
     // The permission first: it can be withdrawn in the system settings, and a
     // withdrawn permission empties the plan, which clears the pending entries.
     await ref.read(notificationPermissionProvider.notifier).refresh();
@@ -102,15 +120,27 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
     final String? zone = await ref
         .read(timeZoneResolverProvider)
         .deviceTimeZoneName();
-    if (zone != _timeZoneName) {
+    final Duration offset = DateTime.now().timeZoneOffset;
+    if (zone != _timeZoneName || offset != _timeZoneOffset) {
       // A flight, or the twice-yearly change of offset. Every wall-clock time
       // in the plan means something different now, so the zone is re-resolved
       // and everything is planned again from scratch.
       _timeZoneName = zone;
+      _timeZoneOffset = offset;
       ref.invalidate(notificationLocationProvider);
     }
     _invalidatePlanIfDayChanged();
     _scheduleDayRollover();
+    if (!mounted) return;
+    // Mobile operating systems may drop pending entries while the app is
+    // suspended. Re-register even when the in-memory plan did not change.
+    await _applyPlan(ref.read(notificationPlanProvider));
+  }
+
+  Future<void> _applyPlan(NotificationPlan plan) async {
+    if (!_gatewayReady) return;
+    await _channelSetup;
+    await ref.read(notificationSchedulerProvider).apply(plan);
   }
 
   /// Re-plans when the calendar day has moved on.
@@ -139,6 +169,11 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
       midnight.difference(now) + const Duration(seconds: 1),
       () {
         if (!mounted) return;
+        final Duration offset = DateTime.now().timeZoneOffset;
+        if (offset != _timeZoneOffset) {
+          _timeZoneOffset = offset;
+          ref.invalidate(notificationLocationProvider);
+        }
         _invalidatePlanIfDayChanged();
         _scheduleDayRollover();
       },
@@ -240,9 +275,11 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
     final String signature = channels
         .map((NotificationChannelSpec c) => '${c.category.channelId}:${c.name}')
         .join('|');
-    if (signature != _channelSignature) {
+    if (_gatewayReady && signature != _channelSignature) {
       _channelSignature = signature;
-      unawaited(ref.read(notificationGatewayProvider).ensureChannels(channels));
+      _channelSetup = ref.read(notificationGatewayProvider).ensureChannels(
+        channels,
+      );
     }
 
     ref.listen<NotificationPlan>(notificationPlanProvider, (
@@ -250,14 +287,14 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
       NotificationPlan next,
     ) {
       if (previous == next) return;
-      unawaited(ref.read(notificationSchedulerProvider).apply(next));
+      unawaited(_applyPlan(next));
     });
     // The first plan too: `listen` only fires on a change, and the very first
     // value of an app start is not one.
     final NotificationPlan plan = ref.watch(notificationPlanProvider);
-    if (_plannedForDay == null) {
+    if (_plannedForDay == null && _gatewayReady) {
       _plannedForDay = DateUtils.dateOnly(DateTime.now());
-      unawaited(ref.read(notificationSchedulerProvider).apply(plan));
+      unawaited(_applyPlan(plan));
     }
 
     return widget.child;

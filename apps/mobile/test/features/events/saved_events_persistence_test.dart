@@ -268,9 +268,9 @@ void main() {
     );
   });
 
-  group('the 365-day cleanup', () {
+  group('unlimited time retention', () {
     test(
-      'drops a snapshot more than 365 days past its end on the next load',
+      'keeps a snapshot more than 365 days past its end on the next load',
       () async {
         final MemorySavedEventsStore store = MemorySavedEventsStore();
         await store.writeAll(<SavedEventSnapshot>[
@@ -286,8 +286,7 @@ void main() {
           ),
         ]);
 
-        // 400 days after the first event's end, but well under a year for the
-        // second — only the first must be pruned.
+        // Both events remain saved regardless of their age.
         final ProviderContainer container = _containerWith(
           store,
           now: DateTime.utc(2026, 2, 5),
@@ -297,16 +296,15 @@ void main() {
         );
 
         expect(loaded.map((SavedEventSnapshot s) => s.eventRef), <String>[
+          'post:long-gone',
           'post:still-kept',
         ]);
-        // The pruned state was also written back, so a second read (another
-        // "restart") never resurrects it.
         final List<SavedEventSnapshot> persisted = await store.readAll();
-        expect(persisted, hasLength(1));
+        expect(persisted, hasLength(2));
       },
     );
 
-    test('never touches an entry still inside the retention window', () async {
+    test('keeps a more recent saved event too', () async {
       final MemorySavedEventsStore store = MemorySavedEventsStore();
       await store.writeAll(<SavedEventSnapshot>[
         _snapshot(
@@ -325,17 +323,6 @@ void main() {
       expect(loaded, hasLength(1));
     });
 
-    test('uses start as the reference point when there is no end', () {
-      final SavedEventSnapshot noEnd = _snapshot(
-        eventRef: 'post:no-end',
-        start: DateTime.utc(2025, 1, 1),
-      );
-      final List<SavedEventSnapshot> pruned = pruneExpiredSavedEvents(
-        <SavedEventSnapshot>[noEnd],
-        now: DateTime.utc(2026, 2, 1), // > 365 days after start
-      );
-      expect(pruned, isEmpty);
-    });
   });
 
   group('the orphan rule', () {

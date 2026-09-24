@@ -38,7 +38,7 @@ enum NotificationDropReason {
   duplicateKey,
 
   /// A fixed-time category asked for a moment outside the 07:00–20:00 window.
-  /// By construction this cannot happen for 08:00 and 11:00, so it means a
+  /// By construction this cannot happen for the 11:00 canteen hint, so it means a
   /// contributor is wrong — dropped loudly rather than silently moved.
   outsideDeliveryWindow,
 

@@ -1,6 +1,6 @@
 # Legal notice
 
-Last updated: 25 August 2026
+Last updated: 24 September 2026
 
 ## Provider of the mobile app
 
@@ -51,7 +51,7 @@ Campus Köthen is not an official Hochschule Anhalt app. The app is independentl
 
 # Privacy
 
-Last updated: 25 August 2026
+Last updated: 24 September 2026
 
 ## Scope and controllers
 
@@ -67,7 +67,7 @@ Technical connection data may be processed temporarily while a request is being 
 
 ## Hosting by Hostinger
 
-The Campus backend runs on a VPS in France. The student body's hosting provider and processor is Hostinger International Ltd., 61 Lordou Vironos Street, 6023 Larnaca, Cyprus. The primary server location is therefore within the European Union. The student body and Hostinger have entered into a data processing agreement under Article 28 GDPR. Hostinger processes hosting data on the student body's instructions and may engage sub-processors for this purpose. Where data is transferred outside the European Economic Area to a country for which the European Commission has not adopted an adequacy decision, the data processing agreement provides for the Standard Contractual Clauses under Commission Implementing Decision (EU) 2021/914 as an appropriate safeguard. Information about the sub-processors used, possible transfers and the safeguards is available at https://www.hostinger.com/legal/dpa.
+The Campus backend runs on a VPS in Germany. The student body's hosting provider and processor is Hostinger International Ltd., 61 Lordou Vironos Street, 6023 Larnaca, Cyprus. The primary server location is therefore within the European Union. The student body and Hostinger have entered into a data processing agreement under Article 28 GDPR. Hostinger processes hosting data on the student body's instructions and may engage sub-processors for this purpose. Where data is transferred outside the European Economic Area to a country for which the European Commission has not adopted an adequacy decision, the data processing agreement provides for the Standard Contractual Clauses under Commission Implementing Decision (EU) 2021/914 as an appropriate safeguard. Information about the sub-processors used, possible transfers and the safeguards is available at https://www.hostinger.com/legal/dpa.
 
 ## Local data on your device
 

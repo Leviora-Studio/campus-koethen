@@ -127,7 +127,12 @@ final Provider<List<NotificationRequest>> dailySummaryCandidatesProvider =
 
       return <NotificationRequest>[
         for (final DailySummaryDay day in days)
-          ?dailySummaryRequest(day: day, l10n: l10n, localeCode: localeCode),
+          ?dailySummaryRequest(
+            day: day,
+            l10n: l10n,
+            localeCode: localeCode,
+            deliveryMinutes: preferences.dailySummaryMinutes,
+          ),
       ];
     });
 

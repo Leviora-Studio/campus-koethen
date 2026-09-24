@@ -29,6 +29,7 @@ NotificationRequest? dailySummaryRequest({
   required DailySummaryDay day,
   required AppLocalizations l10n,
   required String localeCode,
+  int deliveryMinutes = 8 * 60,
 }) {
   if (!day.hasRelevantEntry) return null;
 
@@ -44,7 +45,11 @@ NotificationRequest? dailySummaryRequest({
   return NotificationRequest(
     category: NotificationCategory.dailySummary,
     target: notificationDayKey(day.day),
-    trigger: LocalTimeTrigger(day: day.day, hour: kDailySummaryHour),
+    trigger: LocalTimeTrigger(
+      day: day.day,
+      hour: deliveryMinutes ~/ 60,
+      minute: deliveryMinutes % 60,
+    ),
     title: l10n.notificationDailySummaryTitle,
     body: l10n.notificationDailySummaryBody(_join(parts, l10n)),
     // A second layer only: the body above is already free of anything a
@@ -54,9 +59,6 @@ NotificationRequest? dailySummaryRequest({
         : NotificationVisibility.publicContent,
   );
 }
-
-/// The approved delivery time of the overview (P4).
-const int kDailySummaryHour = 8;
 
 String _lectures(
   DailySummaryDay day,

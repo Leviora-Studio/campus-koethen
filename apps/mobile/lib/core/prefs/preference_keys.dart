@@ -148,6 +148,10 @@ abstract final class PreferenceKeys {
   /// "not yet asked", which is why no system prompt appears on a cold start.
   static const String notificationsOptedIn = 'notifications.optedIn.v1';
 
+  /// Local wall-clock minute of the daily overview; absent means 08:00.
+  static const String notificationsDailySummaryMinutes =
+      'notifications.dailySummary.minutes.v1';
+
   /// The notification categories the reader switched OFF, as category storage
   /// values.
   ///

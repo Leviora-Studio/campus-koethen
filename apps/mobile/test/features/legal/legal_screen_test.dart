@@ -58,8 +58,8 @@ void main() {
       expect(l10n.privacyRightsBody, contains('stura@hs-anhalt.de'));
     }
 
-    expect(de.privacyHostingBody, contains('Frankreich'));
-    expect(en.privacyHostingBody, contains('France'));
+    expect(de.privacyHostingBody, contains('Deutschland'));
+    expect(en.privacyHostingBody, contains('Germany'));
     expect(de.privacyHostingBody, contains('2021/914'));
     expect(en.privacyHostingBody, contains('2021/914'));
     expect(de.privacyScopeBody, contains('Gartenstraße 29C'));

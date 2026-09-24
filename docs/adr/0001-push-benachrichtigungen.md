@@ -2,6 +2,11 @@
 
 Campus Köthen App · `AGPL-3.0-only` · Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+**Änderung vom 24.09.2026:** Die Uhrzeit der Tagesübersicht N2 ist nun im Onboarding und in den
+Benachrichtigungseinstellungen frei wählbar (Standard 08:00 Uhr, Ortszeit). Das allgemeine
+Zustellfenster von 07:00 bis 20:00 Uhr gilt dafür nicht; N2 wird zur gewählten Uhrzeit geplant.
+Die folgenden älteren Festlegungen auf 08:00 Uhr sind insoweit durch diese Änderung ersetzt.
+
 | Feld            | Wert                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Status          | **Angenommen**                                                                                                                       |

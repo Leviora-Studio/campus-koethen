@@ -1,6 +1,6 @@
 # Campus Köthen – Datenschutzerklärung und Impressum
 
-Stand: 25. August 2026
+Stand: 24. September 2026
 
 ## Datenschutzerklärung
 
@@ -18,7 +18,7 @@ Technische Verbindungsdaten können während eines Abrufs vorübergehend verarbe
 
 ### Hosting durch Hostinger
 
-Das Campus-Backend wird auf einem VPS in Frankreich betrieben. Hosting-Dienstleister und Auftragsverarbeiter der Studierendenschaft ist Hostinger International Ltd., 61 Lordou Vironos Street, 6023 Larnaca, Zypern. Der primäre Serverstandort liegt damit innerhalb der Europäischen Union. Zwischen der Studierendenschaft und Hostinger besteht ein Auftragsverarbeitungsvertrag gemäß Art. 28 DSGVO. Hostinger verarbeitet die beim Hosting anfallenden Daten nach Weisung der Studierendenschaft und kann hierfür Unterauftragsverarbeiter einsetzen. Soweit dabei Daten außerhalb des Europäischen Wirtschaftsraums in ein Land ohne Angemessenheitsbeschluss der Europäischen Kommission übermittelt werden, sieht der Auftragsverarbeitungsvertrag die Standardvertragsklauseln gemäß Durchführungsbeschluss (EU) 2021/914 als geeignete Garantie vor. Informationen zu den eingesetzten Unterauftragsverarbeitern, möglichen Übermittlungen und den Garantien sind unter [https://www.hostinger.com/legal/dpa](https://www.hostinger.com/legal/dpa) abrufbar.
+Das Campus-Backend wird auf einem VPS in Deutschland betrieben. Hosting-Dienstleister und Auftragsverarbeiter der Studierendenschaft ist Hostinger International Ltd., 61 Lordou Vironos Street, 6023 Larnaca, Zypern. Der primäre Serverstandort liegt damit innerhalb der Europäischen Union. Zwischen der Studierendenschaft und Hostinger besteht ein Auftragsverarbeitungsvertrag gemäß Art. 28 DSGVO. Hostinger verarbeitet die beim Hosting anfallenden Daten nach Weisung der Studierendenschaft und kann hierfür Unterauftragsverarbeiter einsetzen. Soweit dabei Daten außerhalb des Europäischen Wirtschaftsraums in ein Land ohne Angemessenheitsbeschluss der Europäischen Kommission übermittelt werden, sieht der Auftragsverarbeitungsvertrag die Standardvertragsklauseln gemäß Durchführungsbeschluss (EU) 2021/914 als geeignete Garantie vor. Informationen zu den eingesetzten Unterauftragsverarbeitern, möglichen Übermittlungen und den Garantien sind unter [https://www.hostinger.com/legal/dpa](https://www.hostinger.com/legal/dpa) abrufbar.
 
 ### Lokale Daten auf deinem Gerät
 

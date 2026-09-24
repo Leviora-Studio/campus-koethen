@@ -515,7 +515,7 @@ class EnoughMailGateway implements MailGateway {
     final MailAddress? from = m.from?.firstOrNull ?? m.sender;
     final String? plain = m.decodeTextPlainPart();
     final String body = (plain != null && plain.trim().isNotEmpty)
-        ? plain
+        ? normalizeMailBody(plain)
         // Only if there is no plain part: reduce HTML to safe text. No remote
         // images are ever fetched because we render text, not HTML.
         : htmlToPlainText(m.decodeTextHtmlPart());

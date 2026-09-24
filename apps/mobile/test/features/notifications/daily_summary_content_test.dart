@@ -213,7 +213,17 @@ void main() {
             'A wall-clock trigger, never an instant: 08:00 has to stay 08:00 '
             'on the dial when the clocks change.',
       );
-      expect(kDailySummaryHour, 8);
+    });
+
+    test('uses the reader-selected local time', () {
+      final DateTime day = DateTime(2026, 10, 5);
+      final NotificationRequest request = dailySummaryRequest(
+        day: DailySummaryDay(day: day, lectureCount: 1),
+        l10n: de,
+        localeCode: 'de',
+        deliveryMinutes: 6 * 60 + 45,
+      )!;
+      expect(request.trigger, LocalTimeTrigger(day: day, hour: 6, minute: 45));
     });
   });
 }

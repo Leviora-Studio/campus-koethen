@@ -77,7 +77,9 @@ vergisst.
 
 ### 1.2.1 Die Tagesübersicht (N2, LEVIORA-164)
 
-Für jeden Tag der nächsten **14 Tage** entsteht höchstens **ein** Kandidat um 08:00 Uhr Ortszeit.
+Für jeden Tag der nächsten **14 Tage** entsteht höchstens **ein** Kandidat zur gewählten
+Ortszeit (Standard **08:00 Uhr**). Die Uhrzeit lässt sich im Onboarding und später in den
+Benachrichtigungseinstellungen ändern und wird lokal gespeichert.
 Die Zahl ist die Länge des Speiseplans, den die API liefert; weiter zu planen hieße, Tage zu
 nennen, über die noch nichts bekannt ist. Vierzehn von sechzig Budgetplätzen lassen außerdem
 genug Raum für die Event-Erinnerungen, mit denen sie geteilt werden.

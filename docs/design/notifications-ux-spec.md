@@ -3,6 +3,10 @@
 **Campus Köthen App** · `AGPL-3.0-only` · Copyright © 2026 Leviora Studio and Jona Loreen Sommer  
 **Autorin:** Mira (UX- / Product-Design) · **Stand:** 24.08.2026 · **Status:** Verbindliche Spezifikation (Freigegeben nach [LEVIORA-159](mention://issue/5e3e877a-f4ee-484a-8d71-0bdfa4c088a4)) · **Basis:** [ADR-0001](../adr/0001-push-benachrichtigungen.md)
 
+**Änderung vom 24.09.2026:** Die Tagesübersicht kann im Onboarding und in den Einstellungen zu
+einer frei gewählten Ortszeit zugestellt werden. 08:00 Uhr ist nur noch der Standardwert.
+Ältere feste Uhrzeitangaben zu dieser Kategorie in der folgenden Spezifikation sind dadurch ersetzt.
+
 ---
 
 ## 1. Kontext, Ziel und Funktionsweise lokaler Benachrichtigungen

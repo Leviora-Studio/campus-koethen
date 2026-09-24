@@ -52,6 +52,7 @@ class ApiMeta {
     this.droppedBlockTypes = const <String>[],
     this.from,
     this.to,
+    this.maxRangeDays,
     this.truncated = false,
   });
 
@@ -90,6 +91,9 @@ class ApiMeta {
   /// The server-resolved end of the window, matching [from].
   final String? to;
 
+  /// Maximum span accepted by one public-calendar events request.
+  final int? maxRangeDays;
+
   /// `true` when the server hit its own result ceiling and cut the list short.
   /// The UI has to say so rather than present the result as complete.
   final bool truncated;
@@ -111,6 +115,7 @@ class ApiMeta {
       droppedBlockTypes: asStringList(map['droppedBlockTypes']),
       from: asString(map['from']),
       to: asString(map['to']),
+      maxRangeDays: asInt(map['maxRangeDays']),
       truncated: asBool(map['truncated']) ?? false,
     );
   }
@@ -128,6 +133,7 @@ class ApiMeta {
     'droppedBlockTypes': droppedBlockTypes,
     if (from != null) 'from': from,
     if (to != null) 'to': to,
+    if (maxRangeDays != null) 'maxRangeDays': maxRangeDays,
     'truncated': truncated,
   };
 }

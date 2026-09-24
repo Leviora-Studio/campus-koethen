@@ -18,10 +18,11 @@ import '../../../core/widgets/content_blocks_view.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../core/widgets/remote_image.dart';
 import '../../../l10n/l10n.dart';
+import '../../events/domain/unified_event.dart';
+import '../../events/presentation/event_save_button.dart';
 import '../application/news_feed_ui_providers.dart';
 import '../data/news_models.dart';
 import '../domain/article_age.dart';
-import '../domain/channel_handle.dart';
 import '../domain/news_preview.dart';
 import 'news_age_text.dart';
 
@@ -117,9 +118,18 @@ class ArticleBlock extends ConsumerWidget {
             _TagsRow(tags: <NewsTagRef>[article.tag], l10n: l10n),
             const SizedBox(height: AppSpacing.sm),
 
-            Semantics(
-              header: true,
-              child: Text(article.title, style: text.headlineMedium),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(article.title, style: text.headlineMedium),
+                  ),
+                ),
+                if (article.isEventPost)
+                  EventSaveButton(event: postToUnifiedEvent(article)),
+              ],
             ),
 
             // The banner follows the headline rather than leading it. A
@@ -204,9 +214,7 @@ class _Byline extends StatelessWidget {
 
 /// One channel handle, as a real link to that channel's profile screen.
 ///
-/// A channel with a name that folds to nothing (see [channelHandle]) renders
-/// nothing at all — same rule the old combined byline followed, just applied
-/// per channel instead of to the joined string.
+/// Shows the editorial channel name exactly as supplied by the API.
 class _ChannelLink extends StatelessWidget {
   const _ChannelLink({required this.channel, required this.l10n});
 
@@ -215,8 +223,6 @@ class _ChannelLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? handle = channelHandle(channel.name);
-    if (handle == null) return const SizedBox.shrink();
     final AppColors colors = context.colors;
 
     return Semantics(
@@ -236,7 +242,7 @@ class _ChannelLink extends StatelessWidget {
           // Text below is unaffected by the Padding wrapping it).
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            handle,
+            channel.name,
             style: Theme.of(
               context,
             ).textTheme.labelMedium?.copyWith(color: colors.primary),

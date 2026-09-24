@@ -14,7 +14,6 @@ import '../../../core/widgets/translation_fallback_notice.dart';
 import '../../../l10n/l10n.dart';
 import '../application/public_calendar_providers.dart';
 import '../application/public_calendar_selection.dart';
-import '../data/public_calendars_repository.dart';
 import '../domain/public_calendar.dart';
 
 /// The public calendars with their individual switches and Google actions.
@@ -109,84 +108,6 @@ class PublicCalendarList extends ConsumerWidget {
   }
 }
 
-/// The button that opens every selected calendar in Google at once, plus the
-/// note explaining what "every" means here.
-class PublicCalendarGoogleFooter extends ConsumerWidget {
-  const PublicCalendarGoogleFooter({super.key});
-
-  Future<void> _openCombined(
-    BuildContext context,
-    WidgetRef ref,
-    List<String> slugs,
-  ) async {
-    final AppLocalizations l10n = context.l10n;
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    final String locale = Localizations.localeOf(context).languageCode;
-    try {
-      final String url = await ref
-          .read(publicCalendarsRepositoryProvider)
-          .fetchGoogleViewUrl(slugs: slugs, locale: locale);
-      final LinkLaunchResult result = await ref
-          .read(linkLauncherProvider)
-          .open(url);
-      if (result != LinkLaunchResult.opened) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.calendarGoogleLinkFailed)),
-        );
-      }
-    } catch (_) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.calendarGoogleLinkFailed)),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final AppLocalizations l10n = context.l10n;
-    final List<PublicCalendar> calendars =
-        ref.watch(publicCalendarsCatalogProvider).value?.value ??
-        const <PublicCalendar>[];
-    final PublicCalendarSelectionState selection = ref.watch(
-      publicCalendarSelectionProvider,
-    );
-    final List<String> selectedSlugs =
-        PublicCalendarSelectionRules.effectiveSelection(
-          available: calendars,
-          selected: selection.selectedSlugs,
-        );
-
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            l10n.calendarGoogleCombinedNote,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          FilledButton.icon(
-            onPressed: selectedSlugs.isEmpty
-                ? null
-                : () => _openCombined(context, ref, selectedSlugs),
-            icon: const Icon(AppIcons.open_in_new),
-            label: Text(l10n.calendarOpenSelectedInGoogle),
-          ),
-          if (selectedSlugs.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xs),
-              child: Text(
-                l10n.calendarSelectAtLeastOne,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 /// One public calendar: its name, its colour as decoration only, a switch and
 /// the safe link into Google Calendar.

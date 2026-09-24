@@ -1,10 +1,7 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
-import 'dart:async' show unawaited;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
@@ -19,12 +16,10 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/content_blocks_view.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../l10n/l10n.dart';
-import '../../notifications/presentation/pre_permission_sheet.dart';
 import '../application/event_ui_providers.dart';
-import '../application/saved_events_controller.dart';
 import '../domain/event_source_label.dart';
-import '../domain/saved_event_snapshot.dart';
 import '../domain/unified_event.dart';
+import 'event_save_button.dart';
 
 /// One event, compact by default: date/time, source, title and the
 /// merken/entmerken action are always visible; the description, if there is
@@ -68,50 +63,9 @@ class EventCard extends ConsumerWidget {
             (Set<String> refs) => refs.contains(event.eventRef),
           ),
         );
-    // Only this event's own state, and only whether the list is still
-    // loading. Watching the whole list rebuilt every visible card whenever
-    // any event was saved, and answering from it was a linear scan of a list
-    // that may hold five hundred entries.
-    final bool saved = ref.watch(
-      savedEventRefsProvider.select(
-        (Set<String> refs) => refs.contains(event.eventRef),
-      ),
-    );
-    final bool savedLoading = ref.watch(
-      savedEventsControllerProvider.select(
-        (AsyncValue<List<SavedEventSnapshot>> saved) => saved.isLoading,
-      ),
-    );
-
     void onToggle() {
       if (!_hasDescription) return;
       ref.read(eventExpansionProvider.notifier).toggle(event.eventRef);
-    }
-
-    Future<void> onSaveToggle() async {
-      final SavedEventsController notifier = ref.read(
-        savedEventsControllerProvider.notifier,
-      );
-      unawaited(HapticFeedback.selectionClick());
-      if (saved) {
-        await notifier.remove(event.eventRef);
-        return;
-      }
-      final bool ok = await notifier.save(event);
-      if (!ok) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.eventSaveLimitReachedMessage)),
-          );
-        }
-        return;
-      }
-      // Bookmarking an event is the clearest possible statement of interest
-      // in being reminded about it — and the moment where an explanation
-      // costs nothing, because the reader is already thinking about this
-      // event. Asks at most once; the event is saved either way.
-      if (!context.mounted) return;
-      await maybeOfferNotificationOptIn(context, ref);
     }
 
     return Semantics(
@@ -151,12 +105,7 @@ class EventCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                _SaveButton(
-                  saved: saved,
-                  loading: savedLoading,
-                  onPressed: onSaveToggle,
-                  l10n: l10n,
-                ),
+                EventSaveButton(event: event),
               ],
             ),
             if (isPast || isOrphaned || event.isCancelled) ...<Widget>[
@@ -313,43 +262,6 @@ class _Badge extends StatelessWidget {
           ).textTheme.labelSmall?.copyWith(color: effective),
         ),
       ],
-    );
-  }
-}
-
-/// The merken/entmerken action — at least 48×48 dp, its own tooltip and
-/// semantics, immediate visual state.
-class _SaveButton extends StatelessWidget {
-  const _SaveButton({
-    required this.saved,
-    required this.loading,
-    required this.onPressed,
-    required this.l10n,
-  });
-
-  final bool saved;
-  final bool loading;
-  final VoidCallback onPressed;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final String tooltip = saved ? l10n.eventSaveRemove : l10n.eventSaveAdd;
-    return Semantics(
-      toggled: saved,
-      label: tooltip,
-      excludeSemantics: true,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: loading ? null : onPressed,
-        constraints: const BoxConstraints(
-          minWidth: AppSizes.minTouchTarget,
-          minHeight: AppSizes.minTouchTarget,
-        ),
-        isSelected: saved,
-        icon: const Icon(AppIcons.bookmark_outlined),
-        selectedIcon: const Icon(AppIcons.bookmark),
-      ),
     );
   }
 }

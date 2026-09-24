@@ -80,6 +80,8 @@ NotificationPlan planNotifications({
     final tz.TZDateTime desired = _resolveTrigger(request.trigger, location);
     final tz.TZDateTime scheduledAt;
     switch (request.category.windowPolicy) {
+      case DeliveryWindowPolicy.anyLocalTime:
+        scheduledAt = desired;
       case DeliveryWindowPolicy.shiftIntoWindow:
         scheduledAt = DeliveryWindow.shiftIntoWindow(desired);
       case DeliveryWindowPolicy.fixedLocalTime:

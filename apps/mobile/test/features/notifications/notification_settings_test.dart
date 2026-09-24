@@ -27,6 +27,29 @@ void main() {
 
     expect(preferences.optedIn, isFalse);
     expect(preferences.prePromptDeclined, isFalse);
+    expect(preferences.dailySummaryMinutes, 8 * 60);
+  });
+
+  test('the chosen overview time survives a restart', () async {
+    final KeyValueStore store = InMemoryKeyValueStore();
+    await containerWith(store)
+        .read(notificationSettingsProvider.notifier)
+        .setDailySummaryMinutes(6 * 60 + 45);
+
+    expect(
+      containerWith(store).read(notificationSettingsProvider).dailySummaryMinutes,
+      6 * 60 + 45,
+    );
+  });
+
+  test('an invalid stored overview time falls back to 08:00', () {
+    final KeyValueStore store = InMemoryKeyValueStore(<String, Object>{
+      PreferenceKeys.notificationsDailySummaryMinutes: 24 * 60,
+    });
+    expect(
+      containerWith(store).read(notificationSettingsProvider).dailySummaryMinutes,
+      8 * 60,
+    );
   });
 
   test('every category is on after the opt-in (P2)', () async {

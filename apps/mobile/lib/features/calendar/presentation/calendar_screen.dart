@@ -3,11 +3,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_modules.dart';
-import '../../../app/app_routes.dart';
 import '../../../core/locale/formatters.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
@@ -89,12 +87,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           tooltip: l10n.calendarSourcesLabel,
           onPressed: () => showCalendarSourcesSheet(context),
           isSelected: !everythingVisible,
-          icon: const Icon(AppIcons.layers_outlined),
-          selectedIcon: const Icon(AppIcons.layers_clear_outlined),
-        ),
-        IconButton(
-          tooltip: l10n.calendarManageTitle,
-          onPressed: () => GoRouter.of(context).push(AppRoutes.calendarManage),
           icon: const Icon(AppIcons.tune),
         ),
       ],
@@ -761,8 +753,8 @@ class _ListView extends ConsumerWidget {
       now: now,
     );
 
-    // A 120-day range is far more than one screen, so the rows are described
-    // first and built as they scroll into view. Building them all
+    // The backend's full horizon is far more than one screen, so the rows are
+    // described first and built as they scroll into view. Building them all
     // up front cost a full screen's worth of work many times over on every
     // rebuild — the same reason the Moodle course tabs stopped doing it.
     return ListView.builder(

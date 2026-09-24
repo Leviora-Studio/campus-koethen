@@ -77,7 +77,7 @@ void main() {
       },
     );
 
-    test('a saved post event keeps the @ channel marker in the calendar', () {
+    test('a saved post event keeps the exact channel name in the calendar', () {
       final List<CalendarEntry> out = savedEventEntriesForCalendar(
         saved: <SavedEventSnapshot>[
           _saved(
@@ -92,7 +92,7 @@ void main() {
         channelSlugByCalendarSlug: const <String, String?>{},
       );
 
-      expect(out.single.sourceLabel, '@Campus Events');
+      expect(out.single.sourceLabel, 'Campus Events');
     });
 
     test('a saved calendar-only source label stays unchanged', () {

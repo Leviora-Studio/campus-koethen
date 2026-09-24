@@ -76,7 +76,7 @@ final _monthEntriesProvider =
       return _loadEntries(ref, from: window.from, to: window.to);
     }, retry: (_, _) => null);
 
-/// Public-calendar events for the list view's rolling 120-day window.
+/// Public-calendar events for the full horizon advertised by the backend.
 ///
 /// The outer provider normalises its key to today at local midnight. Rebuilds
 /// during the same day therefore reuse the same backend response, while the
@@ -89,17 +89,79 @@ final publicCalendarListEntriesProvider =
     );
 
 final _listEntriesProvider =
-    FutureProvider.family<List<CalendarEntry>, DateTime>((
-      Ref ref,
-      DateTime today,
-    ) {
-      final CalendarDateWindow window = calendarListWindow(today);
-      return _loadEntries(
-        ref,
-        from: window.from.toIso8601String().slice10(),
-        to: window.to.toIso8601String().slice10(),
-      );
-    }, retry: (_, _) => null);
+    FutureProvider.family<List<CalendarEntry>, DateTime>(
+      (Ref ref, DateTime today) => _loadListEntries(ref, today),
+      retry: (_, _) => null,
+    );
+
+Future<List<CalendarEntry>> _loadListEntries(Ref ref, DateTime today) async {
+  final String locale = ref.watch(localeCodeProvider);
+  final Loaded<List<PublicCalendar>>? catalogue = ref
+      .watch(publicCalendarsCatalogProvider)
+      .value;
+  if (catalogue == null) return const <CalendarEntry>[];
+  final PublicCalendarSelectionState selection = ref.watch(
+    publicCalendarSelectionProvider,
+  );
+  final List<String> slugs = PublicCalendarSelectionRules.effectiveSelection(
+    available: catalogue.value,
+    selected: selection.selectedSlugs,
+  );
+  if (slugs.isEmpty) return const <CalendarEntry>[];
+
+  final CalendarDateWindow window = calendarListWindow(
+    today,
+    catalogue.meta.from,
+    catalogue.meta.to,
+  );
+  // Old backend versions do not advertise their request limit; they used
+  // 120-day list requests, so keep that safe fallback during rollout.
+  final int maxDays = catalogue.meta.maxRangeDays ?? 120;
+  final PublicCalendarsRepository repository = ref.watch(
+    publicCalendarsRepositoryProvider,
+  );
+
+  Future<List<PublicCalendarEvent>> load(CalendarDateWindow part) async {
+    final Loaded<List<PublicCalendarEvent>> response = await repository
+        .fetchEvents(
+          locale: locale,
+          slugs: slugs,
+          from: part.from.toIso8601String().slice10(),
+          to: part.to.toIso8601String().slice10(),
+        );
+    if (!response.meta.truncated) return response.value;
+    if (!part.from.isBefore(part.to)) {
+      throw StateError('Calendar event response remains truncated for one day');
+    }
+    final int days =
+        DateTime.utc(part.to.year, part.to.month, part.to.day)
+            .difference(
+              DateTime.utc(part.from.year, part.from.month, part.from.day),
+            )
+            .inDays +
+        1;
+    final List<CalendarDateWindow> halves = splitCalendarWindow(
+      part,
+      (days / 2).ceil(),
+    );
+    final List<List<PublicCalendarEvent>> results = await Future.wait(
+      halves.map(load),
+    );
+    return results.expand((chunk) => chunk).toList(growable: false);
+  }
+
+  final List<List<PublicCalendarEvent>> chunks = await Future.wait(
+    splitCalendarWindow(window, maxDays).map(load),
+  );
+  final Map<String, PublicCalendar> bySlug = <String, PublicCalendar>{
+    for (final PublicCalendar calendar in catalogue.value)
+      calendar.slug: calendar,
+  };
+  return publicCalendarEventsToCalendarEntries(
+    chunks.expand((chunk) => chunk).toList(growable: false),
+    bySlug,
+  );
+}
 
 Future<List<CalendarEntry>> _loadEntries(
   Ref ref, {

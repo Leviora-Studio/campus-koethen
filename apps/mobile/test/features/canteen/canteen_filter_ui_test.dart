@@ -476,7 +476,7 @@ void main() {
         contains('Gemüsepfanne'),
       );
       // A filled star and a semantic label, never colour alone.
-      expect(find.byIcon(AppIcons.star), findsOneWidget);
+      expect(find.byIcon(AppIcons.star), findsNWidgets(2));
       expect(find.bySemanticsLabel(RegExp('Favorit')), findsWidgets);
     });
 

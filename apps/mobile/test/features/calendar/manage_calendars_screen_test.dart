@@ -82,7 +82,7 @@ void main() {
     expect(find.textContaining('original German text'), findsOneWidget);
   });
 
-  testWidgets('lists public calendars and opens the combined Google view', (
+  testWidgets('lists public calendars without a combined Google action', (
     WidgetTester tester,
   ) async {
     final _FakeLauncher launcher = _FakeLauncher();
@@ -98,17 +98,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Beispielkalender A'), findsOneWidget);
-    // defaultSubscribed → auto-selected → combined button enabled.
-    expect(find.text('Ausgewählte in Google Kalender öffnen'), findsOneWidget);
-
-    await tester.tap(find.text('Ausgewählte in Google Kalender öffnen'));
-    await tester.pumpAndSettle();
-
-    expect(launcher.opened, hasLength(1));
-    expect(
-      launcher.opened.first,
-      contains('calendar.google.com/calendar/embed'),
-    );
+    expect(find.text('Ausgewählte in Google Kalender öffnen'), findsNothing);
+    expect(launcher.opened, isEmpty);
   });
 
   testWidgets('opens a single calendar in Google via its googleOpenUrl', (

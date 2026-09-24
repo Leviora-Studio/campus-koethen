@@ -13,7 +13,7 @@ import flutter_local_notifications
   ) -> Bool {
     // Ohne diese Zeile liefert iOS den Tap auf eine Benachrichtigung nicht an
     // die App aus; das Ziel-Routing bliebe still wirkungslos.
-    UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+    UNUserNotificationCenter.current().delegate = self
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

@@ -20,8 +20,8 @@ import '../../campusmap/domain/map_catalog.dart';
 import '../../canteen/application/canteen_providers.dart';
 import '../../canteen/data/canteen_models.dart';
 import '../../news/presentation/channel_picker_sheet.dart';
-import '../../timetable/application/timetable_providers.dart';
-import '../../timetable/data/timetable_models.dart';
+import '../../notifications/presentation/daily_summary_time_tile.dart';
+import '../../timetable/presentation/timetable_group_picker_sheet.dart';
 
 /// The steps of the first-run setup, in order.
 ///
@@ -300,63 +300,17 @@ class _DefaultBuildingStep extends ConsumerWidget {
   }
 }
 
-/// The timetable group — the same shape as the canteen and the building above.
-///
-/// A row that opened a separate picker made this one choice look different
-/// from the two beside it, for no reason a reader could see. The list can be
-/// long, so it is capped and searchable in the settings; here it simply
-/// scrolls with the rest of the step.
-class _TimetableGroupStep extends ConsumerWidget {
+/// Uses the same searchable group list as the settings picker, while keeping
+/// onboarding on its current step after a choice.
+class _TimetableGroupStep extends StatelessWidget {
   const _TimetableGroupStep();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final AppLocalizations l10n = context.l10n;
-    final AsyncValue<Loaded<List<TimetableGroup>>> groups = ref.watch(
-      timetableGroupsProvider,
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 380,
+      child: TimetableGroupPickerList(dismissOnSelection: false),
     );
-    final String? chosen = ref.watch(selectedTimetableGroupIdProvider);
-
-    return switch (groups) {
-      AsyncError<Loaded<List<TimetableGroup>>>() => _Unavailable(
-        label: l10n.settingsTimetableGroup,
-      ),
-      AsyncData<Loaded<List<TimetableGroup>>>(
-        :final Loaded<List<TimetableGroup>> value,
-      )
-          when value.value.isEmpty =>
-        _Unavailable(
-          label: l10n.settingsTimetableGroup,
-          message: l10n.timetableNoGroupsMessage,
-        ),
-      AsyncData<Loaded<List<TimetableGroup>>>(
-        :final Loaded<List<TimetableGroup>> value,
-      ) =>
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _StepLabel(l10n.settingsTimetableGroup),
-            RadioGroup<String>(
-              groupValue: chosen,
-              onChanged: (String? id) =>
-                  ref.read(settingsProvider.notifier).setTimetableGroup(id),
-              child: Column(
-                children: <Widget>[
-                  for (final TimetableGroup group in value.value)
-                    RadioListTile<String>.adaptive(
-                      value: group.id,
-                      title: Text(group.shortName),
-                      // Long name and department, verbatim from the source —
-                      // exactly what the settings picker shows.
-                      subtitle: _groupSubtitle(group),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      _ => const _StepLoading(),
-    };
   }
 }
 
@@ -447,6 +401,7 @@ class _NotificationStep extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
+        const DailySummaryTimeTile(),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -485,19 +440,6 @@ class _NotificationFeature extends StatelessWidget {
       const SizedBox(width: AppSpacing.sm),
       Expanded(child: Text(text)),
     ],
-  );
-}
-
-/// Long name and department of a timetable group, both verbatim.
-Widget? _groupSubtitle(TimetableGroup group) {
-  final List<String> parts = <String?>[
-    group.longName,
-    group.department,
-  ].whereType<String>().toList(growable: false);
-  if (parts.isEmpty) return null;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: <Widget>[for (final String part in parts) Text(part)],
   );
 }
 

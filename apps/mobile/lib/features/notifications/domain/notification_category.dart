@@ -30,14 +30,14 @@ enum NotificationCategory {
     windowPolicy: DeliveryWindowPolicy.shiftIntoWindow,
   ),
 
-  /// N2 · `daily.summary` — the 08:00 overview of the day (P4).
+  /// N2 · `daily.summary` — the overview at the reader's chosen local time.
   dailySummary(
     key: 'daily.summary',
     keyPrefix: 'n2',
     channelId: 'summary_channel',
     storageValue: 'summary',
     order: 1,
-    windowPolicy: DeliveryWindowPolicy.fixedLocalTime,
+    windowPolicy: DeliveryWindowPolicy.anyLocalTime,
   ),
 
   /// N3 · `canteen.favourite` — the 11:00 hint about a favourite dish (P6).
@@ -97,13 +97,16 @@ enum NotificationCategory {
 
 /// How a category relates to the 07:00–20:00 delivery window (P7).
 enum DeliveryWindowPolicy {
+  /// A time explicitly selected by the reader, including overnight hours.
+  anyLocalTime,
+
   /// The desired instant is derived from a source date (an event start minus
   /// 24 hours), so it can fall outside the window and is moved to the next
   /// 07:00 — ADR-0001 § 7.4.
   shiftIntoWindow,
 
   /// The category names a fixed local wall-clock time that lies inside the
-  /// window by construction (08:00, 11:00). Nothing is ever shifted; a request
+  /// window by construction (the 11:00 canteen hint). Nothing is shifted; a request
   /// outside the window is a programming error and is dropped with a
   /// diagnostic rather than silently moved.
   fixedLocalTime,

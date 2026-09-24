@@ -5,11 +5,13 @@ import 'package:campus_koethen/core/cache/cache_providers.dart';
 import 'package:campus_koethen/core/cache/content_cache.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/time/clock.dart';
 import 'package:campus_koethen/features/calendar/application/calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/application/public_calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
+import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -39,18 +41,81 @@ void main() {
 
   late List<RequestOptions> requests;
 
-  ProviderContainer container() {
+  ProviderContainer container({
+    Map<String, dynamic>? catalogueMeta,
+    bool lateEvent = false,
+    bool truncatedRange = false,
+    KeyValueStore? store,
+  }) {
     requests = <RequestOptions>[];
     final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
       requests.add(options);
       if (options.path == '/calendars') {
-        return FakeHttpResponse(envelope(<Object>[_calendar]));
+        return FakeHttpResponse(
+          envelope(<Object>[_calendar], meta: catalogueMeta),
+        );
+      }
+      if (options.path == '/timetable/groups') {
+        return FakeHttpResponse(
+          envelope(
+            <Object>[],
+            meta: <String, dynamic>{'from': '2026-09-24', 'to': '2026-10-22'},
+          ),
+        );
+      }
+      if (options.path == '/timetable/entries') {
+        return FakeHttpResponse(
+          envelope(<String, dynamic>{
+            'group': <String, dynamic>{'id': 'demo-group', 'shortName': 'Demo'},
+            'days': <Object>[],
+          }),
+        );
+      }
+      if (lateEvent &&
+          options.path == '/calendars/events' &&
+          options.queryParameters['from'] == '2027-01-22') {
+        return FakeHttpResponse(
+          envelope(<Object>[
+            <String, dynamic>{
+              'id': 'late-event',
+              'calendarId': 'cal-1',
+              'calendarSlug': 'campus',
+              'title': 'Später Termin',
+              'start': '2027-03-22T09:00:00.000Z',
+              'end': '2027-03-22T10:00:00.000Z',
+            },
+          ]),
+        );
+      }
+      if (truncatedRange && options.path == '/calendars/events') {
+        if (options.queryParameters['from'] == '2026-09-24' &&
+            options.queryParameters['to'] == '2026-09-27') {
+          return FakeHttpResponse(
+            envelope(<Object>[], meta: <String, dynamic>{'truncated': true}),
+          );
+        }
+        if (options.queryParameters['from'] == '2026-09-26') {
+          return FakeHttpResponse(
+            envelope(<Object>[
+              <String, dynamic>{
+                'id': 'split-event',
+                'calendarId': 'cal-1',
+                'calendarSlug': 'campus',
+                'title': 'Termin nach Teilung',
+                'start': '2026-09-27T09:00:00.000Z',
+                'end': '2026-09-27T10:00:00.000Z',
+              },
+            ]),
+          );
+        }
       }
       return FakeHttpResponse(envelope(<Object>[]));
     });
     final ProviderContainer c = ProviderContainer(
       overrides: <Override>[
-        keyValueStoreProvider.overrideWithValue(InMemoryKeyValueStore()),
+        keyValueStoreProvider.overrideWithValue(
+          store ?? InMemoryKeyValueStore(),
+        ),
         contentCacheProvider.overrideWithValue(
           SafeContentCache(MemoryContentCache()),
         ),
@@ -138,40 +203,120 @@ void main() {
     expect(eventRequests(), hasLength(2));
   });
 
-  test('the list requests exactly 120 days from today', () async {
-    final ProviderContainer c = container();
+  test('the list requests every part of the backend import horizon', () async {
+    final ProviderContainer c = container(
+      catalogueMeta: <String, dynamic>{
+        'from': '2026-09-24',
+        'to': '2027-03-23',
+        'maxRangeDays': 120,
+      },
+      lateEvent: true,
+    );
     await loadCatalogue(c);
 
-    await c.read(
-      publicCalendarListEntriesProvider(DateTime(2026, 8, 27, 18)).future,
+    final List<CalendarEntry> entries = await c.read(
+      publicCalendarListEntriesProvider(DateTime(2026, 9, 24, 18)).future,
     );
 
-    final RequestOptions request = requests.singleWhere(
-      (RequestOptions request) => request.path.contains('/calendars/events'),
+    final List<RequestOptions> chunks = requests
+        .where(
+          (RequestOptions request) =>
+              request.path.contains('/calendars/events'),
+        )
+        .toList();
+    expect(chunks, hasLength(2));
+    expect(chunks[0].queryParameters['from'], '2026-09-24');
+    expect(chunks[0].queryParameters['to'], '2027-01-21');
+    expect(chunks[1].queryParameters['from'], '2027-01-22');
+    expect(chunks[1].queryParameters['to'], '2027-03-23');
+    expect(
+      entries.map((CalendarEntry entry) => entry.title),
+      contains('Später Termin'),
     );
-    expect(request.queryParameters['from'], '2026-08-27');
-    expect(request.queryParameters['to'], '2026-12-24');
   });
 
-  test('the list window includes today through day 119 only', () {
-    final CalendarDateWindow window = calendarListWindow(
-      DateTime(2026, 8, 27, 18),
-    );
+  test(
+    'the list splits a truncated response instead of dropping events',
+    () async {
+      final ProviderContainer c = container(
+        catalogueMeta: <String, dynamic>{
+          'from': '2026-09-24',
+          'to': '2026-09-27',
+          'maxRangeDays': 4,
+        },
+        truncatedRange: true,
+      );
+      await loadCatalogue(c);
+
+      final List<CalendarEntry> entries = await c.read(
+        publicCalendarListEntriesProvider(DateTime(2026, 9, 24)).future,
+      );
+
+      expect(
+        entries.map((CalendarEntry entry) => entry.title),
+        contains('Termin nach Teilung'),
+      );
+      expect(eventRequests(), hasLength(3));
+    },
+  );
+
+  test('the list includes later entries from every local source', () {
+    final DateTime from = DateTime(2026, 8, 27, 18);
     final List<CalendarEntry> entries = <CalendarEntry>[
       _entry('before', DateTime(2026, 8, 26, 12)),
       _entry('today', DateTime(2026, 8, 27, 12)),
-      _entry('last', DateTime(2026, 12, 24, 12)),
-      _entry('after', DateTime(2026, 12, 25, 12)),
+      _entry('later', DateTime(2027, 12, 25, 12)),
     ];
 
     expect(
-      calendarEntriesInWindow(
-        entries,
-        window,
-      ).map((CalendarEntry entry) => entry.id),
-      <String>['today', 'last'],
+      calendarEntriesFrom(entries, from).map((CalendarEntry entry) => entry.id),
+      <String>['today', 'later'],
     );
   });
+
+  test('a cached backend horizon keeps rolling forward with today', () {
+    final CalendarDateWindow window = calendarListWindow(
+      DateTime(2026, 9, 25),
+      '2026-09-24',
+      '2027-03-23',
+    );
+
+    expect(window.from, DateTime(2026, 9, 25));
+    expect(window.to, DateTime(2027, 3, 24));
+  });
+
+  test(
+    'the list asks for timetable data only through its advertised horizon',
+    () async {
+      final ProviderContainer c = container(
+        store: InMemoryKeyValueStore(<String, Object>{
+          PreferenceKeys.preferredTimetableGroup: 'demo-group',
+        }),
+      );
+      final DateTime today = DateTime(2026, 9, 24);
+      c.listen(calendarListDataProvider(today), (_, _) {});
+      await c.read(timetableGroupsProvider.future);
+      c.read(calendarListDataProvider(today));
+      await c.read(
+        timetableRangeProvider(
+          TimetableRangeRequest(
+            groupId: 'demo-group',
+            from: today,
+            to: DateTime(2026, 10, 22),
+          ),
+        ).future,
+      );
+
+      final List<RequestOptions> timetableRequests = requests
+          .where(
+            (RequestOptions request) => request.path == '/timetable/entries',
+          )
+          .toList();
+      expect(timetableRequests, hasLength(1));
+      expect(timetableRequests.single.queryParameters['from'], '2026-09-24');
+      expect(timetableRequests.single.queryParameters['to'], '2026-10-22');
+    },
+  );
 
   test('focused calendar uses the rolling window only in list mode', () {
     final ProviderContainer c = ProviderContainer(

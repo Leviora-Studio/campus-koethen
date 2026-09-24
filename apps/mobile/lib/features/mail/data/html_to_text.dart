@@ -12,8 +12,18 @@ final RegExp _blockClosePattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _allTagsPattern = RegExp(r'<[^>]+>');
-final RegExp _trailingWhitespacePattern = RegExp(r'[ \t]+\n');
-final RegExp _excessiveNewlinesPattern = RegExp(r'\n{3,}');
+final RegExp _lineWhitespacePattern = RegExp(r'[ \t]+$', multiLine: true);
+final RegExp _blankLinesPattern = RegExp(r'\n[ \t]*\n(?:[ \t]*\n)+');
+
+/// Keeps paragraph breaks while removing transport line endings and excess
+/// whitespace from both plain and HTML-derived mail bodies.
+String normalizeMailBody(String text) => text
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+    .replaceAll('\u00a0', ' ')
+    .replaceAll(_lineWhitespacePattern, '')
+    .replaceAll(_blankLinesPattern, '\n\n')
+    .trim();
 
 /// Reduces an HTML mail body to safe plain text.
 ///
@@ -39,7 +49,5 @@ String htmlToPlainText(String? html) {
       .replaceAll('&quot;', '"')
       .replaceAll('&#39;', "'");
   // Collapse excessive blank lines and trailing whitespace.
-  text = text.replaceAll(_trailingWhitespacePattern, '\n');
-  text = text.replaceAll(_excessiveNewlinesPattern, '\n\n');
-  return text.trim();
+  return normalizeMailBody(text);
 }

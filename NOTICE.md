@@ -138,14 +138,14 @@ Der Client für die studentische E-Mail nutzt zusätzlich:
 | `enough_convert`         | Zeichensatz-Dekodierung (transitiv)            | `MPL-2.0`      |
 | `flutter_secure_storage` | Geräte-Schlüsselspeicher für Zugangsdaten      | `BSD-3-Clause` |
 | `share_plus`             | Anhänge über das OS-Teilen-Menü teilen         | `BSD-3-Clause` |
-| `pdfx`                   | PDF-Anhänge in-App anzeigen (nativer Renderer) | `MIT`          |
+| `pdfrx`                  | PDF-Anhänge inklusive Formularfelder in-App anzeigen (PDFium) | `MIT`          |
 | `html`                   | HIS-QIS-HTML parsen (Notenspiegel)             | `BSD-3-Clause` |
 | `dio_cookie_manager`     | Cookie-Handling für den QIS-Abruf (dio)        | `MIT`          |
 | `cookie_jar`             | In-Memory-Cookie-Jar für den QIS-Abruf         | `MIT`          |
 | `meta`                   | Annotationen (`@immutable` u. a.)              | `BSD-3-Clause` |
 
 Die Moodle-Integration nutzt ausschließlich bereits vorhandene Abhängigkeiten (`dio`,
-`flutter_secure_storage`, `hive_ce`, `pdfx`, `share_plus`, `html`, `url_launcher`) und führt keine
+`flutter_secure_storage`, `hive_ce`, `pdfrx`, `share_plus`, `html`, `url_launcher`) und führt keine
 weiteren ein. Der quellenübergreifende Kalender ebenfalls nicht: Tag-, Wochen- und Listenansicht
 bestehen aus gewöhnlichen Flutter-Widgets. Eine ausführliche Bewertung steht in
 [`docs/legal/dependency-licenses.md`](docs/legal/dependency-licenses.md).

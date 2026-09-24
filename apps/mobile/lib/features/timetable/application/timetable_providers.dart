@@ -83,6 +83,47 @@ class TimetableWeekRequest {
   String toString() => 'TimetableWeekRequest($groupId, $weekStart)';
 }
 
+/// A bounded date range used when the calendar list covers several months.
+@immutable
+class TimetableRangeRequest {
+  TimetableRangeRequest({
+    required this.groupId,
+    required DateTime from,
+    required DateTime to,
+  }) : from = TimetableWeek.dayOf(from),
+       to = TimetableWeek.dayOf(to);
+
+  final String groupId;
+  final DateTime from;
+  final DateTime to;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TimetableRangeRequest &&
+      other.groupId == groupId &&
+      other.from == from &&
+      other.to == to;
+
+  @override
+  int get hashCode => Object.hash(groupId, from, to);
+}
+
+final timetableRangeProvider =
+    FutureProvider.family<Loaded<Timetable>, TimetableRangeRequest>((
+      Ref ref,
+      TimetableRangeRequest request,
+    ) async {
+      final String locale = ref.watch(localeCodeProvider);
+      return ref
+          .watch(timetableRepositoryProvider)
+          .fetchEntries(
+            locale: locale,
+            groupId: request.groupId,
+            from: request.from,
+            to: request.to,
+          );
+    });
+
 /// The timetable of one group for one week.
 final timetableWeekProvider =
     FutureProvider.family<Loaded<Timetable>, TimetableWeekRequest>((

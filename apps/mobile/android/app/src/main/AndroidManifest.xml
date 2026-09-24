@@ -12,8 +12,8 @@
          Bewusst NICHT vorhanden: SCHEDULE_EXACT_ALARM und USE_EXACT_ALARM.
          Geplant wird ausschließlich inexakt (inexactAllowWhileIdle); der Preis
          dafür sind wenige Minuten Streuung, der Preis einer exakten Alarmierung
-         wäre eine erklärungsbedürftige Sonderberechtigung. POST_NOTIFICATIONS
-         bringt das Plugin selbst mit. -->
+         wäre eine erklärungsbedürftige Sonderberechtigung. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Kein Backup, keine Geräteübertragung. Ohne diese Angaben sichert
          Android die App-Daten in die Cloud und überträgt sie auf ein neues

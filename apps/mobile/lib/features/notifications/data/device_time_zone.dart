@@ -20,9 +20,8 @@ abstract interface class TimeZoneResolver {
   /// platform will not say.
   Future<String?> deviceTimeZoneName();
 
-  /// The location to plan in — the device zone, or UTC when it cannot be
-  /// resolved. Never throws: a reminder in the wrong zone is a bug, an app
-  /// that will not start is worse.
+  /// The location to plan in — the device zone, or its current UTC offset
+  /// when the platform cannot provide an IANA name. Never throws.
   Future<tz.Location> resolveLocation();
 }
 
@@ -52,16 +51,24 @@ class DeviceTimeZoneResolver implements TimeZoneResolver {
   Future<tz.Location> resolveLocation() async {
     await initialize();
     final String? name = await deviceTimeZoneName();
-    if (name == null) return tz.UTC;
+    if (name == null) return _deviceOffsetLocation();
     try {
       return tz.getLocation(name);
     } catch (error) {
-      // An IANA name the bundled database does not know — a newly split zone,
-      // or a vendor-specific alias. UTC is wrong by a whole offset, but it is
-      // deterministic, and the alternative is no notifications at all.
+      // A newly split zone or vendor-specific alias may be absent from the
+      // bundled database. The device's current offset is still more accurate
+      // than silently scheduling every reminder at UTC.
       _report(error);
-      return tz.UTC;
+      return _deviceOffsetLocation();
     }
+  }
+
+  tz.Location _deviceOffsetLocation() {
+    final Duration offset = DateTime.now().timeZoneOffset;
+    final String name = 'device-offset-${offset.inMinutes}';
+    return tz.Location(name, const [], const [], [
+      tz.TimeZone(offset, isDst: false, abbreviation: name),
+    ]);
   }
 
   void _report(Object error) {
