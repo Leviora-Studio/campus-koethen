@@ -126,18 +126,14 @@ export const envSchema = z.object({
     .min(64_000)
     .max(64_000_000)
     .default(16_000_000),
-  /** Keep the selectable group catalogue aligned with the hourly entries. */
-  WEBUNTIS_GROUP_SYNC_CRON: z.string().min(1).default('0 * * * *'),
-  /**
-   * Hourly. Entries for ALL groups arrive in ONE request, so this is 24
-   * upstream calls a day in total — a timetable does not change often enough
-   * to justify more, and automated use is not cleared yet.
-   */
-  WEBUNTIS_ENTRY_SYNC_CRON: z.string().min(1).default('0 * * * *'),
+  /** Daily catalogue refresh, before the per-class entry requests. */
+  WEBUNTIS_GROUP_SYNC_CRON: z.string().min(1).default('0 2 * * *'),
+  /** The public view requires one request per class; avoid an hourly full scan. */
+  WEBUNTIS_ENTRY_SYNC_CRON: z.string().min(1).default('15 2 * * *'),
   WEBUNTIS_SYNC_ON_BOOT: booleanFromEnv.default(true),
   WEBUNTIS_LOOKBACK_DAYS: z.coerce.number().int().min(0).max(90).default(7),
-  WEBUNTIS_LOOKAHEAD_DAYS: z.coerce.number().int().min(1).max(180).default(28),
-  WEBUNTIS_STALE_AFTER_MINUTES: z.coerce.number().int().min(5).max(10_080).default(180),
+  WEBUNTIS_LOOKAHEAD_DAYS: z.coerce.number().int().min(1).max(210).default(28),
+  WEBUNTIS_STALE_AFTER_MINUTES: z.coerce.number().int().min(5).max(10_080).default(1800),
 
   // --- Public Google calendars (public ICS feed) ---------------------------
   /**

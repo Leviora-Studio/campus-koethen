@@ -20,9 +20,20 @@ describe('validateEnv', () => {
     expect(env.PUBLIC_CALENDAR_MAX_OCCURRENCES_PER_EVENT).toBe(2000);
     expect(env.PUBLIC_CALENDAR_MAX_OCCURRENCES).toBe(25000);
     expect(env.PUBLIC_CALENDAR_SYNC_ON_BOOT).toBe(true);
-    expect(env.WEBUNTIS_GROUP_SYNC_CRON).toBe('0 * * * *');
-    expect(env.WEBUNTIS_ENTRY_SYNC_CRON).toBe('0 * * * *');
+    expect(env.WEBUNTIS_GROUP_SYNC_CRON).toBe('0 2 * * *');
+    expect(env.WEBUNTIS_ENTRY_SYNC_CRON).toBe('15 2 * * *');
+    expect(env.WEBUNTIS_STALE_AFTER_MINUTES).toBe(1800);
     expect(env.WEBUNTIS_SYNC_ON_BOOT).toBe(true);
+  });
+
+  it('accepts a 210-day WebUntis horizon for a full semester', () => {
+    expect(validateEnv({ ...BASE, WEBUNTIS_LOOKAHEAD_DAYS: '210' }).WEBUNTIS_LOOKAHEAD_DAYS)
+      .toBe(210);
+  });
+
+  it('rejects a WebUntis horizon longer than the supported semester window', () => {
+    expect(() => validateEnv({ ...BASE, WEBUNTIS_LOOKAHEAD_DAYS: '211' }))
+      .toThrow(EnvValidationError);
   });
 
   it('accepts an explicit IANA timezone for worker schedules', () => {

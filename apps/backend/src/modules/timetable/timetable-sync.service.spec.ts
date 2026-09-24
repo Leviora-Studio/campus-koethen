@@ -4,10 +4,49 @@ import { TimetableSyncService } from './timetable-sync.service';
 import { EntriesResponse } from './webuntis.schema';
 import { WebUntisClient } from './webuntis.client';
 
+describe('TimetableSyncService school-year catalogue', () => {
+  it('stores the upcoming year before it becomes current', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      timetableSyncRun: {
+        create: jest.fn().mockResolvedValue({ id: 'run-1' }),
+        update: jest.fn(),
+      },
+      timetableContext: {
+        upsert,
+        updateMany: jest.fn(),
+      },
+    } as unknown as PrismaService;
+    const current = {
+      id: 49,
+      name: '2026/2026',
+      dateRange: { start: '2026-04-07', end: '2026-09-30' },
+    };
+    const upcoming = {
+      id: 51,
+      name: '2026/2027',
+      dateRange: { start: '2026-10-05', end: '2027-03-31' },
+    };
+    const client = {
+      fetchAppData: jest.fn().mockResolvedValue({ currentSchoolYear: current }),
+      fetchSchoolYears: jest.fn().mockResolvedValue([current, upcoming]),
+    } as unknown as WebUntisClient;
+
+    const outcome = await new TimetableSyncService(prisma, client, {} as Env)
+      .syncContext();
+
+    expect(outcome.status).toBe('success');
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { source_externalId: { source: 'webuntis', externalId: '51' } },
+      create: expect.objectContaining({ active: false }),
+    }));
+  });
+});
+
 /**
  * Cost contract of the entry write phase.
  *
- * The job covers the whole catalogue every hour — ~800 lessons on real data —
+ * The job covers the whole catalogue on each scheduled run — ~800 lessons on real data —
  * and between two runs a handful of them move at most. Writing every lesson
  * back unconditionally is what forced the transaction timeout up from Prisma's
  * 5s default, so the number of writes has to follow the number of CHANGES.
@@ -103,12 +142,17 @@ describe('TimetableSyncService entry write phase', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
+    const contextFindMany = jest.fn().mockResolvedValue([{
+      externalId: '49',
+      validFrom: new Date('2026-04-07T00:00:00.000Z'),
+      validTo: new Date('2026-09-30T00:00:00.000Z'),
+    }]);
     const prisma = {
       timetableSyncRun: {
         create: jest.fn().mockResolvedValue({ id: 'run-1' }),
         update: jest.fn(),
       },
-      timetableContext: { findFirst: jest.fn().mockResolvedValue({ externalId: '2026' }) },
+      timetableContext: { findMany: contextFindMany },
       timetableGroup: {
         findMany: jest.fn().mockResolvedValue(groups),
       },
@@ -117,13 +161,21 @@ describe('TimetableSyncService entry write phase', () => {
       ),
     } as unknown as PrismaService;
 
-    const client = { fetchEntries: jest.fn(async () => entries) } as unknown as WebUntisClient;
+    const fetchClasses = jest.fn(async (_yearId: number) => ({
+        resourceType: 'CLASS',
+        classes: [{ class: { id: 15027, shortName: 'AR2Ü1' }, department: null }],
+      }));
+    const fetchEntries = jest.fn(async (_yearId: number, _from: string, _to: string, _classId: number) => entries);
+    const client = {
+      fetchClasses,
+      fetchEntries,
+    } as unknown as WebUntisClient;
     const service = new TimetableSyncService(prisma, client, {
       WEBUNTIS_LOOKBACK_DAYS: 7,
       WEBUNTIS_LOOKAHEAD_DAYS: 21,
     } as Env);
 
-    return { service, tx };
+    return { service, tx, contextFindMany, fetchClasses, fetchEntries };
   }
 
   it('touches nothing but the seen-stamp when the response repeats itself', async () => {
@@ -218,6 +270,66 @@ describe('TimetableSyncService entry write phase', () => {
       skipDuplicates: true,
     });
   });
+
+  it('reads the next semester using its own year, class and clipped dates', async () => {
+    const { service, contextFindMany, fetchClasses, fetchEntries } = harness(
+      [],
+      response([7001]),
+      [{ id: 'group-next', externalId: '15120' }],
+    );
+    contextFindMany.mockResolvedValue([
+      {
+        externalId: '49',
+        validFrom: new Date('2026-04-07T00:00:00.000Z'),
+        validTo: new Date('2026-09-30T00:00:00.000Z'),
+      },
+      {
+        externalId: '51',
+        validFrom: new Date('2026-10-05T00:00:00.000Z'),
+        validTo: new Date('2027-03-31T00:00:00.000Z'),
+      },
+    ]);
+    fetchClasses.mockImplementation(async (yearId: number) => ({
+      resourceType: 'CLASS',
+      classes: [{ class: { id: yearId === 49 ? 15027 : 15120, shortName: 'AR2Ü1' }, department: null }],
+    }));
+    fetchEntries.mockImplementation(async (yearId: number) => {
+      if (yearId === 49) return { days: [] };
+      const next = response([7001]);
+      next.days[0]!.date = '2026-10-05';
+      next.days[0]!.resource.id = 15120;
+      next.days[0]!.gridEntries[0]!.duration = {
+        start: '2026-10-05T10:00',
+        end: '2026-10-05T11:30',
+      };
+      return next;
+    });
+
+    const result = await service.syncEntries('2026-09-23', '2026-10-10');
+
+    expect(result.status).toBe('success');
+    expect(fetchClasses.mock.calls.map((call) => call[0])).toEqual([49, 51]);
+    expect(fetchEntries).toHaveBeenNthCalledWith(1, 49, '2026-09-23', '2026-09-30', 15027);
+    expect(fetchEntries).toHaveBeenNthCalledWith(2, 51, '2026-10-05', '2026-10-10', 15120);
+  });
+
+  it('keeps stored entries when one class request fails', async () => {
+    const { service, tx, fetchClasses, fetchEntries } = harness([], response([7001]));
+    fetchClasses.mockResolvedValue({
+      resourceType: 'CLASS',
+      classes: [
+        { class: { id: 15027, shortName: 'AR2Ü1' }, department: null },
+        { class: { id: 15028, shortName: 'AR2Ü2' }, department: null },
+      ],
+    });
+    fetchEntries.mockRejectedValueOnce(new Error('source unavailable'));
+
+    const result = await service.syncEntries(RANGE.from, RANGE.to);
+
+    expect(result.status).toBe('failed');
+    expect(tx.timetableEntry.findMany).not.toHaveBeenCalled();
+    expect(tx.timetableEntry.deleteMany).not.toHaveBeenCalled();
+  });
 });
 
 /**
@@ -271,7 +383,13 @@ describe('TimetableSyncService catalogue write phase', () => {
         create: jest.fn().mockResolvedValue({ id: 'run-1' }),
         update: jest.fn(),
       },
-      timetableContext: { findFirst: jest.fn().mockResolvedValue({ externalId: '2026' }) },
+      timetableContext: {
+        findMany: jest.fn().mockResolvedValue([{
+          externalId: '49',
+          validFrom: new Date('2026-04-07T00:00:00.000Z'),
+          validTo: new Date('2026-09-30T00:00:00.000Z'),
+        }]),
+      },
       timetableGroup: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       $transaction: jest.fn(async (operation: (transaction: typeof tx) => Promise<void>) =>
         operation(tx),
@@ -279,7 +397,10 @@ describe('TimetableSyncService catalogue write phase', () => {
     } as unknown as PrismaService;
 
     const client = { fetchClasses: jest.fn(async () => upstream) } as unknown as WebUntisClient;
-    const service = new TimetableSyncService(prisma, client, {} as Env);
+    const service = new TimetableSyncService(prisma, client, {
+      WEBUNTIS_LOOKBACK_DAYS: 7,
+      WEBUNTIS_LOOKAHEAD_DAYS: 28,
+    } as Env);
     return { service, tx };
   }
 
@@ -287,7 +408,7 @@ describe('TimetableSyncService catalogue write phase', () => {
     const stored = Array.from({ length: 270 }, (_, index) => storedGroup(index));
     const { service, tx } = harness(stored, classes(270));
 
-    const outcome = await service.syncGroups();
+    const outcome = await service.syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
     expect(outcome.status).toBe('success');
     expect(tx.timetableGroup.createMany).not.toHaveBeenCalled();
@@ -303,7 +424,7 @@ describe('TimetableSyncService catalogue write phase', () => {
     const stored = Array.from({ length: 270 }, (_, index) => storedGroup(index));
     const { service, tx } = harness(stored, classes(270, new Set([9])));
 
-    await service.syncGroups();
+    await service.syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
     expect(tx.timetableGroup.update).toHaveBeenCalledTimes(1);
     expect(tx.timetableGroup.update).toHaveBeenCalledWith(
@@ -320,7 +441,7 @@ describe('TimetableSyncService catalogue write phase', () => {
     const stored = [storedGroup(0, { active: false })];
     const { service, tx } = harness(stored, classes(1));
 
-    await service.syncGroups();
+    await service.syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
     expect(tx.timetableGroup.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ active: true }) }),
@@ -331,7 +452,7 @@ describe('TimetableSyncService catalogue write phase', () => {
   it('inserts a brand-new catalogue in one statement', async () => {
     const { service, tx } = harness([], classes(270));
 
-    await service.syncGroups();
+    await service.syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
     expect(tx.timetableGroup.createMany).toHaveBeenCalledTimes(1);
     expect(tx.timetableGroup.update).not.toHaveBeenCalled();

@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { WebUntisClient, WebUntisError } from './webuntis.client';
 import {
   EntriesResponse,
+  FilterResponse,
   normalizeEntryStatus,
   normalizeEntryType,
   pickAllPositions,
@@ -19,11 +20,8 @@ import {
  * stored. Stale but real beats empty, and the API tells the client how old the
  * data is instead of pretending it is fresh.
  *
- * Strategy: BATCH. The source returns every class in a single request when no
- * resource ids are sent, so one call per window covers the whole catalogue.
- * That removed the need for the demand-based cache a per-group API would have
- * forced, and keeps us to a couple of requests per sync against someone else's
- * system.
+ * The source requires exactly one class per entry request. A whole window is
+ * read before any write, so one failed class keeps the last complete result.
  */
 
 export type SyncKind = 'context' | 'groups' | 'entries';
@@ -123,8 +121,30 @@ export class TimetableSyncService {
 
     try {
       const data = await this.client.fetchAppData();
+      const years = await this.client.fetchSchoolYears();
       const year = data.currentSchoolYear;
       const externalId = String(year.id);
+
+      for (const candidate of years) {
+        if (candidate.id === year.id) continue;
+        const id = String(candidate.id);
+        await this.prisma.timetableContext.upsert({
+          where: { source_externalId: { source: 'webuntis', externalId: id } },
+          create: {
+            externalId: id,
+            name: candidate.name,
+            validFrom: new Date(`${candidate.dateRange.start}T00:00:00.000Z`),
+            validTo: new Date(`${candidate.dateRange.end}T00:00:00.000Z`),
+            active: false,
+          },
+          update: {
+            name: candidate.name,
+            validFrom: new Date(`${candidate.dateRange.start}T00:00:00.000Z`),
+            validTo: new Date(`${candidate.dateRange.end}T00:00:00.000Z`),
+            lastSeenAt: new Date(),
+          },
+        });
+      }
 
       await this.prisma.timetableContext.upsert({
         where: { source_externalId: { source: 'webuntis', externalId } },
@@ -169,30 +189,46 @@ export class TimetableSyncService {
     }
   }
 
-  private async currentContextId(): Promise<number | null> {
-    const context = await this.prisma.timetableContext.findFirst({
-      where: { source: 'webuntis', active: true },
-      orderBy: { lastSeenAt: 'desc' },
-      select: { externalId: true },
+  private async contextsFor(from: string, to: string): Promise<
+    Array<{ id: number; from: string; to: string }>
+  > {
+    const contexts = await this.prisma.timetableContext.findMany({
+      where: {
+        source: 'webuntis',
+        validFrom: { lte: new Date(`${to}T00:00:00.000Z`) },
+        validTo: { gte: new Date(`${from}T00:00:00.000Z`) },
+      },
+      orderBy: { validFrom: 'asc' },
+      select: { externalId: true, validFrom: true, validTo: true },
     });
-    const parsed = context ? Number(context.externalId) : Number.NaN;
-    return Number.isFinite(parsed) ? parsed : null;
+    return contexts.flatMap((context) => {
+      const id = Number(context.externalId);
+      if (!Number.isSafeInteger(id)) return [];
+      const start = context.validFrom.toISOString().slice(0, 10);
+      const end = context.validTo.toISOString().slice(0, 10);
+      return [{ id, from: start > from ? start : from, to: end < to ? end : to }];
+    });
   }
 
   /** Full class catalogue. Rare, complete, and the only thing allowed to deactivate a group. */
-  async syncGroups(): Promise<SyncOutcome> {
+  async syncGroups(asOf = new Date()): Promise<SyncOutcome> {
     const run = await this.startRun('groups');
 
     try {
-      const schoolYearId = await this.currentContextId();
-      if (schoolYearId === null) {
-        throw new WebUntisError('malformed', 'No active timetable context is known yet.');
+      const window = this.windowFor(asOf);
+      const contexts = await this.contextsFor(window.from, window.to);
+      if (contexts.length === 0) {
+        throw new WebUntisError('malformed', 'No timetable context covers the sync window.');
       }
 
-      const response = await this.client.fetchClasses(schoolYearId);
-      const received = response.classes.length;
+      const catalogues: FilterResponse[] = [];
+      for (const context of contexts) {
+        catalogues.push(await this.client.fetchClasses(context.id));
+      }
+      const classes = catalogues.flatMap((catalogue) => catalogue.classes);
+      const received = classes.length;
 
-      const seen = response.classes
+      const seen = classes
         .map((item) => ({
           externalId: String(item.class.id),
           shortName: item.class.shortName.trim(),
@@ -482,7 +518,7 @@ export class TimetableSyncService {
   }
 
   /**
-   * Entries for the whole catalogue in one window.
+   * Entries for every class in every school year covering the requested window.
    *
    * Removal is limited to the confirmed window AND the confirmed groups, and
    * only ever runs after a successful, non-empty response.
@@ -498,13 +534,33 @@ export class TimetableSyncService {
     });
 
     try {
-      const schoolYearId = await this.currentContextId();
-      if (schoolYearId === null) {
-        throw new WebUntisError('malformed', 'No active timetable context is known yet.');
+      const contexts = await this.contextsFor(from, to);
+      if (contexts.length === 0) {
+        throw new WebUntisError('malformed', 'No timetable context covers the sync window.');
       }
 
-      const response = await this.client.fetchEntries(schoolYearId, from, to);
+      const days: EntriesResponse['days'] = [];
+      const requestedGroupIds = new Set<string>();
+      for (const context of contexts) {
+        const catalogue = await this.client.fetchClasses(context.id);
+        if (catalogue.classes.length === 0) {
+          throw new WebUntisError('malformed', 'A timetable class catalogue was empty.');
+        }
+        for (const item of catalogue.classes) {
+          const classId = item.class.id;
+          requestedGroupIds.add(String(classId));
+          const classEntries = await this.client.fetchEntries(
+            context.id,
+            context.from,
+            context.to,
+            classId,
+          );
+          days.push(...classEntries.days);
+        }
+      }
+      const response: EntriesResponse = { days };
       const { entries, rejected, groupExternalIds } = this.normalize(response);
+      for (const id of requestedGroupIds) groupExternalIds.add(id);
       const received = response.days.reduce((sum, day) => sum + day.gridEntries.length, 0);
 
       if (entries.size === 0) {

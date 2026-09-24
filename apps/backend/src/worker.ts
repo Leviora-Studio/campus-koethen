@@ -104,8 +104,8 @@ async function bootstrap(): Promise<void> {
   // --- Timetable -----------------------------------------------------------
   const timetable = app.get(TimetableSyncService);
 
-  // Separate jobs keep catalogue and entry failures isolated even though both
-  // currently run hourly.
+  // Separate jobs keep catalogue and entry failures isolated. Their daily
+  // defaults are staggered because entry sync now requests each class.
   const groupJob = new WorkerJob(
     'timetable-groups',
     env.WEBUNTIS_GROUP_SYNC_CRON,

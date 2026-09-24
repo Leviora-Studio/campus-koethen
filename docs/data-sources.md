@@ -269,9 +269,9 @@ nirgends im Quellcode hinterlegt.
 | Regel           | Wert                                                                                  |
 | --------------- | ------------------------------------------------------------------------------------- |
 | Feature-Flag    | `WEBUNTIS_ENABLED`, **Default `false`**                                               |
-| Gruppenkatalog  | stündlich (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 * * * *`)                           |
-| Stundenplan     | stündlich (`WEBUNTIS_ENTRY_SYNC_CRON`, Default `0 * * * *`), **ein** Request pro Lauf |
-| Abrufvolumen    | 48 Fremdabrufe pro Tag für **alle** Gruppen zusammen                                  |
+| Gruppenkatalog  | täglich (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 2 * * *`)                           |
+| Stundenplan     | täglich (`WEBUNTIS_ENTRY_SYNC_CRON`, Default `15 2 * * *`), ein Request je Klasse   |
+| Abrufvolumen    | abhängig von der Zahl der Klassen in den Schuljahren des Zeitfensters               |
 | Zeitfenster     | 7 Tage zurück, 28 Tage voraus (konfigurierbar)                                        |
 | API-Zeitraum    | maximal 42 Tage                                                                       |
 | Timeout / Retry | 20 s, 3 Versuche, Backoff mit Jitter, `Retry-After` wird beachtet                     |
@@ -280,6 +280,9 @@ nirgends im Quellcode hinterlegt.
 | Tests           | ausschließlich gegen redigierte Fixtures unter `apps/backend/test/fixtures/webuntis/` |
 
 Die App ruft WebUntis **nie** direkt auf. Kein Client-Request löst einen Fremdabruf aus.
+Die Schuljahre werden vorab über `/schoolyears` ermittelt; dadurch sind Gruppen und Einträge
+des kommenden Semesters schon vor dem Wechsel des aktuellen Schuljahres verfügbar. Ein fehlerhafter
+Klassenabruf verwirft den gesamten Lauf, ohne vorhandene Daten zu löschen.
 
 ### 4.4 Personenbezogene Daten
 

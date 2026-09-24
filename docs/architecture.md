@@ -467,13 +467,15 @@ wenn dieser Zeitpunkt älter als `CANTEEN_STALE_AFTER_MINUTES` ist.
 
 Zwei getrennte Jobs, beide über `WEBUNTIS_ENABLED` schaltbar (Default `false`):
 
-- **Gruppenkatalog** (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 * * * *`) — eine Gruppe wird erst
+- **Gruppenkatalog** (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 2 * * *`) — eine Gruppe wird erst
   nach einem **vollständig** erfolgreichen Katalogimport deaktiviert, nie aufgrund eines Teillaufs.
-- **Einträge** (`WEBUNTIS_ENTRY_SYNC_CRON`) — **ein** Request pro Lauf für alle Gruppen. Die Quelle
-  liefert alle Klassen auf einmal (Größenordnung 270 Klassen, ~505 KB), deshalb ist ein Batch pro
-  Zeitfenster deutlich schonender als Einzelabrufe.
+- **Einträge** (`WEBUNTIS_ENTRY_SYNC_CRON`, Default `15 2 * * *`) — die öffentliche Ansicht
+  verlangt inzwischen genau eine Klasse pro Request. Der Worker lädt die Klassen aller Schuljahre,
+  die das Zeitfenster schneiden, und übernimmt die Ergebnisse erst nach einem vollständigen Lauf.
+  Wegen der höheren Abrufzahl laufen Katalog und Einträge standardmäßig einmal täglich.
 
-Die Schuljahres-ID ist dynamisch und wird zur Laufzeit gelesen. Zeiten kommen als zonenlose
+Die Schuljahres-IDs werden dynamisch aus `/schoolyears` gelesen, einschließlich kommender Semester.
+Zeiten kommen als zonenlose
 Wandzeit und werden beim Import nach UTC gerechnet — würde man sie roh speichern, verschöbe sich
 jede Stunde. Unbekannte Vokabeln in `type`/`status` werden auf `unknown` abgebildet und brechen den
 Import **nicht**.

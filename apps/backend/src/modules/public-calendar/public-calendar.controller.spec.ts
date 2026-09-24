@@ -49,6 +49,24 @@ describe('PublicCalendarController date range', () => {
     expect(late[2].toISOString()).toBe('2027-10-06T23:59:59.999Z');
   });
 
+  it('advertises the full imported horizon and request size for the app list', async () => {
+    const service = {
+      listCalendars: jest.fn().mockResolvedValue({ data: [], translationFallback: false }),
+    } as unknown as PublicCalendarService;
+    const controller = new PublicCalendarController(service, {
+      PUBLIC_CALENDAR_API_MAX_RANGE_DAYS: 120,
+      PUBLIC_CALENDAR_LOOKAHEAD_DAYS: 180,
+      PUBLIC_CALENDAR_ENABLED: true,
+    } as Env);
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-24T12:00:00.000Z'));
+
+    const response = await controller.list(locale);
+
+    expect(response.meta.from).toBe('2026-09-24');
+    expect(response.meta.to).toBe('2027-03-23');
+    expect(response.meta.maxRangeDays).toBe(120);
+  });
+
   it('still honours an explicit range', async () => {
     const { controller, getAggregatedEvents } = harness();
 

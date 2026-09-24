@@ -45,6 +45,22 @@ describe('WebUntisClient', () => {
   };
 
   describe('request shaping', () => {
+    it('reads the public school-year list without a year header', async () => {
+      let seen: RequestInit = {};
+      let seenUrl = '';
+      stubFetch(async (url, init) => {
+        seenUrl = url;
+        seen = init;
+        return jsonResponse(
+          '[{"id":49,"name":"2026/2026","dateRange":{"start":"2026-04-07","end":"2026-09-30"}},' +
+          '{"id":51,"name":"2026/2027","dateRange":{"start":"2026-10-05","end":"2027-03-31"}}]',
+        );
+      });
+      const years = await new WebUntisClient(makeEnv()).fetchSchoolYears();
+      expect(years.map((year) => year.id)).toEqual([49, 51]);
+      expect(seenUrl).toContain('/schoolyears');
+      expect((seen.headers as Record<string, string>)['X-Webuntis-Api-School-Year-Id']).toBeUndefined();
+    });
     it('sends the anonymous school header and asks for JSON', async () => {
       let seen: RequestInit = {};
       stubFetch(async (_url, init) => {
@@ -93,15 +109,13 @@ describe('WebUntisClient', () => {
         return jsonResponse(fixtureText('entries-week.json'));
       });
 
-      await new WebUntisClient(makeEnv()).fetchEntries(49, '2026-07-20', '2026-07-24');
+      await new WebUntisClient(makeEnv()).fetchEntries(49, '2026-07-20', '2026-07-24', 15027);
 
       expect(seenUrl).toContain('start=2026-07-20');
       expect(seenUrl).toContain('end=2026-07-24');
       expect(seenUrl).toContain('format=2');
       expect(seenUrl).toContain('resourceType=CLASS');
-      // No resource ids: one request covers every class. That is the whole
-      // reason this feature does not need a demand-based cache.
-      expect(seenUrl).not.toContain('resources=');
+      expect(seenUrl).toContain('resources=15027');
     });
   });
 

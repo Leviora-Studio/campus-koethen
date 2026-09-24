@@ -1,10 +1,12 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { ApiResponse, buildMeta } from '../../common/dto/meta.dto';
 import { LocaleResolution } from '../../common/locale/locale';
 import { RequestLocale } from '../../common/locale/locale.decorator';
 import { isoDate, parseWith, refineDateRange } from '../../common/validation/query';
+import { ENV } from '../../config/app-config.module';
+import { Env } from '../../config/env.schema';
 import { TimetableService } from './timetable.service';
 import { TIMETABLE_TIMEZONE } from './webuntis.schema';
 import {
@@ -32,7 +34,10 @@ const weekQuerySchema = refineDateRange(
 @ApiTags('timetable')
 @Controller({ path: 'timetable', version: '1' })
 export class TimetableController {
-  constructor(private readonly timetable: TimetableService) {}
+  constructor(
+    private readonly timetable: TimetableService,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
 
   @Get('groups')
   @ApiOperation({
@@ -54,6 +59,7 @@ export class TimetableController {
   ): Promise<ApiResponse<TimetableGroupDto[]>> {
     const filter = parseWith(groupsQuerySchema, query, locale.resolvedLocale);
     const result = await this.timetable.listGroups(locale, filter);
+    const now = Date.now();
 
     return {
       data: result.data,
@@ -64,6 +70,10 @@ export class TimetableController {
         featureEnabled: this.timetable.featureEnabled,
         lastSuccessfulSyncAt: result.lastSyncAt?.toISOString() ?? null,
         dataStale: result.stale,
+        from: new Date(now).toISOString().slice(0, 10),
+        to: new Date(now + this.env.WEBUNTIS_LOOKAHEAD_DAYS * 86_400_000)
+          .toISOString()
+          .slice(0, 10),
       }),
     };
   }

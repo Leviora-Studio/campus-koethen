@@ -97,12 +97,18 @@ export class PublicCalendarController {
   @ApiOkResponse({ type: PublicCalendarListResponseDto })
   async list(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
     const { data, translationFallback } = await this.calendars.listCalendars(locale);
+    const now = Date.now();
     return {
       data,
       meta: buildMeta({
         ...locale,
         translationFallback,
         featureEnabled: this.env.PUBLIC_CALENDAR_ENABLED,
+        from: new Date(now).toISOString().slice(0, 10),
+        to: new Date(now + this.env.PUBLIC_CALENDAR_LOOKAHEAD_DAYS * 86_400_000)
+          .toISOString()
+          .slice(0, 10),
+        maxRangeDays: this.env.PUBLIC_CALENDAR_API_MAX_RANGE_DAYS,
       }),
     };
   }

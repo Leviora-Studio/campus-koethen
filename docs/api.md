@@ -636,6 +636,8 @@ Liefert alle aktiven Gruppen in **einer** Antwort (Größenordnung 270). Sortier
     "resolvedLocale": "de",
     "translationFallback": false,
     "featureEnabled": true,
+    "from": "2026-07-30",
+    "to": "2026-08-27", // Ende des konfigurierten Stundenplan-Zeitfensters
     "lastSuccessfulSyncAt": "…",
     "dataStale": false,
   },
@@ -779,6 +781,9 @@ Der Katalog. Keine Parameter außer `locale`.
     "resolvedLocale": "de",
     "translationFallback": false,
     "featureEnabled": true,
+    "from": "2026-07-30",
+    "to": "2027-01-26", // Ende des konfigurierten Kalender-Importfensters
+    "maxRangeDays": 120, // größte Spanne je Terminabfrage
   },
 }
 ```
@@ -786,6 +791,8 @@ Der Katalog. Keine Parameter außer `locale`.
 `defaultSubscribed` wertet die App **genau einmal** pro Slug aus — beim erstmaligen Auftauchen.
 Ein Backend-Update überschreibt eine bewusste Abwahl nie. Dieselbe Regel wie bei Posts-Kanälen.
 `channelSlug` verknüpft einen Kalender 1:1 mit einem redaktionellen Kanal (oder `null`).
+Die Kalender-Liste teilt den Bereich bis `meta.to` in Abfragen von höchstens `meta.maxRangeDays`
+Tagen; ihre Reichweite ist damit nicht auf eine feste Tageszahl im Client begrenzt.
 
 ### `GET /v1/calendars/events`
 
@@ -863,10 +870,10 @@ Stundenplan und Moodle sind keine Google-Quellen und niemals Teil dieser kombini
 
 ### Fehlercodes
 
-| Code                        | Status                                                             |
-| --------------------------- | ------------------------------------------------------------------ |
-| `PUBLIC_CALENDAR_NOT_FOUND` | 404                                                                |
-| `VALIDATION_FAILED`         | 400 (ungültiger Slug, ungültiges Datum, > 120 Tage, > 50 Kalender) |
+| Code                        | Status                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `PUBLIC_CALENDAR_NOT_FOUND` | 404                                                                                            |
+| `VALIDATION_FAILED`         | 400 (ungültiger Slug, ungültiges Datum, mehr als konfigurierter Maximalbereich, > 50 Kalender) |
 
 ## 10. Räume (Lageplan)
 

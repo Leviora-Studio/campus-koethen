@@ -1172,6 +1172,10 @@
             "type": "string",
             "description": "End of the resolved date range (YYYY-MM-DD)."
           },
+          "maxRangeDays": {
+            "type": "number",
+            "description": "Maximum inclusive number of days in one calendar events request."
+          },
           "truncated": {
             "type": "boolean",
             "description": "True when the server hit its own result ceiling and deliberately cut the list short. The client must say so rather than present the result as complete."

@@ -6,9 +6,11 @@ import {
   AppData,
   EntriesResponse,
   FilterResponse,
+  SchoolYears,
   appDataSchema,
   entriesResponseSchema,
   filterResponseSchema,
+  schoolYearsSchema,
 } from './webuntis.schema';
 
 /**
@@ -65,6 +67,10 @@ export class WebUntisClient {
     return this.get('/app/data', {}, appDataSchema, null);
   }
 
+  async fetchSchoolYears(): Promise<SchoolYears> {
+    return this.get('/schoolyears', {}, schoolYearsSchema, null);
+  }
+
   /** Full class catalogue. ~270 entries at the time of writing. */
   async fetchClasses(schoolYearId: number): Promise<FilterResponse> {
     return this.get(
@@ -75,18 +81,16 @@ export class WebUntisClient {
     );
   }
 
-  /**
-   * Entries for EVERY class in the given window.
-   *
-   * Deliberately sends no resource ids: upstream then returns all classes in a
-   * single response (270 classes x 5 days ≈ 505 KB in ~1.2 s when measured).
-   * That is what keeps this feature to a couple of requests per sync instead of
-   * hammering a third party 270 times.
-   */
-  async fetchEntries(schoolYearId: number, from: string, to: string): Promise<EntriesResponse> {
+  /** Entries for one class. The public view now requires exactly one resource. */
+  async fetchEntries(
+    schoolYearId: number,
+    from: string,
+    to: string,
+    classId: number,
+  ): Promise<EntriesResponse> {
     return this.get(
       '/timetable/entries',
-      { start: from, end: to, format: '2', resourceType: 'CLASS' },
+      { start: from, end: to, format: '2', resourceType: 'CLASS', resources: String(classId) },
       entriesResponseSchema,
       schoolYearId,
     );

@@ -34,6 +34,19 @@ export const appDataSchema = z.object({
 
 export type AppData = z.infer<typeof appDataSchema>;
 
+export const schoolYearsSchema = z.array(
+  z.object({
+    id: z.number().int(),
+    name: z.string(),
+    dateRange: z.object({
+      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
+  }),
+).min(1);
+
+export type SchoolYears = z.infer<typeof schoolYearsSchema>;
+
 // --- /timetable/filter?resourceType=CLASS ------------------------------------
 
 const resourceRefSchema = z.object({

@@ -38,6 +38,9 @@ function stubClient(overrides: Partial<Record<'appData' | 'classes' | 'entries',
     fetchAppData: jest.fn(async () =>
       appDataSchema.parse(overrides.appData ?? fixture('app-data.json')),
     ),
+    fetchSchoolYears: jest.fn(async () => [
+      appDataSchema.parse(overrides.appData ?? fixture('app-data.json')).currentSchoolYear,
+    ]),
     fetchClasses: jest.fn(async () =>
       filterResponseSchema.parse(overrides.classes ?? fixture('filter-classes.json')),
     ),
@@ -54,6 +57,7 @@ function failingClient(kind: WebUntisError['kind']) {
   return {
     isEnabled: true,
     fetchAppData: jest.fn(boom),
+    fetchSchoolYears: jest.fn(boom),
     fetchClasses: jest.fn(boom),
     fetchEntries: jest.fn(boom),
   } as unknown as WebUntisClient;
@@ -92,7 +96,7 @@ describe('TimetableSyncService (integration)', () => {
 
   const seedCatalogue = async () => {
     await service(stubClient()).syncContext();
-    const outcome = await service(stubClient()).syncGroups();
+    const outcome = await service(stubClient()).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
     expect(outcome.status).toBe('success');
   };
 
@@ -132,7 +136,7 @@ describe('TimetableSyncService (integration)', () => {
     it('repeating the import creates no duplicates', async () => {
       await seedCatalogue();
       const before = await counts();
-      await service(stubClient()).syncGroups();
+      await service(stubClient()).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
       expect(await counts()).toMatchObject({ groups: before.groups });
     });
 
@@ -142,7 +146,7 @@ describe('TimetableSyncService (integration)', () => {
 
       const outcome = await service(
         stubClient({ classes: { resourceType: 'CLASS', classes: [] } }),
-      ).syncGroups();
+      ).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
       expect(outcome.status).toBe('empty');
       expect(await counts()).toMatchObject({
@@ -163,7 +167,7 @@ describe('TimetableSyncService (integration)', () => {
         await seedCatalogue();
         const before = await counts();
 
-        const outcome = await service(failingClient(kind)).syncGroups();
+        const outcome = await service(failingClient(kind)).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
         expect(outcome.status).toBe('failed');
         expect(await counts()).toMatchObject({
@@ -178,7 +182,7 @@ describe('TimetableSyncService (integration)', () => {
       const before = await prisma.timetableGroup.findMany({ orderBy: { externalId: 'asc' } });
       expect(before.length).toBeGreaterThan(1);
 
-      await service(stubClient()).syncGroups();
+      await service(stubClient()).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
       const after = await prisma.timetableGroup.findMany({ orderBy: { externalId: 'asc' } });
       for (const previous of before) {
@@ -209,7 +213,7 @@ describe('TimetableSyncService (integration)', () => {
         ),
       };
 
-      const outcome = await service(stubClient({ classes: renamed })).syncGroups();
+      const outcome = await service(stubClient({ classes: renamed })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
       expect(outcome.status).toBe('success');
 
       const after = await prisma.timetableGroup.findMany({ orderBy: { externalId: 'asc' } });
@@ -237,11 +241,11 @@ describe('TimetableSyncService (integration)', () => {
       // Retire it the only way the importer ever does: a complete catalogue
       // that no longer contains it.
       const trimmed = { ...all, classes: all.classes.slice(0, 2) };
-      await service(stubClient({ classes: trimmed })).syncGroups();
+      await service(stubClient({ classes: trimmed })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
       const retired = await prisma.timetableGroup.findMany({ where: { active: false } });
       expect(retired.length).toBeGreaterThan(0);
 
-      await service(stubClient({ classes: all })).syncGroups();
+      await service(stubClient({ classes: all })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
       for (const group of retired) {
         const current = await prisma.timetableGroup.findUnique({ where: { id: group.id } });
@@ -254,7 +258,7 @@ describe('TimetableSyncService (integration)', () => {
       const all = filterResponseSchema.parse(fixture('filter-classes.json'));
       const trimmed = { ...all, classes: all.classes.slice(0, 2) };
 
-      const outcome = await service(stubClient({ classes: trimmed })).syncGroups();
+      const outcome = await service(stubClient({ classes: trimmed })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
 
       expect(outcome.status).toBe('success');
       expect(await prisma.timetableGroup.count({ where: { active: true } })).toBe(2);

@@ -52,6 +52,11 @@ export class ResponseMetaDto {
   to?: string;
 
   @ApiPropertyOptional({
+    description: 'Maximum inclusive number of days in one calendar events request.',
+  })
+  maxRangeDays?: number;
+
+  @ApiPropertyOptional({
     description:
       'True when the server hit its own result ceiling and deliberately cut the list short. ' +
       'The client must say so rather than present the result as complete.',
@@ -95,6 +100,7 @@ export function buildMeta(input: {
   dataStale?: boolean;
   from?: string;
   to?: string;
+  maxRangeDays?: number;
   truncated?: boolean;
   featureEnabled?: boolean;
   dataState?: 'ready' | 'pending' | 'unavailable';
@@ -122,6 +128,9 @@ export function buildMeta(input: {
   }
   if (input.to !== undefined) {
     meta.to = input.to;
+  }
+  if (input.maxRangeDays !== undefined) {
+    meta.maxRangeDays = input.maxRangeDays;
   }
   if (input.truncated !== undefined) {
     meta.truncated = input.truncated;
