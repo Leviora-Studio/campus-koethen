@@ -13,10 +13,15 @@ import 'package:campus_koethen/features/campusmap/domain/room.dart';
 import 'package:campus_koethen/features/campusmap/domain/room_mention.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Room room(String number, {String building = 'test-building'}) => Room(
+Room room(
+  String number, {
+  String building = 'test-building',
+  String buildingNumber = '',
+}) => Room(
   roomKey: '$building-${number.toLowerCase().replaceAll('.', '')}',
   roomNumber: number,
   buildingKey: building,
+  buildingNumber: buildingNumber,
   buildingName: 'Testgebäude',
   floorKey: '$building-level2',
   floorName: '2. Obergeschoss',
@@ -33,6 +38,68 @@ void main() {
   ]);
 
   group('a field that holds a room designation', () {
+    test('resolves exact WebUntis campus building and room numbers', () {
+      final RoomResolver campus = RoomResolver.fromRooms(<Room>[
+        room('216', building: 'ratke', buildingNumber: '23'),
+        room('322-1', building: 'red', buildingNumber: '01'),
+        room('1.12', building: 'green', buildingNumber: '02'),
+        room('-1.12', building: 'green-basement', buildingNumber: '02'),
+      ]);
+
+      expect(campus.resolveDesignation('K023-216')?.buildingKey, 'ratke');
+      expect(campus.resolveDesignation('K001-322-1')?.buildingKey, 'red');
+      expect(campus.resolveDesignation('K002-112')?.buildingKey, 'green');
+      expect(
+        campus.resolveDesignation('K002--1.12')?.buildingKey,
+        'green-basement',
+      );
+      expect(campus.resolveDesignation('K023-217'), isNull);
+      expect(campus.resolveDesignation('K073-216'), isNull);
+      expect(campus.resolveDesignation('D-04/216'), isNull);
+    });
+
+    test('rejects an ambiguous number within the same campus building', () {
+      final RoomResolver campus = RoomResolver.fromRooms(<Room>[
+        room('1.12', building: 'green-a', buildingNumber: '02'),
+        room('112', building: 'green-b', buildingNumber: '02'),
+      ]);
+
+      expect(campus.resolveDesignation('K002-112'), isNull);
+    });
+
+    test('uses a -0 room when WebUntis omits the suffix', () {
+      final RoomResolver campus = RoomResolver.fromRooms(<Room>[
+        room('230-0', building: 'red', buildingNumber: '01'),
+        room('230-1', building: 'red', buildingNumber: '01'),
+        room('K32-0', building: 'red', buildingNumber: '01'),
+      ]);
+
+      expect(campus.resolveDesignation('K001-230')?.roomNumber, '230-0');
+      expect(campus.resolveDesignation('K001-230-0')?.roomNumber, '230-0');
+      expect(campus.resolveDesignation('K001-230-1')?.roomNumber, '230-1');
+      expect(campus.resolveDesignation('K001-K32')?.roomNumber, 'K32-0');
+      expect(campus.resolveDesignation('K001-231'), isNull);
+    });
+
+    test('prefers an explicit unsuffixed room over its -0 counterpart', () {
+      final RoomResolver campus = RoomResolver.fromRooms(<Room>[
+        room('230', building: 'red', buildingNumber: '01'),
+        room('230-0', building: 'red', buildingNumber: '01'),
+        room('230-1', building: 'red', buildingNumber: '01'),
+      ]);
+
+      expect(campus.resolveDesignation('K001-230')?.roomNumber, '230');
+      expect(campus.resolveDesignation('K001-230-0')?.roomNumber, '230-0');
+    });
+
+    test('does not replace a missing base room with the -1 variant', () {
+      final RoomResolver campus = RoomResolver.fromRooms(<Room>[
+        room('230-1', building: 'red', buildingNumber: '01'),
+      ]);
+
+      expect(campus.resolveDesignation('K001-230'), isNull);
+    });
+
     test('resolves every spelling of the number', () {
       for (final String written in <String>[
         'B.202',

@@ -64,6 +64,11 @@ safe fallback rather than fail the import.
 
 `ids[]` is the stable source key. It occasionally holds more than one id.
 
+`lessonInfo` is the optional plain-text "Information zur Stunde" shown in
+WebUntis lesson details. It is separate from `lessonText` and
+`substitutionText`. Its string shape was checked again against the public
+view on 25 September 2026. New assertions use synthetic lesson text.
+
 ## Files
 
 | File                       | Purpose                                                                                                                                                             |

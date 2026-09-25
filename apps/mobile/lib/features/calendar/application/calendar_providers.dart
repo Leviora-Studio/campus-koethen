@@ -13,6 +13,7 @@ import '../../events/domain/saved_event_snapshot.dart';
 import '../../moodle/application/moodle_account_controller.dart';
 import '../../moodle/application/moodle_controller.dart';
 import '../../timetable/application/timetable_providers.dart';
+import '../../timetable/application/timetable_lesson_info_filter.dart';
 import '../../timetable/application/timetable_week.dart';
 import '../../timetable/data/timetable_models.dart';
 import '../domain/calendar_entry.dart';
@@ -425,6 +426,9 @@ CalendarData _buildCalendarData(
   DateTime? windowFrom,
 }) {
   final Set<CalendarSource> enabled = ref.watch(calendarEnabledSourcesProvider);
+  final TimetableLessonInfoFilter lessonInfoFilter = ref.watch(
+    timetableLessonInfoFilterProvider,
+  );
 
   // --- Source 1: timetable (Campus API), one week provider per visible week.
   final List<CalendarEntry> timetableEntries = <CalendarEntry>[];
@@ -449,7 +453,11 @@ CalendarData _buildCalendarData(
           );
           result.when(
             data: (Loaded<Timetable> loaded) => timetableEntries.addAll(
-              timetableToCalendarEntries(loaded.value),
+              timetableToCalendarEntries(
+                loaded.value,
+                include: (TimetableEntry entry) =>
+                    lessonInfoFilter.accepts(entry.lessonInfo),
+              ),
             ),
             loading: () => timetableLoading = true,
             error: (_, _) => timetableError = true,
@@ -464,7 +472,11 @@ CalendarData _buildCalendarData(
           );
           week.when(
             data: (Loaded<Timetable> loaded) => timetableEntries.addAll(
-              timetableToCalendarEntries(loaded.value),
+              timetableToCalendarEntries(
+                loaded.value,
+                include: (TimetableEntry entry) =>
+                    lessonInfoFilter.accepts(entry.lessonInfo),
+              ),
             ),
             loading: () => timetableLoading = true,
             error: (_, _) => timetableError = true,

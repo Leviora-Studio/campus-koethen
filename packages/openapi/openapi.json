@@ -556,6 +556,50 @@
         ]
       }
     },
+    "/v1/timetable/lesson-info": {
+      "get": {
+        "description": "Reads the last successfully imported timetable window from the Campus database. No WebUntis request is triggered.",
+        "operationId": "TimetableController_lessonInfo_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableLessonInfoResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List exact lesson information texts for a selected timetable group.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
     "/v1/timetable/entries": {
       "get": {
         "description": "Every day of the range is returned, so a genuinely free day is distinguishable from a loading error. Range is capped at 42 days.",
@@ -2300,6 +2344,41 @@
           "meta"
         ]
       },
+      "TimetableLessonInfoDto": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "description": "Distinct lessonInfo texts exactly as stored for the selected group.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hasWithoutInfo": {
+            "type": "boolean",
+            "description": "Whether the covered timetable also contains entries without lessonInfo."
+          }
+        },
+        "required": [
+          "values",
+          "hasWithoutInfo"
+        ]
+      },
+      "TimetableLessonInfoResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimetableLessonInfoDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "TimetableTeacherDto": {
         "type": "object",
         "properties": {
@@ -2402,6 +2481,10 @@
           "note": {
             "type": "string",
             "nullable": true
+          },
+          "lessonInfo": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -2416,7 +2499,8 @@
           "teachers",
           "rooms",
           "groups",
-          "note"
+          "note",
+          "lessonInfo"
         ]
       },
       "TimetableDayDto": {

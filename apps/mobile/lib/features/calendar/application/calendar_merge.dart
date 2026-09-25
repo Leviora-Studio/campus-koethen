@@ -20,12 +20,15 @@ import '../domain/public_calendar.dart';
 /// from another's.
 
 /// Maps a Campus-API timetable to calendar entries.
-List<CalendarEntry> timetableToCalendarEntries(Timetable timetable) =>
-    <CalendarEntry>[
-      for (final TimetableDay day in timetable.days)
-        for (final TimetableEntry entry in day.entries)
-          timetableEntryToCalendarEntry(entry),
-    ];
+List<CalendarEntry> timetableToCalendarEntries(
+  Timetable timetable, {
+  bool Function(TimetableEntry)? include,
+}) => <CalendarEntry>[
+  for (final TimetableDay day in timetable.days)
+    for (final TimetableEntry entry in day.entries)
+      if (include == null || include(entry))
+        timetableEntryToCalendarEntry(entry),
+];
 
 /// Maps one timetable slot.
 ///
@@ -64,6 +67,7 @@ CalendarEntry timetableEntryToCalendarEntry(TimetableEntry entry) {
           .map((TimetableGroup g) => g.shortName)
           .toList(growable: false),
       note: entry.note,
+      lessonInfo: entry.lessonInfo,
     ),
   );
 }

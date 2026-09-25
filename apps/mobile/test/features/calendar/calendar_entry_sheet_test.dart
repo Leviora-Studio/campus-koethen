@@ -100,6 +100,7 @@ Future<void> pumpSheet(
 CalendarEntry timetableEntry({
   List<String> rooms = const <String>[],
   String? note,
+  String? lessonInfo,
   TimetableEntryStatus status = TimetableEntryStatus.regular,
 }) => CalendarEntry(
   id: 'timetable:1',
@@ -115,6 +116,7 @@ CalendarEntry timetableEntry({
     rooms: rooms,
     groups: const <String>['DEMO-1'],
     note: note,
+    lessonInfo: lessonInfo,
   ),
 );
 
@@ -211,6 +213,7 @@ void main() {
         timetableEntry(
           rooms: <String>['X.999'],
           note: 'Bitte Laptop mitbringen',
+          lessonInfo: 'Fiktive Information zur Stunde',
         ),
       );
 
@@ -218,6 +221,8 @@ void main() {
       expect(find.text('Demoperson'), findsOneWidget);
       expect(find.text('DEMO-1'), findsOneWidget);
       expect(find.text('Bitte Laptop mitbringen'), findsOneWidget);
+      expect(find.text('Information zur Stunde'), findsOneWidget);
+      expect(find.text('Fiktive Information zur Stunde'), findsOneWidget);
       expect(find.text('Stundenplan'), findsOneWidget);
     });
 
@@ -234,16 +239,31 @@ void main() {
         findsOneWidget,
         reason: 'the room field of a timetable slot is a room',
       );
+      expect(find.widgetWithText(OutlinedButton, 'Raum suchen'), findsNothing);
     });
 
-    testWidgets('offers nothing for a room the catalogue does not have', (
+    testWidgets('offers room search for a room the catalogue does not have', (
       WidgetTester tester,
     ) async {
       await pumpSheet(tester, timetableEntry(rooms: <String>['X.999']));
 
       expect(find.textContaining('auf dem Plan'), findsNothing);
-      // The room is still readable — it is just not a link.
       expect(find.text('X.999'), findsOneWidget);
+      final Finder searchButton = find.widgetWithText(
+        OutlinedButton,
+        'Raum suchen',
+      );
+      expect(searchButton, findsOneWidget);
+      expect(
+        tester.getTopLeft(searchButton).dx,
+        greaterThan(tester.getTopRight(find.text('X.999')).dx),
+      );
+      expect(
+        (tester.getCenter(searchButton).dy -
+                tester.getCenter(find.text('X.999')).dy)
+            .abs(),
+        lessThan(25),
+      );
     });
 
     testWidgets('states a cancellation in words, not by strikethrough alone', (

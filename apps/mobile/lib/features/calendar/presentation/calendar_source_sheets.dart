@@ -15,6 +15,7 @@ import '../../moodle/domain/moodle_account.dart';
 import '../../timetable/application/timetable_providers.dart';
 import '../../timetable/data/timetable_models.dart';
 import '../../timetable/presentation/timetable_group_picker_sheet.dart';
+import '../../timetable/presentation/timetable_lesson_info_filter_sheet.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_entry.dart';
 import 'public_calendar_list.dart';
@@ -258,6 +259,23 @@ class _TimetableSourceSheet extends ConsumerWidget {
             label: Text(l10n.timetableGroupPickerTitle),
           ),
         ),
+        if (groupId != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              0,
+            ),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                showTimetableLessonInfoFilterSheet(context);
+              },
+              icon: const Icon(AppIcons.tune),
+              label: Text(l10n.timetableLessonInfoFilterTitle),
+            ),
+          ),
       ],
     );
   }

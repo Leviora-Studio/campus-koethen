@@ -3,6 +3,37 @@
 
 import '../../../core/network/json.dart';
 
+String? _lessonInfoText(Object? value) =>
+    value is String && value.trim().isNotEmpty ? value : null;
+
+/// Exact source strings that can be switched off for one study group.
+class TimetableLessonInfoOptions {
+  const TimetableLessonInfoOptions({
+    required this.values,
+    required this.hasWithoutInfo,
+  });
+
+  final List<String> values;
+  final bool hasWithoutInfo;
+
+  static TimetableLessonInfoOptions fromJson(Object? json) {
+    final Map<String, dynamic>? map = asJsonMap(json);
+    final Object? values = map?['values'];
+    final Object? hasWithoutInfo = map?['hasWithoutInfo'];
+    if (values is! List ||
+        hasWithoutInfo is! bool ||
+        values.any((Object? value) => _lessonInfoText(value) == null)) {
+      throw const FormatException(
+        'Malformed timetable lesson information options',
+      );
+    }
+    return TimetableLessonInfoOptions(
+      values: values.cast<String>(),
+      hasWithoutInfo: hasWithoutInfo,
+    );
+  }
+}
+
 /// A study group as delivered by `GET /v1/timetable/groups`.
 ///
 /// [id] is the **Campus UUID**. The contract guarantees that no upstream
@@ -200,6 +231,7 @@ class TimetableEntry {
     this.rooms = const <TimetableRoom>[],
     this.groups = const <TimetableGroup>[],
     this.note,
+    this.lessonInfo,
   });
 
   final String id;
@@ -217,6 +249,7 @@ class TimetableEntry {
   final List<TimetableRoom> rooms;
   final List<TimetableGroup> groups;
   final String? note;
+  final String? lessonInfo;
 
   /// Title, falling back to the subject code. `null` when neither is set — the
   /// UI then shows a localised placeholder.
@@ -247,6 +280,7 @@ class TimetableEntry {
           .toList(growable: false),
       groups: TimetableGroup.listFromJson(map['groups']),
       note: asString(map['note']),
+      lessonInfo: _lessonInfoText(map['lessonInfo']),
     );
   }
 }

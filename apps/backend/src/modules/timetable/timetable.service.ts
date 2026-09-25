@@ -9,6 +9,7 @@ import {
   TimetableDayDto,
   TimetableEntryDto,
   TimetableGroupDto,
+  TimetableLessonInfoDto,
   TimetableRoomDto,
   TimetableStatusDto,
   TimetableTeacherDto,
@@ -153,6 +154,39 @@ export class TimetableService {
     };
   }
 
+  /** Exact source strings available in the last successfully covered window. */
+  async listLessonInfo(groupId: string, locale: LocaleResolution): Promise<TimetableLessonInfoDto> {
+    const [group, run] = await Promise.all([
+      this.prisma.timetableGroup.findFirst({ where: { id: groupId }, select: { id: true } }),
+      this.lastEntryRun(),
+    ]);
+    if (!group) {
+      throw new ApiError('TIMETABLE_GROUP_NOT_FOUND', locale.resolvedLocale);
+    }
+    if (!this.featureEnabled || !run?.rangeFrom || !run.rangeTo) {
+      return { values: [], hasWithoutInfo: false };
+    }
+
+    const links = await this.prisma.timetableEntryGroup.findMany({
+      where: {
+        groupId,
+        entry: { date: { gte: run.rangeFrom, lte: run.rangeTo } },
+      },
+      select: { entry: { select: { lessonInfo: true } } },
+    });
+    const values = new Set<string>();
+    let hasWithoutInfo = false;
+    for (const link of links) {
+      const value = link.entry.lessonInfo;
+      if (value == null || value.trim().length === 0) {
+        hasWithoutInfo = true;
+      } else {
+        values.add(value);
+      }
+    }
+    return { values: [...values].sort(), hasWithoutInfo };
+  }
+
   async getWeek(
     locale: LocaleResolution,
     groupId: string,
@@ -201,6 +235,7 @@ export class TimetableService {
               teachers: true,
               rooms: true,
               note: true,
+              lessonInfo: true,
               groups: {
                 select: {
                   group: {
@@ -245,6 +280,7 @@ export class TimetableService {
           ),
           groups: entry.groups.map((entryGroup) => TimetableService.mapGroup(entryGroup.group)),
           note: entry.note,
+          lessonInfo: entry.lessonInfo,
         });
       }
     }

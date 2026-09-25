@@ -25,9 +25,11 @@ import '../../campusmap/presentation/room_link.dart';
 import '../../moodle/application/moodle_account_controller.dart';
 import '../../moodle/application/moodle_controller.dart';
 import '../../timetable/application/timetable_week.dart';
+import '../../timetable/application/timetable_lesson_info_filter.dart';
 import '../../timetable/presentation/timetable_group_picker_sheet.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_entry.dart';
+import '../domain/calendar_entry_details.dart';
 import '../domain/entry_rooms.dart';
 import 'calendar_entry_sheet.dart';
 import 'calendar_source_sheets.dart';
@@ -73,11 +75,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final AppLocalizations l10n = context.l10n;
     final CalendarViewMode mode = ref.watch(calendarViewModeProvider);
     final CalendarData data = ref.watch(focusedCalendarDataProvider);
+    final TimetableLessonInfoFilter lessonInfoFilter = ref.watch(
+      timetableLessonInfoFilterProvider,
+    );
 
     // "Not everything is showing" has to be visible from the outside, or a
     // missing appointment looks like a bug rather than like a setting.
     final bool everythingVisible =
-        data.enabledSources.length == kMergeableCalendarSources.length;
+        data.enabledSources.length == kMergeableCalendarSources.length &&
+        lessonInfoFilter.disabledValues.isEmpty &&
+        !lessonInfoFilter.hideWithoutInfo;
 
     return ScreenScaffold(
       eyebrow: ModuleCategory.study.label(l10n),
@@ -420,6 +427,7 @@ class _EntryRow extends ConsumerWidget {
     // The guard comes first so a row that names no room never subscribes to
     // the room index at all — most entries in a day are exactly that.
     final Room? room;
+    List<String> unmappedTimetableRooms = const <String>[];
     if (entryMayNameRoom(entry)) {
       final RoomResolver resolver = ref.watch(roomResolverProvider);
       final MapCatalog? catalog = ref.watch(mapCatalogProvider).value;
@@ -427,6 +435,13 @@ class _EntryRow extends ConsumerWidget {
         resolver,
         entry,
       ).where((Room r) => catalog?.geometryFor(r.roomKey) != null).firstOrNull;
+      if (entry.details case TimetableCalendarDetails(:final rooms)) {
+        unmappedTimetableRooms = rooms.where((String designation) {
+          final Room? candidate = resolver.resolveDesignation(designation);
+          return candidate == null ||
+              catalog?.geometryFor(candidate.roomKey) == null;
+        }).toList();
+      }
     } else {
       room = null;
     }
@@ -503,10 +518,18 @@ class _EntryRow extends ConsumerWidget {
           if (room != null) ...<Widget>[
             const SizedBox(height: AppSpacing.xs),
             _RoomChip(room: room),
-          ] else if (entry.location != null &&
+          ] else if (unmappedTimetableRooms.isEmpty &&
+              entry.location != null &&
               entry.location!.isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.xxs),
             Text(entry.location!, style: text.bodySmall),
+          ],
+          for (final String designation in unmappedTimetableRooms) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            UnmappedRoomSearchRow(
+              label: designation,
+              textStyle: text.bodySmall,
+            ),
           ],
         ],
       ),
@@ -533,9 +556,7 @@ class _RoomChip extends StatelessWidget {
         onTap: () => openRoomOnMap(context, room.roomKey),
         borderRadius: BorderRadius.circular(AppRadius.card),
         child: Container(
-          constraints: const BoxConstraints(
-            minHeight: AppSizes.minTouchTarget - AppSpacing.md,
-          ),
+          constraints: const BoxConstraints(minHeight: AppSizes.minTouchTarget),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm,
             vertical: AppSpacing.xs,

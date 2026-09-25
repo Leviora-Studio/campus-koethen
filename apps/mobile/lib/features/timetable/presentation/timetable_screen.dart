@@ -16,10 +16,12 @@ import '../../../core/widgets/translation_fallback_notice.dart';
 import '../../../l10n/l10n.dart';
 import '../application/timetable_pending_poller.dart';
 import '../application/timetable_providers.dart';
+import '../application/timetable_lesson_info_filter.dart';
 import '../application/timetable_week.dart';
 import '../data/timetable_models.dart';
 import 'timetable_entry_card.dart';
 import 'timetable_group_picker_sheet.dart';
+import 'timetable_lesson_info_filter_sheet.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 import '../../../app/app_modules.dart';
 
@@ -78,11 +80,23 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     final String? groupId = ref.watch(selectedTimetableGroupIdProvider);
+    final TimetableLessonInfoFilter lessonInfoFilter = ref.watch(
+      timetableLessonInfoFilterProvider,
+    );
 
     return ScreenScaffold(
       eyebrow: ModuleCategory.study.label(l10n),
       title: l10n.timetableTitle,
       actions: <Widget>[
+        if (groupId != null)
+          IconButton(
+            tooltip: l10n.timetableLessonInfoFilterTitle,
+            onPressed: () => showTimetableLessonInfoFilterSheet(context),
+            isSelected:
+                lessonInfoFilter.disabledValues.isNotEmpty ||
+                lessonInfoFilter.hideWithoutInfo,
+            icon: const Icon(AppIcons.tune),
+          ),
         IconButton(
           tooltip: l10n.timetableGroupPickerTooltip,
           onPressed: () => showTimetableGroupPickerSheet(context, ref),
@@ -198,6 +212,9 @@ class _TimetableContent extends ConsumerWidget {
     final AppLocalizations l10n = context.l10n;
     final String locale = Localizations.localeOf(context).languageCode;
     final Timetable timetable = loaded.value;
+    final TimetableLessonInfoFilter lessonInfoFilter = ref.watch(
+      timetableLessonInfoFilterProvider,
+    );
     final bool featureEnabled = loaded.meta.featureEnabled ?? true;
     final TimetableDataState dataState = TimetableDataState.fromWire(
       loaded.meta.dataState,
@@ -285,7 +302,11 @@ class _TimetableContent extends ConsumerWidget {
                 message: l10n.timetableUnavailableMessage,
               ),
             ),
-            _ => _DayAgenda(timetable: timetable, selectedDay: selectedDay),
+            _ => _DayAgenda(
+              timetable: timetable,
+              selectedDay: selectedDay,
+              filter: lessonInfoFilter,
+            ),
           },
         ],
         const SizedBox(height: AppSpacing.xl),
@@ -505,18 +526,26 @@ class _TimetableDayChip extends StatelessWidget {
 /// The appointments of one day. An empty list is a real free day — the contract
 /// delivers every day of the range, so this is never a hidden loading failure.
 class _DayAgenda extends StatelessWidget {
-  const _DayAgenda({required this.timetable, required this.selectedDay});
+  const _DayAgenda({
+    required this.timetable,
+    required this.selectedDay,
+    required this.filter,
+  });
 
   final Timetable timetable;
   final DateTime selectedDay;
+  final TimetableLessonInfoFilter filter;
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     final String locale = Localizations.localeOf(context).languageCode;
     final TimetableDay? day = timetable.dayFor(selectedDay);
-    final List<TimetableEntry> entries =
+    final List<TimetableEntry> allEntries =
         day?.entries ?? const <TimetableEntry>[];
+    final List<TimetableEntry> entries = allEntries
+        .where((TimetableEntry entry) => filter.accepts(entry.lessonInfo))
+        .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,8 +565,12 @@ class _DayAgenda extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
             child: EmptyView(
               icon: AppIcons.event_available_outlined,
-              title: l10n.timetableEmptyDayTitle,
-              message: l10n.timetableEmptyDayMessage,
+              title: allEntries.isEmpty
+                  ? l10n.timetableEmptyDayTitle
+                  : l10n.timetableFilteredDayTitle,
+              message: allEntries.isEmpty
+                  ? l10n.timetableEmptyDayMessage
+                  : l10n.timetableFilteredDayMessage,
             ),
           )
         else

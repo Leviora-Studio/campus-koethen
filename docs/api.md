@@ -676,6 +676,7 @@ Es gibt **kein** Feld mit der WebUntis-ID.
             "rooms": [{ "shortName": "D-04/201", "longName": "Seminarraum VM/GIN" }],
             "groups": [{ "id": "8f1c…", "shortName": "AIN2 - BT" }],
             "note": null,
+            "lessonInfo": null,
           },
         ],
       },
@@ -706,10 +707,33 @@ Verbindliche Regeln:
   auf `unknown` abgebildet und bricht nichts.
 - `teachers`, `rooms`, `groups` und `title` stammen aus dem Fremdsystem und werden **nie**
   übersetzt. Deshalb ist `translationFallback` bei `locale=en` `true`.
+- `lessonInfo` enthält die optionale „Information zur Stunde“ aus WebUntis und wird getrennt
+  von `note` gespeichert und unverändert in der Quellsprache angezeigt.
 - `dataState`:
   - `ready` — Daten liegen vor,
   - `pending` — Feature aktiv, aber noch kein erfolgreicher Lauf für diesen Zeitraum,
   - `unavailable` — Feature deaktiviert oder dauerhaft kein Datenstand.
+
+### `GET /v1/timetable/lesson-info`
+
+Liefert die filterbaren „Information zur Stunde“-Texte für eine Stundenplangruppe aus dem zuletzt
+erfolgreich synchronisierten Zeitraum. `groupId` ist erforderlich und muss eine Campus-UUID sein;
+unbekannte Gruppen liefern `404 TIMETABLE_GROUP_NOT_FOUND`. Der Endpunkt fragt WebUntis nicht live ab.
+
+```jsonc
+{
+  "data": {
+    "values": ["Gruppe1", "P1"],
+    "hasWithoutInfo": true,
+  },
+  "meta": { "requestedLocale": "de", "resolvedLocale": "de", "translationFallback": false },
+}
+```
+
+Die Texte werden exakt als unterschiedliche Filteroptionen übernommen; es gibt keine Ableitung
+von Studiengang oder Praktikumsgruppe. `hasWithoutInfo` steuert die separate Option für Termine
+ohne diese Angabe. In der App sind alle Optionen zunächst aktiviert. Abgewählte Optionen werden
+lokal pro Stundenplangruppe gespeichert und filtern nur die Anzeige, nicht den Backend-Datenbestand.
 
 ### `GET /v1/timetable/status`
 

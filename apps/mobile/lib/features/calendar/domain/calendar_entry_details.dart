@@ -39,6 +39,7 @@ class TimetableCalendarDetails extends CalendarEntryDetails {
     this.rooms = const <String>[],
     this.groups = const <String>[],
     this.note,
+    this.lessonInfo,
   });
 
   final TimetableEntryType type;
@@ -47,6 +48,7 @@ class TimetableCalendarDetails extends CalendarEntryDetails {
   final List<String> rooms;
   final List<String> groups;
   final String? note;
+  final String? lessonInfo;
 
   /// The room list is exactly that — a list of rooms, so `202` means a room.
   @override
@@ -60,7 +62,8 @@ class TimetableCalendarDetails extends CalendarEntryDetails {
       _sameList(other.teachers, teachers) &&
       _sameList(other.rooms, rooms) &&
       _sameList(other.groups, groups) &&
-      other.note == note;
+      other.note == note &&
+      other.lessonInfo == lessonInfo;
 
   @override
   int get hashCode => Object.hash(
@@ -70,6 +73,7 @@ class TimetableCalendarDetails extends CalendarEntryDetails {
     Object.hashAll(rooms),
     Object.hashAll(groups),
     note,
+    lessonInfo,
   );
 }
 

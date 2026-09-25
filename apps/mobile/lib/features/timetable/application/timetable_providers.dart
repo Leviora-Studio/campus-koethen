@@ -18,6 +18,17 @@ final FutureProvider<Loaded<List<TimetableGroup>>> timetableGroupsProvider =
       return ref.watch(timetableRepositoryProvider).fetchGroups(locale: locale);
     });
 
+final timetableLessonInfoOptionsProvider =
+    FutureProvider.family<Loaded<TimetableLessonInfoOptions>, String>((
+      Ref ref,
+      String groupId,
+    ) async {
+      final String locale = ref.watch(localeCodeProvider);
+      return ref
+          .watch(timetableRepositoryProvider)
+          .fetchLessonInfo(locale: locale, groupId: groupId);
+    }, isAutoDispose: true);
+
 /// The group the user chose, or `null` when they have not chosen yet.
 ///
 /// There is deliberately **no** automatic default: a wrong timetable is worse

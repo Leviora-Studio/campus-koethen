@@ -35,6 +35,17 @@ class TimetableRepository {
     );
   }
 
+  Future<Loaded<TimetableLessonInfoOptions>> fetchLessonInfo({
+    required String locale,
+    required String groupId,
+  }) => _endpoint.load<TimetableLessonInfoOptions>(
+    path: '/timetable/lesson-info',
+    cacheKey: CacheKeys.timetableLessonInfo(locale, groupId),
+    locale: locale,
+    query: <String, Object?>{'groupId': groupId},
+    parse: TimetableLessonInfoOptions.fromJson,
+  );
+
   /// Loads one closed date range. [from] and [to] are inclusive calendar days.
   Future<Loaded<Timetable>> fetchEntries({
     required String locale,

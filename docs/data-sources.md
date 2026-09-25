@@ -259,7 +259,12 @@ nirgends im Quellcode hinterlegt.
 4. `duration.start`/`duration.end` sind **lokale Wandzeit ohne Zone** und werden als
    `Europe/Berlin` interpretiert. Beim Import wird in absolute UTC-Zeitpunkte umgerechnet.
 5. `ids[]` ist der stabile Quellschlüssel und enthält gelegentlich mehr als einen Wert.
-6. Beobachtetes Vokabular — **was gesehen wurde, nicht was existiert**:
+6. `lessonInfo` enthält optional die „Information zur Stunde“. Das Feld wurde am
+   **25.09.2026** erneut als Textwert geprüft und wird getrennt von `lessonText` und
+   `substitutionText` übernommen. Die App bietet jeden unterschiedlichen Text als eigene,
+   standardmäßig aktivierte Filteroption an. Für Einträge ohne Text gibt es eine separate Option;
+   die Auswahl wird pro Stundenplangruppe lokal gespeichert.
+7. Beobachtetes Vokabular — **was gesehen wurde, nicht was existiert**:
    `type` = `NORMAL_TEACHING_PERIOD`, `ADDITIONAL_PERIOD`;
    `status` = `REGULAR`, `CHANGED`, `CANCELLED`, `ADDITIONAL`.
    Unbekannte Werte werden auf `unknown` abgebildet und brechen den Import nicht.
@@ -269,9 +274,9 @@ nirgends im Quellcode hinterlegt.
 | Regel           | Wert                                                                                  |
 | --------------- | ------------------------------------------------------------------------------------- |
 | Feature-Flag    | `WEBUNTIS_ENABLED`, **Default `false`**                                               |
-| Gruppenkatalog  | täglich (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 2 * * *`)                           |
-| Stundenplan     | täglich (`WEBUNTIS_ENTRY_SYNC_CRON`, Default `15 2 * * *`), ein Request je Klasse   |
-| Abrufvolumen    | abhängig von der Zahl der Klassen in den Schuljahren des Zeitfensters               |
+| Gruppenkatalog  | täglich (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 2 * * *`)                             |
+| Stundenplan     | täglich (`WEBUNTIS_ENTRY_SYNC_CRON`, Default `15 2 * * *`), ein Request je Klasse     |
+| Abrufvolumen    | abhängig von der Zahl der Klassen in den Schuljahren des Zeitfensters                 |
 | Zeitfenster     | 7 Tage zurück, 28 Tage voraus (konfigurierbar)                                        |
 | API-Zeitraum    | maximal 42 Tage                                                                       |
 | Timeout / Retry | 20 s, 3 Versuche, Backoff mit Jitter, `Retry-After` wird beachtet                     |

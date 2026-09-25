@@ -248,6 +248,7 @@ model TimetableEntry {
   rooms    Json @default("[]")
 
   note String?
+  lessonInfo String?
 
   importedAt DateTime @default(now())
   lastSeenAt DateTime @default(now())

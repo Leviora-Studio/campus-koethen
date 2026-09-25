@@ -10,7 +10,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../l10n/l10n.dart';
 import '../../campusmap/application/campus_map_providers.dart';
+import '../../campusmap/domain/map_catalog.dart';
 import '../../campusmap/domain/room.dart';
+import '../../campusmap/domain/room_mention.dart';
 import '../../campusmap/presentation/room_link.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/data/event_posts_repository.dart';
@@ -131,9 +133,24 @@ class CalendarEntrySheet extends ConsumerWidget {
       CalendarSource.savedEvents => AppIcons.public_outlined,
     };
 
-    final List<Room> rooms = entryMayNameRoom(entry)
-        ? roomsForEntry(ref.watch(roomResolverProvider), entry)
-        : const <Room>[];
+    final RoomResolver? resolver = entryMayNameRoom(entry)
+        ? ref.watch(roomResolverProvider)
+        : null;
+    final List<Room> rooms = resolver == null
+        ? const <Room>[]
+        : roomsForEntry(resolver, entry);
+    final MapCatalog? catalog = entry.details is TimetableCalendarDetails
+        ? ref.watch(mapCatalogProvider).value
+        : null;
+    final Set<String> unmappedTimetableRooms = switch (entry.details) {
+      TimetableCalendarDetails(:final List<String> rooms) => rooms.where((
+        String designation,
+      ) {
+        final Room? room = resolver?.resolveDesignation(designation);
+        return room == null || catalog?.geometryFor(room.roomKey) == null;
+      }).toSet(),
+      _ => const <String>{},
+    };
 
     return SafeArea(
       top: false,
@@ -200,7 +217,7 @@ class CalendarEntrySheet extends ConsumerWidget {
                 values: <String>[sourceLabel],
               ),
 
-              ..._sourceRows(context, l10n),
+              ..._sourceRows(context, l10n, unmappedTimetableRooms),
 
               if (rooms.isNotEmpty) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
@@ -230,7 +247,11 @@ class CalendarEntrySheet extends ConsumerWidget {
   }
 
   /// The rows only one kind of entry has.
-  List<Widget> _sourceRows(BuildContext context, AppLocalizations l10n) {
+  List<Widget> _sourceRows(
+    BuildContext context,
+    AppLocalizations l10n,
+    Set<String> unmappedTimetableRooms,
+  ) {
     final TextTheme text = Theme.of(context).textTheme;
 
     return switch (entry.details) {
@@ -239,6 +260,7 @@ class CalendarEntrySheet extends ConsumerWidget {
         :final List<String> rooms,
         :final List<String> groups,
         :final String? note,
+        :final String? lessonInfo,
         :final type,
       ) =>
         <Widget>[
@@ -262,6 +284,7 @@ class CalendarEntrySheet extends ConsumerWidget {
               icon: AppIcons.meeting_room_outlined,
               label: l10n.timetableRoomsLabel,
               values: rooms,
+              searchForValues: unmappedTimetableRooms,
             ),
           ],
           if (groups.isNotEmpty) ...<Widget>[
@@ -275,6 +298,14 @@ class CalendarEntrySheet extends ConsumerWidget {
           if (note != null && note.trim().isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.md),
             Text(note, style: text.bodyMedium),
+          ],
+          if (lessonInfo != null && lessonInfo.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            _DetailRow(
+              icon: AppIcons.info_outline,
+              label: l10n.timetableLessonInfoLabel,
+              values: <String>[lessonInfo],
+            ),
           ],
         ],
       MoodleCalendarDetails(:final String? courseName) => <Widget>[
@@ -330,11 +361,13 @@ class _DetailRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.values,
+    this.searchForValues = const <String>{},
   });
 
   final IconData icon;
   final String label;
   final List<String> values;
+  final Set<String> searchForValues;
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +388,14 @@ class _DetailRow extends StatelessWidget {
                 style: text.labelMedium?.copyWith(color: colors.textSecondary),
               ),
               for (final String value in values)
-                Text(value, style: text.bodyMedium),
+                if (searchForValues.contains(value))
+                  UnmappedRoomSearchRow(
+                    label: value,
+                    textStyle: text.bodyMedium,
+                    closeSheet: true,
+                  )
+                else
+                  Text(value, style: text.bodyMedium),
             ],
           ),
         ),

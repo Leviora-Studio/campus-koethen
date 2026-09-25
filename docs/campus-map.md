@@ -376,6 +376,21 @@ Zwei Strengegrade, vom Aufrufer je Feld angegeben:
 In beiden Fällen wird nur **exakt** aufgelöst: `21` wird nie zu `216`, und `INF202` ist kein
 Raum. Räume, die der Katalog nicht kennt, ergeben keinen Link.
 
+Für WebUntis-Räume im Format `K023-216` kombiniert die App die Gebäudenummer (`023` → `23`)
+mit der normalisierten Raumnummer (`216`). Trennzeichen in der Raumnummer werden wie bei der
+Raumsuche normalisiert: So kann `K002-112` zum Raum `1.12` in Gebäude `02` gehören. Ein
+führendes Minus bleibt erhalten, damit `-1.12` nicht mit `1.12` verwechselt wird. Nur ein
+eindeutiger Treffer mit Geometrie im gebündelten Plan wird im Stundenplan als anklickbarer
+Raum angezeigt; fehlende oder mehrdeutige Zuordnungen bleiben lesbarer Text.
+
+Fehlt in WebUntis eine Varianten-Endung, gilt ein ausdrücklich gleich nummerierter Planraum
+zuerst: `K001-230` → `230`. Gibt es keinen `230`, aber einen `230-0`, verweist `K001-230`
+auf `230-0`, auch wenn `230-1` existiert. Ein vorhandener Raum `230-1` allein ist kein Treffer
+für `K001-230`. Die Zuordnung bleibt innerhalb derselben Gebäudenummer.
+Hat ein Stundenplanraum keinen eindeutigen Treffer mit Geometrie, bleibt seine
+Bezeichnung sichtbar. Direkt daneben öffnet der Button „Raum suchen“ den Lageplan
+ohne vorgewählten Raum, damit die Person selbst suchen kann.
+
 Die Oberfläche dazu steht einmal in `campusmap/presentation/room_link.dart`:
 `RoomLinkTarget` (aus `Room` **oder** `RoomReference`), `RoomLinkTile` für Listenzeilen,
 `RoomLinkButton` für Detailansichten und `RoomLinkSection` für Kontakte. Kennt der gebündelte

@@ -40,6 +40,17 @@ final RegExp _qualifiedMention = RegExp(
   r'(?<![\p{L}\p{N}])(\p{L}{1,2})[\s.\-]?(\p{N}{1,4})(?![\p{L}\p{N}])',
   unicode: true,
 );
+final RegExp _campusBuildingNumber = RegExp(r'^\d{1,3}$');
+final RegExp _webUntisRoomNumber = RegExp(
+  r'^K(\d{3})-(.+)$',
+  caseSensitive: false,
+);
+final RegExp _roomVariantSuffix = RegExp(r'-\d+$');
+
+String _campusRoomNumber(String value) {
+  final String number = normalizeRoomQuery(value);
+  return value.trimLeft().startsWith('-') ? 'minus$number' : number;
+}
 
 /// The room catalogue, indexed for lookups by what people write.
 ///
@@ -47,11 +58,20 @@ final RegExp _qualifiedMention = RegExp(
 /// entries per frame, and each of them would otherwise walk every room.
 @immutable
 class RoomResolver {
-  const RoomResolver._(this._byNumber, this._byBareNumber);
+  const RoomResolver._(
+    this._byNumber,
+    this._byBareNumber,
+    this._byWebUntisNumber,
+    this._byWebUntisExactNumber,
+    this._ambiguousWebUntisExactNumber,
+  );
 
   const RoomResolver.empty()
     : _byNumber = const <String, Room>{},
-      _byBareNumber = const <String, Room>{};
+      _byBareNumber = const <String, Room>{},
+      _byWebUntisNumber = const <String, Room>{},
+      _byWebUntisExactNumber = const <String, Room>{},
+      _ambiguousWebUntisExactNumber = const <String>{};
 
   /// Normalised full number (`b202`) to room. Unique by construction in a valid
   /// catalogue; a duplicate resolves to nothing rather than to a coin flip.
@@ -61,6 +81,13 @@ class RoomResolver {
   /// short form belongs to exactly one room in the whole catalogue.
   final Map<String, Room> _byBareNumber;
 
+  /// Building code plus the normalized room number.
+  final Map<String, Room> _byWebUntisNumber;
+
+  /// Complete catalogue number, before grouped-room aliases are considered.
+  final Map<String, Room> _byWebUntisExactNumber;
+  final Set<String> _ambiguousWebUntisExactNumber;
+
   bool get isEmpty => _byNumber.isEmpty;
 
   static RoomResolver fromRooms(Iterable<Room> rooms) {
@@ -68,6 +95,10 @@ class RoomResolver {
     final Set<String> ambiguousNumbers = <String>{};
     final Map<String, Room> byBare = <String, Room>{};
     final Set<String> ambiguousBare = <String>{};
+    final Map<String, Room> byWebUntis = <String, Room>{};
+    final Set<String> ambiguousWebUntis = <String>{};
+    final Map<String, Room> byWebUntisExact = <String, Room>{};
+    final Set<String> ambiguousWebUntisExact = <String>{};
 
     void add(
       Map<String, Room> index,
@@ -95,6 +126,33 @@ class RoomResolver {
           add(byBare, ambiguousBare, bare, room);
         }
       }
+
+      // WebUntis names Köthen rooms as K023-216, K001-322-1, etc.
+      // Building and normalized room number must both match. Ambiguous aliases
+      // are removed just like ambiguous plain room numbers.
+      if (_campusBuildingNumber.hasMatch(room.buildingNumber)) {
+        final String building = int.parse(
+          room.buildingNumber,
+        ).toString().padLeft(3, '0');
+        add(
+          byWebUntisExact,
+          ambiguousWebUntisExact,
+          'k$building${_campusRoomNumber(room.roomNumber)}',
+          room,
+        );
+        final Iterable<String> numbers =
+            room.roomNumber.trimLeft().startsWith('-')
+            ? <String>[room.roomNumber]
+            : roomNumberAliases(room.roomNumber);
+        for (final String number in numbers) {
+          add(
+            byWebUntis,
+            ambiguousWebUntis,
+            'k$building${_campusRoomNumber(number)}',
+            room,
+          );
+        }
+      }
     }
 
     for (final String key in ambiguousNumbers) {
@@ -103,10 +161,19 @@ class RoomResolver {
     for (final String key in ambiguousBare) {
       byBare.remove(key);
     }
+    for (final String key in ambiguousWebUntis) {
+      byWebUntis.remove(key);
+    }
+    for (final String key in ambiguousWebUntisExact) {
+      byWebUntisExact.remove(key);
+    }
 
     return RoomResolver._(
       Map<String, Room>.unmodifiable(byNumber),
       Map<String, Room>.unmodifiable(byBare),
+      Map<String, Room>.unmodifiable(byWebUntis),
+      Map<String, Room>.unmodifiable(byWebUntisExact),
+      Set<String>.unmodifiable(ambiguousWebUntisExact),
     );
   }
 
@@ -115,6 +182,28 @@ class RoomResolver {
   /// Accepts the short form (`202` for `B.202`) because the field is already
   /// known to hold a room — but still only when it is unambiguous.
   Room? resolveDesignation(String mention) {
+    final String sourceNumber = mention.trim().toUpperCase();
+    final RegExpMatch? sourceMatch = _webUntisRoomNumber.firstMatch(
+      sourceNumber,
+    );
+    if (sourceMatch != null) {
+      final String suffix = sourceMatch.group(2)!;
+      final String building = sourceMatch.group(1)!;
+      final String key = 'k$building${_campusRoomNumber(suffix)}';
+      if (_ambiguousWebUntisExactNumber.contains(key)) return null;
+      final Room? exact = _byWebUntisExactNumber[key];
+      if (exact != null) return exact;
+
+      // WebUntis sometimes omits the catalogue's -0 suffix. A literal room
+      // without a suffix already won above; -1 and other variants never do.
+      if (!_roomVariantSuffix.hasMatch(suffix)) {
+        final String zeroKey = 'k$building${_campusRoomNumber('$suffix-0')}';
+        if (_ambiguousWebUntisExactNumber.contains(zeroKey)) return null;
+        final Room? zero = _byWebUntisExactNumber[zeroKey];
+        if (zero != null && zero.roomNumber.endsWith('-0')) return zero;
+      }
+      return _byWebUntisNumber[key];
+    }
     final String query = normalizeRoomQuery(mention);
     if (query.isEmpty) return null;
     final Room? exact = _byNumber[query];

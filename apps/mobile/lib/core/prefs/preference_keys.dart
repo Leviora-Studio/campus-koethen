@@ -20,6 +20,15 @@ abstract final class PreferenceKeys {
   static const String preferredTimetableGroup =
       'settings.preferredTimetableGroup.v1';
 
+  /// Exact WebUntis lesson information strings switched off for one Campus
+  /// group. A disabled set makes every newly appearing value visible by default.
+  static String timetableLessonInfoDisabled(String groupId) =>
+      'timetable.lessonInfo.disabled.v1.$groupId';
+
+  /// `1` when lessons without a lesson information text are hidden.
+  static String timetableLessonInfoWithoutHidden(String groupId) =>
+      'timetable.lessonInfo.withoutHidden.v1.$groupId';
+
   /// Schema version of the news channel subscription store.
   static const String channelStoreVersion = 'news.channels.version';
 

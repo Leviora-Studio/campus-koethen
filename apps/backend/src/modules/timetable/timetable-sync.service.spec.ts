@@ -120,7 +120,8 @@ describe('TimetableSyncService entry write phase', () => {
       sourceStatus: 'REGULAR',
       teachers: [],
       rooms: [],
-      note: null,
+      note: null as string | null,
+      lessonInfo: null as string | null,
     };
   }
 
@@ -219,6 +220,26 @@ describe('TimetableSyncService entry write phase', () => {
     expect(tx.timetableEntry.updateMany).toHaveBeenCalledTimes(1);
   });
 
+  it('persists lesson information separately and updates a changed value', async () => {
+    const incoming = response([7001]);
+    incoming.days[0]!.gridEntries[0]!.lessonInfo = ' P1 ';
+    incoming.days[0]!.gridEntries[0]!.lessonText = 'Separate note';
+    const { service, tx } = harness([], incoming);
+    await service.syncEntries(RANGE.from, RANGE.to);
+    expect(tx.timetableEntry.createManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({
+        lessonInfo: ' P1 ', note: 'Separate note',
+      })] }),
+    );
+
+    const stored = { ...storedRow(7001), note: 'Separate note' };
+    const changed = harness([stored], incoming);
+    await changed.service.syncEntries(RANGE.from, RANGE.to);
+    expect(changed.tx.timetableEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ lessonInfo: ' P1 ' }) }),
+    );
+  });
+
   it('links a shared lesson to every attending class, exactly once each', async () => {
     // The source delivers the same lesson once per attending class — same
     // `ids`, a different `resource` per day block. The importer has to union
@@ -227,6 +248,7 @@ describe('TimetableSyncService entry write phase', () => {
     const shared = response([7001]);
     const secondClass = structuredClone(shared.days[0]!);
     secondClass.resource = { ...secondClass.resource, id: 15028, shortName: 'AR2Ü2' };
+    secondClass.gridEntries[0]!.lessonInfo = 'Synthetic shared lesson information';
     const thirdOccurrence = structuredClone(shared.days[0]!);
     shared.days.push(secondClass, thirdOccurrence);
 
@@ -241,6 +263,11 @@ describe('TimetableSyncService entry write phase', () => {
     await service.syncEntries(RANGE.from, RANGE.to);
 
     expect(tx.timetableEntry.createManyAndReturn).toHaveBeenCalledTimes(1);
+    expect(tx.timetableEntry.createManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({
+        lessonInfo: 'Synthetic shared lesson information',
+      })] }),
+    );
     expect(tx.timetableEntryGroup.createMany).toHaveBeenCalledTimes(1);
     const links = tx.timetableEntryGroup.createMany.mock.calls[0]![0].data as Array<{
       entryId: string;

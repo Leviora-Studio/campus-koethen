@@ -10,7 +10,7 @@ import { z } from 'zod';
  *
  * The observed contract is documented in
  * apps/backend/test/fixtures/webuntis/README.md and re-verified against the
- * live view on 2026-07-22.
+ * live view on 2026-07-22 (lessonInfo additionally checked on 2026-09-25).
  *
  * Two deliberate stances throughout:
  *  - unknown EXTRA fields are tolerated, because upstream adds them freely
@@ -109,6 +109,8 @@ export const gridEntrySchema = z.object({
   statusDetail: z.string().nullish(),
   name: z.string().nullish(),
   notesAll: z.string().nullish(),
+  /** User-facing "Information zur Stunde" from lesson details. */
+  lessonInfo: z.string().nullish(),
   lessonText: z.string().nullish(),
   substitutionText: z.string().nullish(),
   position1: positionArray,

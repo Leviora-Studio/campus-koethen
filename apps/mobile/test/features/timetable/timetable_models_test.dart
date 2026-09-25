@@ -7,6 +7,23 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/fixtures.dart';
 
 void main() {
+  test('lesson information choices preserve distinct source spellings', () {
+    final TimetableLessonInfoOptions options =
+        TimetableLessonInfoOptions.fromJson(<String, dynamic>{
+          'values': <String>['P1', 'Gruppe1', ' P1 '],
+          'hasWithoutInfo': true,
+        });
+    expect(options.values, <String>['P1', 'Gruppe1', ' P1 ']);
+    expect(options.hasWithoutInfo, isTrue);
+    expect(
+      () => TimetableLessonInfoOptions.fromJson(<String, dynamic>{
+        'values': <Object>['P1', 1],
+        'hasWithoutInfo': false,
+      }),
+      throwsFormatException,
+    );
+  });
+
   group('TimetableGroup', () {
     test('parses the contract shape', () {
       final List<TimetableGroup> groups = TimetableGroup.listFromJson(
@@ -76,6 +93,24 @@ void main() {
       expect(first.teachers.single.displayName, 'Demo Demoperson01');
       expect(first.rooms.single.shortName, 'D-04/201');
       expect(first.groups.single.shortName, 'AIN2 - BT');
+    });
+
+    test('keeps lesson information distinct from a separate note', () {
+      final Map<String, dynamic> json = timetableWeekFixture(
+        DateTime(2026, 7, 20),
+      );
+      final List<dynamic> days = json['days'] as List<dynamic>;
+      final Map<String, dynamic> firstDay = days.first as Map<String, dynamic>;
+      final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
+      final Map<String, dynamic> first = entries.first as Map<String, dynamic>;
+      first['lessonInfo'] = ' P1 ';
+      first['note'] = 'Getrennte Notiz';
+
+      final TimetableEntry parsed = Timetable.fromJson(
+        json,
+      )!.days.first.entries.first;
+      expect(parsed.lessonInfo, ' P1 ');
+      expect(parsed.note, 'Getrennte Notiz');
     });
 
     test('keeps empty days as real, empty days', () {

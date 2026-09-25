@@ -71,6 +71,7 @@ export class TimetableEntryDto {
   @ApiProperty({ type: [TimetableGroupDto] }) groups!: TimetableGroupDto[];
 
   @ApiProperty({ type: String, nullable: true }) note!: string | null;
+  @ApiProperty({ type: String, nullable: true }) lessonInfo!: string | null;
 }
 
 export class TimetableDayDto {
@@ -88,6 +89,14 @@ export class TimetableWeekDto {
 
   @ApiProperty({ type: [TimetableDayDto], description: 'Every day of the requested range.' })
   days!: TimetableDayDto[];
+}
+
+export class TimetableLessonInfoDto {
+  @ApiProperty({ type: [String], description: 'Distinct lessonInfo texts exactly as stored for the selected group.' })
+  values!: string[];
+
+  @ApiProperty({ description: 'Whether the covered timetable also contains entries without lessonInfo.' })
+  hasWithoutInfo!: boolean;
 }
 
 export class TimetableStatusDto {
@@ -118,6 +127,11 @@ export class TimetableGroupsResponseDto {
 
 export class TimetableWeekResponseDto {
   @ApiProperty({ type: TimetableWeekDto }) data!: TimetableWeekDto;
+  @ApiProperty({ type: ResponseMetaDto }) meta!: ResponseMetaDto;
+}
+
+export class TimetableLessonInfoResponseDto {
+  @ApiProperty({ type: TimetableLessonInfoDto }) data!: TimetableLessonInfoDto;
   @ApiProperty({ type: ResponseMetaDto }) meta!: ResponseMetaDto;
 }
 

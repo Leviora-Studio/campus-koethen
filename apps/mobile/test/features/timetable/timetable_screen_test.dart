@@ -7,6 +7,9 @@ import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/features/calendar/presentation/calendar_entry_sheet.dart';
+import 'package:campus_koethen/features/campusmap/application/campus_map_providers.dart';
+import 'package:campus_koethen/features/campusmap/data/map_asset_loader.dart';
+import 'package:campus_koethen/features/campusmap/domain/map_catalog.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_week.dart';
 import 'package:campus_koethen/features/timetable/presentation/timetable_screen.dart';
@@ -23,6 +26,7 @@ import '../../support/pump_app.dart';
 
 /// The Monday of the week the screen shows by default.
 final DateTime monday = TimetableWeek.startOf(DateTime.now());
+late final MapCatalog testCatalog;
 
 InMemoryKeyValueStore storeWithGroup() =>
     InMemoryKeyValueStore(<String, Object>{
@@ -50,6 +54,7 @@ Future<ProviderContainer> pumpTimetable(
   TextScaler textScaler = TextScaler.noScaling,
   ThemeMode themeMode = ThemeMode.light,
   bool selectMonday = true,
+  List<Override> overrides = const <Override>[],
 }) async {
   final ProviderContainer container = await pumpScreen(
     tester,
@@ -62,6 +67,7 @@ Future<ProviderContainer> pumpTimetable(
       apiClientProvider.overrideWithValue(
         fakeApiClient(adapter ?? workingApi()),
       ),
+      ...overrides,
     ],
   );
   if (selectMonday) {
@@ -72,6 +78,11 @@ Future<ProviderContainer> pumpTimetable(
 }
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    testCatalog = await const MapAssetLoader().load();
+  });
+
   group('onboarding', () {
     testWidgets('asks for a course when none is chosen', (
       WidgetTester tester,
@@ -139,6 +150,140 @@ void main() {
   });
 
   group('agenda', () {
+    testWidgets('links only a mapped WebUntis room on the card', (
+      WidgetTester tester,
+    ) async {
+      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+        if (options.path.endsWith('/timetable/groups')) {
+          return FakeHttpResponse(envelope(timetableGroupsFixture));
+        }
+        if (options.path.endsWith('/rooms')) {
+          return FakeHttpResponse(
+            envelope(<Map<String, dynamic>>[
+              <String, dynamic>{
+                'roomKey': 'ratke-gebaeude-first-floor-216',
+                'roomNumber': '216',
+                'buildingKey': 'ratke-gebaeude',
+                'buildingNumber': '23',
+                'buildingName': 'Ratke-Gebäude',
+                'floorKey': 'ratke-gebaeude-first-floor',
+                'floorName': '1. Obergeschoss',
+                'roomType': 'lecture',
+                'mapVersion': testCatalog.mapVersion,
+                'sortOrder': 0,
+              },
+            ]),
+          );
+        }
+        final Map<String, dynamic> week = timetableWeekFixture(monday);
+        final List<dynamic> days = week['days'] as List<dynamic>;
+        final List<dynamic> entries =
+            (days.first as Map<String, dynamic>)['entries'] as List<dynamic>;
+        (entries.first
+            as Map<String, dynamic>)['rooms'] = <Map<String, dynamic>>[
+          <String, dynamic>{'shortName': 'K023-216'},
+          <String, dynamic>{'shortName': 'D-04/201'},
+        ];
+        return FakeHttpResponse(envelope(week, meta: timetableMeta()));
+      });
+
+      await pumpTimetable(
+        tester,
+        adapter: adapter,
+        overrides: <Override>[
+          mapCatalogProvider.overrideWith((Ref ref) => testCatalog),
+        ],
+      );
+
+      expect(find.widgetWithText(TextButton, 'K023-216'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'D-04/201'), findsNothing);
+      expect(find.text('D-04/201'), findsWidgets);
+      final Finder missingRoom = find.text('D-04/201').first;
+      final Finder searchButton = find
+          .widgetWithText(OutlinedButton, 'Raum suchen')
+          .first;
+      expect(searchButton, findsOneWidget);
+      expect(
+        tester.getTopLeft(searchButton).dx,
+        greaterThan(tester.getTopRight(missingRoom).dx),
+      );
+      expect(
+        (tester.getCenter(searchButton).dy - tester.getCenter(missingRoom).dy)
+            .abs(),
+        lessThan(25),
+      );
+    });
+
+    testWidgets('filters only the deselected exact lesson information text', (
+      WidgetTester tester,
+    ) async {
+      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+        if (options.path.endsWith('/timetable/groups')) {
+          return FakeHttpResponse(envelope(timetableGroupsFixture));
+        }
+        if (options.path.endsWith('/timetable/lesson-info')) {
+          return FakeHttpResponse(
+            envelope(<String, dynamic>{
+              'values': <String>['P1', 'Gruppe1'],
+              'hasWithoutInfo': true,
+            }),
+          );
+        }
+        final Map<String, dynamic> week = timetableWeekFixture(monday);
+        final List<dynamic> days = week['days'] as List<dynamic>;
+        final Map<String, dynamic> firstDay =
+            days.first as Map<String, dynamic>;
+        final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
+        (entries[0] as Map<String, dynamic>)['lessonInfo'] = 'P1';
+        (entries[1] as Map<String, dynamic>)['lessonInfo'] = 'Gruppe1';
+        return FakeHttpResponse(envelope(week, meta: timetableMeta()));
+      });
+
+      await pumpTimetable(tester, adapter: adapter);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+      expect(find.text('Technische Mechanik'), findsOneWidget);
+      expect(find.text('Projektseminar'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Stunden nach Information filtern'));
+      await tester.pumpAndSettle();
+      final CheckboxListTile p1 = tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'P1'),
+      );
+      expect(p1.value, isTrue);
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'P1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Schließen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mathematik 2'), findsNothing);
+      expect(find.text('Technische Mechanik'), findsOneWidget);
+      expect(find.text('Projektseminar'), findsOneWidget);
+    });
+
+    testWidgets('shows lesson information on the card and in its details', (
+      WidgetTester tester,
+    ) async {
+      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+        if (options.path.endsWith('/timetable/groups')) {
+          return FakeHttpResponse(envelope(timetableGroupsFixture));
+        }
+        final Map<String, dynamic> week = timetableWeekFixture(monday);
+        final List<dynamic> days = week['days'] as List<dynamic>;
+        final Map<String, dynamic> firstDay =
+            days.first as Map<String, dynamic>;
+        final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
+        (entries.first as Map<String, dynamic>)['lessonInfo'] =
+            'Fiktive Information zur Stunde';
+        return FakeHttpResponse(envelope(week, meta: timetableMeta()));
+      });
+
+      await pumpTimetable(tester, adapter: adapter);
+      expect(find.text('Fiktive Information zur Stunde'), findsOneWidget);
+      await tester.tap(find.text('Mathematik 2'));
+      await tester.pumpAndSettle();
+      expect(find.text('Fiktive Information zur Stunde'), findsNWidgets(2));
+    });
+
     testWidgets('an appointment opens its details', (
       WidgetTester tester,
     ) async {

@@ -29,6 +29,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../support/fake_http_adapter.dart';
@@ -231,6 +232,44 @@ Rect controlBarRect(WidgetTester tester) => tester.getRect(
 );
 
 void main() {
+  testWidgets('room search fallback opens the map without a room selection', (
+    WidgetTester tester,
+  ) async {
+    Uri? openedUri;
+    final GoRouter router = GoRouter(
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (BuildContext context, GoRouterState state) =>
+              const Scaffold(body: RoomSearchButton()),
+        ),
+        GoRoute(
+          path: AppRoutes.campusMap,
+          builder: (BuildContext context, GoRouterState state) {
+            openedUri = state.uri;
+            return const Scaffold(body: Text('Map search opened'));
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: AppLocales.german,
+        supportedLocales: AppLocales.supported,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        routerConfig: router,
+      ),
+    );
+    await tester.tap(find.text('Raum suchen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Map search opened'), findsOneWidget);
+    expect(openedUri?.path, AppRoutes.campusMap);
+    expect(openedUri?.queryParameters, isEmpty);
+  });
+
   group('map controls', _controlPositionTests);
   group('map viewport', _viewportTests);
 

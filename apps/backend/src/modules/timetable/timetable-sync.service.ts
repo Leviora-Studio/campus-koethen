@@ -51,6 +51,7 @@ interface NormalizedEntry {
   teachers: Array<{ shortName: string; displayName: string | null }>;
   rooms: Array<{ shortName: string; longName: string | null }>;
   note: string | null;
+  lessonInfo: string | null;
   /**
    * The classes attending this lesson.
    *
@@ -189,9 +190,10 @@ export class TimetableSyncService {
     }
   }
 
-  private async contextsFor(from: string, to: string): Promise<
-    Array<{ id: number; from: string; to: string }>
-  > {
+  private async contextsFor(
+    from: string,
+    to: string,
+  ): Promise<Array<{ id: number; from: string; to: string }>> {
     const contexts = await this.prisma.timetableContext.findMany({
       where: {
         source: 'webuntis',
@@ -433,11 +435,15 @@ export class TimetableSyncService {
             })),
             rooms: rooms.map((r) => ({ shortName: r.shortName, longName: r.longName ?? null })),
             note: raw.lessonText?.trim() || raw.substitutionText?.trim() || null,
+            lessonInfo: raw.lessonInfo?.trim() ? raw.lessonInfo : null,
             groupExternalIds: new Set<string>(),
           };
 
           // The same lesson appears once per attending class. Union the groups
           // rather than letting the last occurrence win.
+          if (existing && !existing.lessonInfo) {
+            existing.lessonInfo = raw.lessonInfo?.trim() ? raw.lessonInfo : null;
+          }
           entry.groupExternalIds.add(String(day.resource.id));
 
           entries.set(externalKey, entry);
@@ -496,6 +502,7 @@ export class TimetableSyncService {
       teachers: unknown;
       rooms: unknown;
       note: string | null;
+      lessonInfo: string | null;
     },
     next: NormalizedEntry,
   ): boolean {
@@ -509,6 +516,7 @@ export class TimetableSyncService {
       stored.status !== next.status ||
       stored.sourceStatus !== next.sourceStatus ||
       stored.note !== next.note ||
+      stored.lessonInfo !== next.lessonInfo ||
       TimetableSyncService.refsChanged(stored.teachers, next.teachers, [
         'shortName',
         'displayName',
@@ -628,6 +636,7 @@ export class TimetableSyncService {
               teachers: true,
               rooms: true,
               note: true,
+              lessonInfo: true,
             },
           });
           const storedByKey = new Map(stored.map((row) => [row.externalKey, row]));
@@ -666,6 +675,7 @@ export class TimetableSyncService {
                 teachers: entry.teachers,
                 rooms: entry.rooms,
                 note: entry.note,
+                lessonInfo: entry.lessonInfo,
               })),
               select: { id: true, externalKey: true },
             });
@@ -689,6 +699,7 @@ export class TimetableSyncService {
                 teachers: entry.teachers,
                 rooms: entry.rooms,
                 note: entry.note,
+                lessonInfo: entry.lessonInfo,
                 lastSeenAt: now,
               },
             });

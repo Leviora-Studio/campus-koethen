@@ -72,6 +72,10 @@ abstract final class CacheKeys {
   /// Full study group list of the timetable.
   static String timetableGroups(String locale) => 'timetable.groups.$locale';
 
+  /// Exact lesson information choices of one Campus study group.
+  static String timetableLessonInfo(String locale, String groupId) =>
+      'timetable.lessonInfo.$locale.$groupId';
+
   /// One requested timetable range.
   ///
   /// The key carries the locale, the **Campus** group id and both range bounds,

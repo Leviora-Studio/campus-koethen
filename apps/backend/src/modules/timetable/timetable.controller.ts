@@ -12,6 +12,8 @@ import { TIMETABLE_TIMEZONE } from './webuntis.schema';
 import {
   TimetableGroupDto,
   TimetableGroupsResponseDto,
+  TimetableLessonInfoDto,
+  TimetableLessonInfoResponseDto,
   TimetableStatusDto,
   TimetableStatusResponseDto,
   TimetableWeekDto,
@@ -25,6 +27,8 @@ const groupsQuerySchema = z.object({
   query: z.string().trim().max(100).optional(),
   department: z.string().trim().max(100).optional(),
 });
+
+const lessonInfoQuerySchema = z.object({ groupId: z.uuid('must be a Campus group id') });
 
 const weekQuerySchema = refineDateRange(
   z.object({ groupId: z.uuid('must be a Campus group id'), from: isoDate, to: isoDate }),
@@ -75,6 +79,25 @@ export class TimetableController {
           .toISOString()
           .slice(0, 10),
       }),
+    };
+  }
+
+  @Get('lesson-info')
+  @ApiOperation({
+    summary: 'List exact lesson information texts for a selected timetable group.',
+    description: 'Reads the last successfully imported timetable window from the Campus database. No WebUntis request is triggered.',
+  })
+  @ApiQuery({ name: 'groupId', required: true, format: 'uuid' })
+  @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
+  @ApiOkResponse({ type: TimetableLessonInfoResponseDto })
+  async lessonInfo(
+    @RequestLocale() locale: LocaleResolution,
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiResponse<TimetableLessonInfoDto>> {
+    const { groupId } = parseWith(lessonInfoQuerySchema, query, locale.resolvedLocale);
+    return {
+      data: await this.timetable.listLessonInfo(groupId, locale),
+      meta: buildMeta({ ...locale, translationFallback: locale.resolvedLocale !== 'de' }),
     };
   }
 

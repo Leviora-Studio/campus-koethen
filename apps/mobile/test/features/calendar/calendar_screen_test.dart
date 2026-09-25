@@ -331,6 +331,23 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('offers the lesson information filter for a chosen course', (
+      WidgetTester tester,
+    ) async {
+      await pumpCalendar(
+        tester,
+        store: InMemoryKeyValueStore(<String, Object>{
+          PreferenceKeys.preferredTimetableGroup:
+              '11111111-1111-4111-8111-111111111111',
+        }),
+      );
+      await openSources(tester);
+      await tester.tap(find.text('Stundenplan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Stunden nach Information filtern'), findsOneWidget);
+    });
+
     testWidgets('lists all three sources and spells out their state', (
       WidgetTester tester,
     ) async {

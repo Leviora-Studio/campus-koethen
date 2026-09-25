@@ -73,6 +73,50 @@ void openRoomOnMap(
   router.push(AppRoutes.campusMapForRoom(roomKey));
 }
 
+/// Opens the map's room search when a designation has no reliable map match.
+void openRoomSearch(BuildContext context, {bool closeSheet = false}) {
+  final GoRouter router = GoRouter.of(context);
+  final NavigatorState navigator = Navigator.of(context);
+  if (closeSheet && navigator.canPop()) navigator.pop();
+  router.push(AppRoutes.campusMap);
+}
+
+class RoomSearchButton extends StatelessWidget {
+  const RoomSearchButton({this.closeSheet = false, super.key});
+
+  final bool closeSheet;
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton.icon(
+    icon: const Icon(AppIcons.search),
+    label: Text(context.l10n.campusMapSearchLabel),
+    onPressed: () => openRoomSearch(context, closeSheet: closeSheet),
+  );
+}
+
+/// Keeps an unresolved room and its search action on the same line.
+class UnmappedRoomSearchRow extends StatelessWidget {
+  const UnmappedRoomSearchRow({
+    required this.label,
+    this.textStyle,
+    this.closeSheet = false,
+    super.key,
+  });
+
+  final String label;
+  final TextStyle? textStyle;
+  final bool closeSheet;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: <Widget>[
+      Expanded(child: Text(label, style: textStyle)),
+      const SizedBox(width: AppSpacing.xs),
+      Flexible(flex: 2, child: RoomSearchButton(closeSheet: closeSheet)),
+    ],
+  );
+}
+
 /// Whether the bundled plan can actually show a room.
 ///
 /// An older app with a newer catalogue knows the room by name but has no
