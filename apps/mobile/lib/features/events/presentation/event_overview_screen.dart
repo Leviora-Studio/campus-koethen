@@ -106,8 +106,7 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
               : l10n.eventOverviewSavedShowTooltip,
           isSelected: _showSaved,
           onPressed: () => setState(() => _showSaved = !_showSaved),
-          icon: const Icon(AppIcons.bookmark_outlined),
-          selectedIcon: const Icon(AppIcons.bookmark),
+          icon: const Icon(AppIcons.bookmark),
         ),
         IconButton(
           tooltip: l10n.eventOverviewFilterTooltip,
