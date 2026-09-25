@@ -3,7 +3,8 @@ import { Env } from '../../config/env.schema';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CanteenSyncService } from './canteen-sync.service';
 import { MeineMensaClient } from './meine-mensa.client';
-import { NormalizedMeal } from './meine-mensa.schema';
+import { foodPlanResponseSchema, NormalizedMeal } from './meine-mensa.schema';
+import { CANTEENS } from './canteens.config';
 
 type Definition = { code: string; labelDe: string; kind: 'ingredient' | 'marker' };
 
@@ -85,6 +86,7 @@ function harness(
       canteenId: string,
       meals: NormalizedMeal[],
       definitions: Definition[],
+      unconfirmedDates?: Set<string>,
     ) => Promise<number>;
   };
 
@@ -92,6 +94,70 @@ function harness(
 }
 
 describe('CanteenSyncService persistence boundary', () => {
+  it('preserves meals on dates with blank-name placeholders while withdrawing confirmed meals', async () => {
+    const { service, tx } = harness();
+
+    await service.persist(
+      'canteen-id',
+      [meal(123, { date: '2026-10-04' }), meal(124, { date: '2026-10-06' })],
+      [],
+      new Set(['2026-10-05']),
+    );
+
+    expect(tx.meal.deleteMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        date: {
+          gte: new Date('2026-10-04T00:00:00.000Z'),
+          lte: new Date('2026-10-06T00:00:00.000Z'),
+          notIn: [new Date('2026-10-05T00:00:00.000Z')],
+        },
+      }),
+    });
+  });
+
+  it('imports named dishes and rejects blank-name placeholders from the same response', async () => {
+    const canteen = CANTEENS[0]!;
+    const response = foodPlanResponseSchema.parse({
+      data: [
+        {
+          id: 123,
+          date: '2026-09-24',
+          location_id: canteen.sourceLocationId,
+          food: { name: 'Gericht' },
+        },
+        { id: 124, date: '2026-10-05', location_id: canteen.sourceLocationId, food: { name: '' } },
+      ],
+    });
+    const prisma = {
+      canteen: { findUnique: jest.fn().mockResolvedValue({ id: 'canteen-id' }) },
+      syncRun: {
+        create: jest.fn().mockResolvedValue({ id: 'run-id' }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    } as unknown as PrismaService;
+    const client = {
+      fetchFoodPlans: jest.fn().mockResolvedValue(response),
+    } as unknown as MeineMensaClient;
+    const service = new CanteenSyncService(prisma, client, { CANTEEN_SYNC_DAYS_AHEAD: 14 } as Env);
+    const persist = jest.fn().mockResolvedValue(0);
+    (service as unknown as { persist: typeof persist }).persist = persist;
+
+    const outcome = await service.syncCanteen(canteen);
+
+    expect(outcome).toMatchObject({
+      status: 'success',
+      recordsReceived: 2,
+      recordsUpserted: 1,
+      recordsRejected: 1,
+    });
+    expect(persist).toHaveBeenCalledWith(
+      'canteen-id',
+      [expect.objectContaining({ sourcePlanId: 123, name: 'Gericht' })],
+      [],
+      new Set(['2026-10-05']),
+    );
+  });
+
   it('withdraws only meals owned by the meine-mensa source', async () => {
     const { service, tx } = harness();
 

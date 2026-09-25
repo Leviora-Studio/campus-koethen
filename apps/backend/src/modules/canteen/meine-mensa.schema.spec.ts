@@ -20,6 +20,13 @@ describe('meine-mensa schema', () => {
     expect(parsed.success && parsed.data.data).toEqual([]);
   });
 
+  it('accepts an otherwise valid future placeholder with an empty dish name', () => {
+    const result = foodPlanResponseSchema.safeParse({
+      data: [{ id: 1, date: '2026-10-05', location_id: 7, food: { name: '' } }],
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('rejects a structurally malformed response', () => {
     expect(foodPlanResponseSchema.safeParse(fixture('malformed.json')).success).toBe(false);
   });

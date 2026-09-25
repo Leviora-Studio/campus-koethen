@@ -13,6 +13,8 @@ import { z } from 'zod';
  *    `meta.markers` namespaces
  *  - prices arrive as JSON numbers with varying precision (`7` for 7.00)
  *  - a price group can be absent; it must never be defaulted to 0
+ *  - unpublished future rows can carry an empty dish name; the sync service
+ *    rejects those placeholders without discarding valid meals in the response
  *  - `image_url` is present but is deliberately never persisted
  */
 
@@ -32,7 +34,7 @@ const optionalPrice = price.nullish().transform((value) => value ?? null);
 
 export const foodSchema = z.object({
   id: z.number().int().nullish(),
-  name: z.string().min(1),
+  name: z.string(),
   name_2: z.string().nullish(),
   /** Codes are strings, including the purely numeric ones. */
   ingredients: z.array(z.string()).nullish(),

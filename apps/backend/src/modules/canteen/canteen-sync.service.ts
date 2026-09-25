@@ -142,13 +142,22 @@ export class CanteenSyncService {
     // Entries for another canteen are a genuine upstream anomaly. Drop them
     // rather than filing another canteen's menu under this one.
     const received = response.data.length;
+    const blankDates = new Set(
+      response.data
+        .filter(
+          (entry) =>
+            entry.location_id === canteen.sourceLocationId && entry.food.name.trim().length === 0,
+        )
+        .map((entry) => entry.date),
+    );
     const matching = response.data.filter(
-      (entry) => entry.location_id === canteen.sourceLocationId,
+      (entry) =>
+        entry.location_id === canteen.sourceLocationId && entry.food.name.trim().length > 0,
     );
     const rejected = received - matching.length;
     if (rejected > 0) {
       this.logger.warn(
-        `Rejected ${rejected} entr(ies) with a location_id other than ${canteen.sourceLocationId} for ${canteen.slug}`,
+        `Rejected ${rejected} entr(ies) with another location_id or an empty food name for ${canteen.slug}`,
       );
     }
 
@@ -160,7 +169,7 @@ export class CanteenSyncService {
           finishedAt: new Date(),
           recordsReceived: received,
           recordsRejected: rejected,
-          errorMessage: received > 0 ? 'no entries matched the requested location' : null,
+          errorMessage: received > 0 ? 'no named entries matched the requested location' : null,
         },
       });
       // An empty answer is NOT a reason to wipe a valid menu.
@@ -180,7 +189,7 @@ export class CanteenSyncService {
 
     let removed = 0;
     try {
-      removed = await this.persist(record.id, meals, definitions);
+      removed = await this.persist(record.id, meals, definitions, blankDates);
     } catch (error) {
       return fail(
         `persistence failed: ${error instanceof Error ? error.message : 'unknown error'}`,
@@ -327,10 +336,15 @@ export class CanteenSyncService {
     canteenId: string,
     meals: NormalizedMeal[],
     definitions: Array<{ code: string; labelDe: string; kind: 'ingredient' | 'marker' }>,
+    unconfirmedDates: Set<string> = new Set(),
   ): Promise<number> {
     const dates = [...new Set(meals.map((meal) => meal.date))].sort();
     const minDate = new Date(`${dates[0]!}T00:00:00.000Z`);
     const maxDate = new Date(`${dates[dates.length - 1]!}T00:00:00.000Z`);
+    const deletionWindow: Prisma.DateTimeFilter = { gte: minDate, lte: maxDate };
+    if (unconfirmedDates.size > 0) {
+      deletionWindow.notIn = [...unconfirmedDates].map((date) => new Date(`${date}T00:00:00.000Z`));
+    }
     const keptIds = meals.map((meal) => meal.sourcePlanId);
 
     const uniqueDefinitions = CanteenSyncService.lastPerKey(
@@ -473,7 +487,7 @@ export class CanteenSyncService {
         where: {
           source: 'meine-mensa',
           canteenId,
-          date: { gte: minDate, lte: maxDate },
+          date: deletionWindow,
           sourcePlanId: { notIn: keptIds },
         },
       });
