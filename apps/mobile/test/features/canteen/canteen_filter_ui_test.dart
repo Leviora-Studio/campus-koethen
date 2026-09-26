@@ -7,6 +7,7 @@ import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/widgets/sheet_body.dart';
+import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
 import 'package:campus_koethen/core/widgets/state_views.dart';
 import 'package:campus_koethen/features/canteen/application/canteen_filter_controller.dart';
 import 'package:campus_koethen/features/canteen/application/canteen_providers.dart';
@@ -156,10 +157,14 @@ void main() {
     await pumpCanteen(tester);
 
     expect(find.byType(AppBar), findsNothing);
-    // The masthead is the canteen itself; the picker and the filter are its
-    // actions, named by their tooltips rather than by a row of labelled
-    // buttons above the food.
-    expect(find.text('Mensa Köthen'), findsOneWidget);
+    // The canteen name sits above the section title; picker and filter stay
+    // available as header actions.
+    expect(find.text('MENSA KÖTHEN'), findsOneWidget);
+    final ScreenHeader header = tester.widget<ScreenHeader>(
+      find.byType(ScreenHeader),
+    );
+    expect(header.eyebrow, 'Mensa Köthen');
+    expect(header.title, 'Mensa');
     expect(find.byTooltip('Filter'), findsOneWidget);
     expect(find.byTooltip('Mensa wählen'), findsOneWidget);
     expect(find.text('Gemüsepfanne'), findsOneWidget);

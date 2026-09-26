@@ -96,9 +96,19 @@ class _MailFolderPickerSheet extends ConsumerWidget {
                     itemBuilder: (BuildContext context, int index) {
                       final MailFolder folder = selectable[index];
                       final bool isCurrent = folder.path == selected.path;
+                      final String label = folderLabel(l10n, folder);
                       return ListTile(
                         leading: Icon(folderIcon(folder.role)),
-                        title: Text(folderLabel(l10n, folder)),
+                        title: Tooltip(
+                          message: label,
+                          excludeFromSemantics: true,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         trailing: isCurrent ? const Icon(AppIcons.check) : null,
                         selected: isCurrent,
                         onTap: () {

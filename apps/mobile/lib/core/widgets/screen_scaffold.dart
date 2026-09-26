@@ -36,6 +36,7 @@ class ScreenHeader extends StatelessWidget {
     this.eyebrow,
     this.actions,
     this.showBack,
+    this.singleLineTitle = false,
     this.rule = true,
     super.key,
   });
@@ -52,6 +53,9 @@ class ScreenHeader extends StatelessWidget {
 
   /// Whether to offer a way back. Defaults to "whenever there is one".
   final bool? showBack;
+
+  /// Keep names that must not break within a word on one ellipsized line.
+  final bool singleLineTitle;
 
   /// Whether the header closes with the bar line. Off where the screen puts
   /// its own controls directly underneath and draws the rule itself.
@@ -80,12 +84,24 @@ class ScreenHeader extends StatelessWidget {
         ],
         Semantics(
           header: true,
-          child: Text(
-            title,
-            style: _titleStyle(context, text),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: singleLineTitle
+              ? Tooltip(
+                  message: title,
+                  excludeFromSemantics: true,
+                  child: Text(
+                    title,
+                    style: _titleStyle(context, text),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              : Text(
+                  title,
+                  style: _titleStyle(context, text),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
         ),
       ],
     );
@@ -201,6 +217,7 @@ class ScreenScaffold extends StatelessWidget {
     this.eyebrow,
     this.actions,
     this.showBack,
+    this.singleLineTitle = false,
     this.controls,
     this.floatingActionButton,
     super.key,
@@ -210,6 +227,7 @@ class ScreenScaffold extends StatelessWidget {
   final String? eyebrow;
   final List<Widget>? actions;
   final bool? showBack;
+  final bool singleLineTitle;
 
   /// Controls that stay put while the body scrolls — a view switcher, a day
   /// navigator. They sit **below** the bar line, so the rule keeps meaning
@@ -240,6 +258,7 @@ class ScreenScaffold extends StatelessWidget {
               eyebrow: eyebrow,
               actions: actions,
               showBack: showBack,
+              singleLineTitle: singleLineTitle,
             ),
             ?controls,
             Expanded(

@@ -89,23 +89,8 @@ class MailInboxScreen extends ConsumerWidget {
     return ScreenScaffold(
       eyebrow: ModuleCategory.study.label(l10n),
       title: folderLabel(l10n, folder),
+      singleLineTitle: true,
       actions: <Widget>[
-        IconButton(
-          onPressed: sync.isSyncing
-              ? null
-              : () => ref.read(mailInboxControllerProvider.notifier).refresh(),
-          tooltip: l10n.mailSync,
-          icon: sync.isSyncing
-              ? const SizedBox(
-                  height: AppSizes.icon,
-                  width: AppSizes.icon,
-                  child: Padding(
-                    padding: EdgeInsets.all(AppSpacing.xs),
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : const Icon(AppIcons.sync),
-        ),
         IconButton(
           onPressed: () => context.push(AppRoutes.mailSearch),
           tooltip: l10n.mailSearchTooltip,
@@ -117,10 +102,28 @@ class MailInboxScreen extends ConsumerWidget {
           icon: const Icon(AppIcons.folder_outlined),
         ),
         PopupMenuButton<String>(
+          icon: sync.isSyncing
+              ? const SizedBox(
+                  height: AppSizes.icon,
+                  width: AppSizes.icon,
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.xs),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : null,
           onSelected: (String value) {
+            if (value == 'sync') {
+              ref.read(mailInboxControllerProvider.notifier).refresh();
+            }
             if (value == 'remove') _confirmRemoveAccount(context, ref);
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(
+              value: 'sync',
+              enabled: !sync.isSyncing,
+              child: Text(l10n.mailSync),
+            ),
             PopupMenuItem<String>(
               value: 'remove',
               child: Text(l10n.mailAccountRemove),

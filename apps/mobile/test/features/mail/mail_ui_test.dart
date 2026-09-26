@@ -27,6 +27,8 @@ import 'package:campus_koethen/features/more/presentation/more_screen.dart';
 import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
@@ -237,6 +239,7 @@ void main() {
     testWidgets('offers loading 100 older messages at the end of the inbox', (
       WidgetTester tester,
     ) async {
+      _tallSurface(tester);
       final store = InMemoryMailCredentialStore()..write(_creds);
       final MemoryMailCache cache = MemoryMailCache();
       await cache.saveHeaders(
@@ -703,6 +706,88 @@ void main() {
   });
 
   group('folders', () {
+    testWidgets('keeps Posteingang on the same header row as the actions', (
+      WidgetTester tester,
+    ) async {
+      await (FontLoader('AlbertSans')
+            ..addFont(rootBundle.load('assets/fonts/AlbertSans-Variable.ttf')))
+          .load();
+      tester.view.physicalSize = const Size(390, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(FakeMailGateway(), store),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder title = find.descendant(
+        of: find.byType(ScreenHeader),
+        matching: find.text('Posteingang'),
+      );
+      final Text titleText = tester.widget<Text>(title);
+      expect(titleText.maxLines, 1);
+      expect(titleText.softWrap, isFalse);
+      expect(
+        tester.renderObject<RenderParagraph>(title).didExceedMaxLines,
+        isFalse,
+      );
+      expect(
+        (tester.getCenter(find.byTooltip('Ordner wählen')).dy -
+                tester.getCenter(title).dy)
+            .abs(),
+        lessThan(30),
+      );
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      expect(find.text('Synchronisieren'), findsOneWidget);
+    });
+
+    testWidgets('truncates long folder names and retains the full name', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const String longName =
+          'Sehr langer benutzerdefinierter Ordner für Studienunterlagen';
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(
+          FakeMailGateway(
+            folders: const <MailFolder>[
+              MailFolder.inbox(),
+              MailFolder(path: 'long', name: longName),
+            ],
+          ),
+          store,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Ordner wählen'));
+      await tester.pumpAndSettle();
+      final Text pickerName = tester.widget<Text>(find.text(longName));
+      expect(pickerName.maxLines, 1);
+      expect(pickerName.overflow, TextOverflow.ellipsis);
+
+      await tester.tap(find.text(longName));
+      await tester.pumpAndSettle();
+      final Finder title = find.descendant(
+        of: find.byType(ScreenHeader),
+        matching: find.text(longName),
+      );
+      final Text titleText = tester.widget<Text>(title);
+      expect(titleText.maxLines, 1);
+      expect(titleText.overflow, TextOverflow.ellipsis);
+      expect(find.byTooltip(longName), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('folder picker lists mailboxes and switches the selection', (
       WidgetTester tester,
     ) async {

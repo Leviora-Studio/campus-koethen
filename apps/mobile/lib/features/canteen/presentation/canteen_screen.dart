@@ -35,10 +35,8 @@ import 'meal_card.dart';
 
 /// The canteen screen: what is on offer today, as a menu card.
 ///
-/// The screen is **named after the canteen**, not after the word "Mensa" — the
-/// masthead carries the house you are looking at, which is also the answer to
-/// the only question a second canteen raises. Everything else the screen used
-/// to spend a row on (the picker, the filter) is an action in that masthead.
+/// The masthead identifies the selected canteen above the section title
+/// "Mensa". The picker and filter remain actions in that masthead.
 class CanteenScreen extends ConsumerStatefulWidget {
   const CanteenScreen({super.key});
 
@@ -90,12 +88,17 @@ class _CanteenScreenState extends ConsumerState<CanteenScreen>
     final CanteenMenu? menu = slug == null
         ? null
         : ref.watch(canteenMenuProvider(slug)).value?.value;
+    final String? selectedCanteenName = canteens.value?.value
+        .where((Canteen canteen) => canteen.slug == slug)
+        .firstOrNull
+        ?.displayName;
 
     return ScreenScaffold(
-      // Until the menu arrives the screen is still "Mensa"; the moment it does,
-      // it is the house itself.
-      eyebrow: menu?.campusLabel ?? ModuleCategory.campus.label(l10n),
-      title: menu?.displayName ?? l10n.navCanteen,
+      eyebrow:
+          menu?.displayName ??
+          selectedCanteenName ??
+          ModuleCategory.campus.label(l10n),
+      title: l10n.navCanteen,
       actions: <Widget>[
         // Always reachable, even before a canteen has loaded: favourites are
         // not scoped to one canteen and outlive the picker's own state.
