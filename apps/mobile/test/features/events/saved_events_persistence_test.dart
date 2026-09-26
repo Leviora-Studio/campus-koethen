@@ -322,7 +322,6 @@ void main() {
       );
       expect(loaded, hasLength(1));
     });
-
   });
 
   group('the orphan rule', () {

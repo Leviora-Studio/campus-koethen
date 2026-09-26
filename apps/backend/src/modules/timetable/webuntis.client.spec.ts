@@ -53,13 +53,15 @@ describe('WebUntisClient', () => {
         seen = init;
         return jsonResponse(
           '[{"id":49,"name":"2026/2026","dateRange":{"start":"2026-04-07","end":"2026-09-30"}},' +
-          '{"id":51,"name":"2026/2027","dateRange":{"start":"2026-10-05","end":"2027-03-31"}}]',
+            '{"id":51,"name":"2026/2027","dateRange":{"start":"2026-10-05","end":"2027-03-31"}}]',
         );
       });
       const years = await new WebUntisClient(makeEnv()).fetchSchoolYears();
       expect(years.map((year) => year.id)).toEqual([49, 51]);
       expect(seenUrl).toContain('/schoolyears');
-      expect((seen.headers as Record<string, string>)['X-Webuntis-Api-School-Year-Id']).toBeUndefined();
+      expect(
+        (seen.headers as Record<string, string>)['X-Webuntis-Api-School-Year-Id'],
+      ).toBeUndefined();
     });
     it('sends the anonymous school header and asks for JSON', async () => {
       let seen: RequestInit = {};

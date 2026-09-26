@@ -58,8 +58,7 @@ const String _filledFormBase64 =
     'MDAwMDAgbiAKMDAwMDAwMjcwNCAwMDAwMCBuIAowMDAwMDAyNzYzIDAwMDAwIG4gCjAwMDAwMDI3OTYgMDAwMDAgbiAKMDAwMDAw'
     'MjkwNCAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDEzCi9Sb290IDEgMCBSCi9JbmZvIDEyIDAgUgovSUQgWyA8Mjc3MDZkMWIw'
     'NmQ4NjNmYzQ4MDBlYTIyYjE1MTZhYmU+IDwyNzcwNmQxYjA2ZDg2M2ZjNDgwMGVhMjJiMTUxNmFiZT4gXQo+PgpzdGFydHhyZWYK'
-    'MzE5NAolJUVPRgo='
-;
+    'MzE5NAolJUVPRgo=';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -97,6 +96,7 @@ void main() {
           }
           return count;
         }
+
         expect(darkPixels(pageOnly!), 0);
         expect(darkPixels(withForm!), greaterThan(40));
       } finally {

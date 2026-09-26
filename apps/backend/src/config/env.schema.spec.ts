@@ -27,13 +27,15 @@ describe('validateEnv', () => {
   });
 
   it('accepts a 210-day WebUntis horizon for a full semester', () => {
-    expect(validateEnv({ ...BASE, WEBUNTIS_LOOKAHEAD_DAYS: '210' }).WEBUNTIS_LOOKAHEAD_DAYS)
-      .toBe(210);
+    expect(validateEnv({ ...BASE, WEBUNTIS_LOOKAHEAD_DAYS: '210' }).WEBUNTIS_LOOKAHEAD_DAYS).toBe(
+      210,
+    );
   });
 
   it('rejects a WebUntis horizon longer than the supported semester window', () => {
-    expect(() => validateEnv({ ...BASE, WEBUNTIS_LOOKAHEAD_DAYS: '211' }))
-      .toThrow(EnvValidationError);
+    expect(() => validateEnv({ ...BASE, WEBUNTIS_LOOKAHEAD_DAYS: '211' })).toThrow(
+      EnvValidationError,
+    );
   });
 
   it('accepts an explicit IANA timezone for worker schedules', () => {

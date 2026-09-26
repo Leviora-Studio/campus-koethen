@@ -19,34 +19,44 @@ describe('TimetableService feature availability', () => {
 describe('TimetableService lesson information choices', () => {
   it('returns every distinct source text exactly and includes lessons without information', async () => {
     const groupId = '43a7302c-19ce-4fd7-a06e-003599fd75d0';
-    const findMany = jest.fn().mockResolvedValue([
-      { entry: { lessonInfo: 'P1' } },
-      { entry: { lessonInfo: 'Gruppe1' } },
-      { entry: { lessonInfo: 'P1' } },
-      { entry: { lessonInfo: null } },
-    ]);
+    const findMany = jest
+      .fn()
+      .mockResolvedValue([
+        { entry: { lessonInfo: 'P1' } },
+        { entry: { lessonInfo: 'Gruppe1' } },
+        { entry: { lessonInfo: 'P1' } },
+        { entry: { lessonInfo: null } },
+      ]);
     const prisma = {
       timetableGroup: { findFirst: jest.fn().mockResolvedValue({ id: groupId }) },
-      timetableSyncRun: { findFirst: jest.fn().mockResolvedValue({
-        rangeFrom: new Date('2026-09-18T00:00:00.000Z'),
-        rangeTo: new Date('2027-04-23T00:00:00.000Z'),
-      }) },
+      timetableSyncRun: {
+        findFirst: jest.fn().mockResolvedValue({
+          rangeFrom: new Date('2026-09-18T00:00:00.000Z'),
+          rangeTo: new Date('2027-04-23T00:00:00.000Z'),
+        }),
+      },
       timetableEntryGroup: { findMany },
     };
-    const service = new TimetableService(prisma as unknown as PrismaService, {
-      WEBUNTIS_ENABLED: true,
-      USER_TEST_DATA_ENABLED: false,
-    } as Env);
+    const service = new TimetableService(
+      prisma as unknown as PrismaService,
+      {
+        WEBUNTIS_ENABLED: true,
+        USER_TEST_DATA_ENABLED: false,
+      } as Env,
+    );
 
-    expect(await service.listLessonInfo(groupId, { requestedLocale: 'de', resolvedLocale: 'de' }))
-      .toEqual({ values: ['Gruppe1', 'P1'], hasWithoutInfo: true });
+    expect(
+      await service.listLessonInfo(groupId, { requestedLocale: 'de', resolvedLocale: 'de' }),
+    ).toEqual({ values: ['Gruppe1', 'P1'], hasWithoutInfo: true });
     expect(findMany).toHaveBeenCalledWith({
       where: {
         groupId,
-        entry: { date: {
-          gte: new Date('2026-09-18T00:00:00.000Z'),
-          lte: new Date('2027-04-23T00:00:00.000Z'),
-        } },
+        entry: {
+          date: {
+            gte: new Date('2026-09-18T00:00:00.000Z'),
+            lte: new Date('2027-04-23T00:00:00.000Z'),
+          },
+        },
       },
       select: { entry: { select: { lessonInfo: true } } },
     });
@@ -156,23 +166,27 @@ describe('TimetableService status lookups', () => {
   });
 
   it('projects only public timetable fields for a week read', async () => {
-    const timetableEntryGroup = { findMany: jest.fn().mockResolvedValue([{
-      entry: {
-        id: 'synthetic-entry',
-        date: new Date('2026-08-24T00:00:00.000Z'),
-        startsAt: new Date('2026-08-24T08:00:00.000Z'),
-        endsAt: new Date('2026-08-24T09:30:00.000Z'),
-        title: 'Synthetic subject',
-        subjectCode: 'SYN',
-        type: 'regular_teaching',
-        status: 'regular',
-        teachers: [],
-        rooms: [],
-        groups: [],
-        note: 'Separate note',
-        lessonInfo: 'Synthetic lesson information',
-      },
-    }]) };
+    const timetableEntryGroup = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          entry: {
+            id: 'synthetic-entry',
+            date: new Date('2026-08-24T00:00:00.000Z'),
+            startsAt: new Date('2026-08-24T08:00:00.000Z'),
+            endsAt: new Date('2026-08-24T09:30:00.000Z'),
+            title: 'Synthetic subject',
+            subjectCode: 'SYN',
+            type: 'regular_teaching',
+            status: 'regular',
+            teachers: [],
+            rooms: [],
+            groups: [],
+            note: 'Separate note',
+            lessonInfo: 'Synthetic lesson information',
+          },
+        },
+      ]),
+    };
     const prisma = {
       timetableGroup: {
         findFirst: jest.fn().mockResolvedValue({
@@ -193,10 +207,12 @@ describe('TimetableService status lookups', () => {
       { from: '2026-08-24', to: '2026-08-30' },
     );
 
-    expect(week.data.days[0]!.entries[0]).toEqual(expect.objectContaining({
-      note: 'Separate note',
-      lessonInfo: 'Synthetic lesson information',
-    }));
+    expect(week.data.days[0]!.entries[0]).toEqual(
+      expect.objectContaining({
+        note: 'Separate note',
+        lessonInfo: 'Synthetic lesson information',
+      }),
+    );
 
     expect(prisma.timetableGroup.findFirst.mock.calls[0]![0].select).toEqual({
       id: true,

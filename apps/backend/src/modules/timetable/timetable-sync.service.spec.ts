@@ -32,14 +32,15 @@ describe('TimetableSyncService school-year catalogue', () => {
       fetchSchoolYears: jest.fn().mockResolvedValue([current, upcoming]),
     } as unknown as WebUntisClient;
 
-    const outcome = await new TimetableSyncService(prisma, client, {} as Env)
-      .syncContext();
+    const outcome = await new TimetableSyncService(prisma, client, {} as Env).syncContext();
 
     expect(outcome.status).toBe('success');
-    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
-      where: { source_externalId: { source: 'webuntis', externalId: '51' } },
-      create: expect.objectContaining({ active: false }),
-    }));
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { source_externalId: { source: 'webuntis', externalId: '51' } },
+        create: expect.objectContaining({ active: false }),
+      }),
+    );
   });
 });
 
@@ -143,11 +144,13 @@ describe('TimetableSyncService entry write phase', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
-    const contextFindMany = jest.fn().mockResolvedValue([{
-      externalId: '49',
-      validFrom: new Date('2026-04-07T00:00:00.000Z'),
-      validTo: new Date('2026-09-30T00:00:00.000Z'),
-    }]);
+    const contextFindMany = jest.fn().mockResolvedValue([
+      {
+        externalId: '49',
+        validFrom: new Date('2026-04-07T00:00:00.000Z'),
+        validTo: new Date('2026-09-30T00:00:00.000Z'),
+      },
+    ]);
     const prisma = {
       timetableSyncRun: {
         create: jest.fn().mockResolvedValue({ id: 'run-1' }),
@@ -163,10 +166,12 @@ describe('TimetableSyncService entry write phase', () => {
     } as unknown as PrismaService;
 
     const fetchClasses = jest.fn(async (_yearId: number) => ({
-        resourceType: 'CLASS',
-        classes: [{ class: { id: 15027, shortName: 'AR2Ü1' }, department: null }],
-      }));
-    const fetchEntries = jest.fn(async (_yearId: number, _from: string, _to: string, _classId: number) => entries);
+      resourceType: 'CLASS',
+      classes: [{ class: { id: 15027, shortName: 'AR2Ü1' }, department: null }],
+    }));
+    const fetchEntries = jest.fn(
+      async (_yearId: number, _from: string, _to: string, _classId: number) => entries,
+    );
     const client = {
       fetchClasses,
       fetchEntries,
@@ -227,9 +232,14 @@ describe('TimetableSyncService entry write phase', () => {
     const { service, tx } = harness([], incoming);
     await service.syncEntries(RANGE.from, RANGE.to);
     expect(tx.timetableEntry.createManyAndReturn).toHaveBeenCalledWith(
-      expect.objectContaining({ data: [expect.objectContaining({
-        lessonInfo: ' P1 ', note: 'Separate note',
-      })] }),
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({
+            lessonInfo: ' P1 ',
+            note: 'Separate note',
+          }),
+        ],
+      }),
     );
 
     const stored = { ...storedRow(7001), note: 'Separate note' };
@@ -264,9 +274,13 @@ describe('TimetableSyncService entry write phase', () => {
 
     expect(tx.timetableEntry.createManyAndReturn).toHaveBeenCalledTimes(1);
     expect(tx.timetableEntry.createManyAndReturn).toHaveBeenCalledWith(
-      expect.objectContaining({ data: [expect.objectContaining({
-        lessonInfo: 'Synthetic shared lesson information',
-      })] }),
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({
+            lessonInfo: 'Synthetic shared lesson information',
+          }),
+        ],
+      }),
     );
     expect(tx.timetableEntryGroup.createMany).toHaveBeenCalledTimes(1);
     const links = tx.timetableEntryGroup.createMany.mock.calls[0]![0].data as Array<{
@@ -299,11 +313,9 @@ describe('TimetableSyncService entry write phase', () => {
   });
 
   it('reads the next semester using its own year, class and clipped dates', async () => {
-    const { service, contextFindMany, fetchClasses, fetchEntries } = harness(
-      [],
-      response([7001]),
-      [{ id: 'group-next', externalId: '15120' }],
-    );
+    const { service, contextFindMany, fetchClasses, fetchEntries } = harness([], response([7001]), [
+      { id: 'group-next', externalId: '15120' },
+    ]);
     contextFindMany.mockResolvedValue([
       {
         externalId: '49',
@@ -318,7 +330,9 @@ describe('TimetableSyncService entry write phase', () => {
     ]);
     fetchClasses.mockImplementation(async (yearId: number) => ({
       resourceType: 'CLASS',
-      classes: [{ class: { id: yearId === 49 ? 15027 : 15120, shortName: 'AR2Ü1' }, department: null }],
+      classes: [
+        { class: { id: yearId === 49 ? 15027 : 15120, shortName: 'AR2Ü1' }, department: null },
+      ],
     }));
     fetchEntries.mockImplementation(async (yearId: number) => {
       if (yearId === 49) return { days: [] };
@@ -411,11 +425,13 @@ describe('TimetableSyncService catalogue write phase', () => {
         update: jest.fn(),
       },
       timetableContext: {
-        findMany: jest.fn().mockResolvedValue([{
-          externalId: '49',
-          validFrom: new Date('2026-04-07T00:00:00.000Z'),
-          validTo: new Date('2026-09-30T00:00:00.000Z'),
-        }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            externalId: '49',
+            validFrom: new Date('2026-04-07T00:00:00.000Z'),
+            validTo: new Date('2026-09-30T00:00:00.000Z'),
+          },
+        ]),
       },
       timetableGroup: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       $transaction: jest.fn(async (operation: (transaction: typeof tx) => Promise<void>) =>

@@ -92,10 +92,15 @@ export class TimetableWeekDto {
 }
 
 export class TimetableLessonInfoDto {
-  @ApiProperty({ type: [String], description: 'Distinct lessonInfo texts exactly as stored for the selected group.' })
+  @ApiProperty({
+    type: [String],
+    description: 'Distinct lessonInfo texts exactly as stored for the selected group.',
+  })
   values!: string[];
 
-  @ApiProperty({ description: 'Whether the covered timetable also contains entries without lessonInfo.' })
+  @ApiProperty({
+    description: 'Whether the covered timetable also contains entries without lessonInfo.',
+  })
   hasWithoutInfo!: boolean;
 }
 

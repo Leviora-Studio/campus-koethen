@@ -108,7 +108,6 @@ class PublicCalendarList extends ConsumerWidget {
   }
 }
 
-
 /// One public calendar: its name, its colour as decoration only, a switch and
 /// the safe link into Google Calendar.
 class PublicCalendarTile extends StatelessWidget {

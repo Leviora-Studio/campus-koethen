@@ -83,7 +83,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         doc.bytes,
         sourceName: _pdfSourceName,
         params: const PdfViewerParams(
-          annotationRenderingMode: PdfAnnotationRenderingMode.annotationAndForms,
+          annotationRenderingMode:
+              PdfAnnotationRenderingMode.annotationAndForms,
         ),
       );
     }

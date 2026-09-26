@@ -167,7 +167,9 @@ describe('TimetableSyncService (integration)', () => {
         await seedCatalogue();
         const before = await counts();
 
-        const outcome = await service(failingClient(kind)).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
+        const outcome = await service(failingClient(kind)).syncGroups(
+          new Date('2026-07-20T00:00:00.000Z'),
+        );
 
         expect(outcome.status).toBe('failed');
         expect(await counts()).toMatchObject({
@@ -213,7 +215,9 @@ describe('TimetableSyncService (integration)', () => {
         ),
       };
 
-      const outcome = await service(stubClient({ classes: renamed })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
+      const outcome = await service(stubClient({ classes: renamed })).syncGroups(
+        new Date('2026-07-20T00:00:00.000Z'),
+      );
       expect(outcome.status).toBe('success');
 
       const after = await prisma.timetableGroup.findMany({ orderBy: { externalId: 'asc' } });
@@ -241,7 +245,9 @@ describe('TimetableSyncService (integration)', () => {
       // Retire it the only way the importer ever does: a complete catalogue
       // that no longer contains it.
       const trimmed = { ...all, classes: all.classes.slice(0, 2) };
-      await service(stubClient({ classes: trimmed })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
+      await service(stubClient({ classes: trimmed })).syncGroups(
+        new Date('2026-07-20T00:00:00.000Z'),
+      );
       const retired = await prisma.timetableGroup.findMany({ where: { active: false } });
       expect(retired.length).toBeGreaterThan(0);
 
@@ -258,7 +264,9 @@ describe('TimetableSyncService (integration)', () => {
       const all = filterResponseSchema.parse(fixture('filter-classes.json'));
       const trimmed = { ...all, classes: all.classes.slice(0, 2) };
 
-      const outcome = await service(stubClient({ classes: trimmed })).syncGroups(new Date('2026-07-20T00:00:00.000Z'));
+      const outcome = await service(stubClient({ classes: trimmed })).syncGroups(
+        new Date('2026-07-20T00:00:00.000Z'),
+      );
 
       expect(outcome.status).toBe('success');
       expect(await prisma.timetableGroup.count({ where: { active: true } })).toBe(2);

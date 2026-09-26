@@ -132,17 +132,17 @@ Netzquelle.
 
 Der Client für die studentische E-Mail nutzt zusätzlich:
 
-| Paket (pub.dev)          | Zweck                                          | Lizenz         |
-| ------------------------ | ---------------------------------------------- | -------------- |
-| `enough_mail`            | IMAP-/SMTP-/MIME-Client                        | `MPL-2.0`      |
-| `enough_convert`         | Zeichensatz-Dekodierung (transitiv)            | `MPL-2.0`      |
-| `flutter_secure_storage` | Geräte-Schlüsselspeicher für Zugangsdaten      | `BSD-3-Clause` |
-| `share_plus`             | Anhänge über das OS-Teilen-Menü teilen         | `BSD-3-Clause` |
+| Paket (pub.dev)          | Zweck                                                         | Lizenz         |
+| ------------------------ | ------------------------------------------------------------- | -------------- |
+| `enough_mail`            | IMAP-/SMTP-/MIME-Client                                       | `MPL-2.0`      |
+| `enough_convert`         | Zeichensatz-Dekodierung (transitiv)                           | `MPL-2.0`      |
+| `flutter_secure_storage` | Geräte-Schlüsselspeicher für Zugangsdaten                     | `BSD-3-Clause` |
+| `share_plus`             | Anhänge über das OS-Teilen-Menü teilen                        | `BSD-3-Clause` |
 | `pdfrx`                  | PDF-Anhänge inklusive Formularfelder in-App anzeigen (PDFium) | `MIT`          |
-| `html`                   | HIS-QIS-HTML parsen (Notenspiegel)             | `BSD-3-Clause` |
-| `dio_cookie_manager`     | Cookie-Handling für den QIS-Abruf (dio)        | `MIT`          |
-| `cookie_jar`             | In-Memory-Cookie-Jar für den QIS-Abruf         | `MIT`          |
-| `meta`                   | Annotationen (`@immutable` u. a.)              | `BSD-3-Clause` |
+| `html`                   | HIS-QIS-HTML parsen (Notenspiegel)                            | `BSD-3-Clause` |
+| `dio_cookie_manager`     | Cookie-Handling für den QIS-Abruf (dio)                       | `MIT`          |
+| `cookie_jar`             | In-Memory-Cookie-Jar für den QIS-Abruf                        | `MIT`          |
+| `meta`                   | Annotationen (`@immutable` u. a.)                             | `BSD-3-Clause` |
 
 Die Moodle-Integration nutzt ausschließlich bereits vorhandene Abhängigkeiten (`dio`,
 `flutter_secure_storage`, `hive_ce`, `pdfrx`, `share_plus`, `html`, `url_launcher`) und führt keine

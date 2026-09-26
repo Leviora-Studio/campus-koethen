@@ -94,7 +94,9 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
       // Some devices reject plugin startup transiently. Keep the plan pending;
       // the next resume retries initialization instead of cancelling entries.
       assert(() {
-        debugPrint('notifications: initialization failed (${error.runtimeType})');
+        debugPrint(
+          'notifications: initialization failed (${error.runtimeType})',
+        );
         return true;
       }());
     }
@@ -277,9 +279,9 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
         .join('|');
     if (_gatewayReady && signature != _channelSignature) {
       _channelSignature = signature;
-      _channelSetup = ref.read(notificationGatewayProvider).ensureChannels(
-        channels,
-      );
+      _channelSetup = ref
+          .read(notificationGatewayProvider)
+          .ensureChannels(channels);
     }
 
     ref.listen<NotificationPlan>(notificationPlanProvider, (

@@ -37,7 +37,9 @@ void main() {
         .setDailySummaryMinutes(6 * 60 + 45);
 
     expect(
-      containerWith(store).read(notificationSettingsProvider).dailySummaryMinutes,
+      containerWith(
+        store,
+      ).read(notificationSettingsProvider).dailySummaryMinutes,
       6 * 60 + 45,
     );
   });
@@ -47,7 +49,9 @@ void main() {
       PreferenceKeys.notificationsDailySummaryMinutes: 24 * 60,
     });
     expect(
-      containerWith(store).read(notificationSettingsProvider).dailySummaryMinutes,
+      containerWith(
+        store,
+      ).read(notificationSettingsProvider).dailySummaryMinutes,
       8 * 60,
     );
   });

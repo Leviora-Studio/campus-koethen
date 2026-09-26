@@ -73,10 +73,13 @@ describe('WebUntis schemas', () => {
 
   describe('entriesResponseSchema', () => {
     it('keeps the lesson information separately from other notes and rejects invalid values', () => {
-      const raw = fixture('entries-week.json') as { days: Array<{ gridEntries: Array<Record<string, unknown>> }> };
+      const raw = fixture('entries-week.json') as {
+        days: Array<{ gridEntries: Array<Record<string, unknown>> }>;
+      };
       raw.days[0]!.gridEntries[0]!.lessonInfo = 'Synthetic lesson information';
-      expect(entriesResponseSchema.parse(raw).days[0]!.gridEntries[0]!.lessonInfo)
-        .toBe('Synthetic lesson information');
+      expect(entriesResponseSchema.parse(raw).days[0]!.gridEntries[0]!.lessonInfo).toBe(
+        'Synthetic lesson information',
+      );
       raw.days[0]!.gridEntries[0]!.lessonInfo = 123;
       expect(entriesResponseSchema.safeParse(raw).success).toBe(false);
     });

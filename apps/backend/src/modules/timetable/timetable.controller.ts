@@ -85,7 +85,8 @@ export class TimetableController {
   @Get('lesson-info')
   @ApiOperation({
     summary: 'List exact lesson information texts for a selected timetable group.',
-    description: 'Reads the last successfully imported timetable window from the Campus database. No WebUntis request is triggered.',
+    description:
+      'Reads the last successfully imported timetable window from the Campus database. No WebUntis request is triggered.',
   })
   @ApiQuery({ name: 'groupId', required: true, format: 'uuid' })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
