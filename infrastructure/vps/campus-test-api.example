@@ -12,8 +12,8 @@
 COMPOSE_PROJECT_NAME=campus-koethen-test
 CONTAINER_PLATFORM=linux/amd64
 RESTART_POLICY=unless-stopped
-DOCKER_LOG_MAX_SIZE=10m
-DOCKER_LOG_MAX_FILES=5
+DOCKER_LOG_MAX_SIZE=4m
+DOCKER_LOG_MAX_FILES=1
 
 CMS_IMAGE_REPOSITORY=ghcr.io/leviora-studio/campus-koethen/cms
 BACKEND_IMAGE_REPOSITORY=ghcr.io/leviora-studio/campus-koethen/backend
