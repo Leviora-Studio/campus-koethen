@@ -55,7 +55,7 @@ overrides:
   # Strapi's sendmail provider still requests 9.x, but the latest security fixes
   # are only in 10.x. The CMS build and test suite pass with this override.
   'nodemailer@<10.0.6': '10.0.6' # GHSA-v53p-9fqp-m79j / GHSA-prgh-xp8r-p3m5
-  'webpack-dev-middleware@<7.4.5': '7.4.5' # GHSA-g84c-rxfj-3j2c; Strapi admin tooling
+  'webpack-dev-middleware@<7.4.6': '7.4.6' # GHSA-g84c-rxfj-3j2c / CVE-2026-76844; Strapi admin tooling
   'undici@>=6.7.0 <6.28.1': '>=6.28.1 <7' # GHSA-rfgv-xxqx-mfg5
   'axios@>=1.13.0 <1.20.0': '>=1.20.0 <2' # redirect and request validation advisories
   # Address4 reads a leading-zero octet as decimal where resolvers read octal,
