@@ -72,6 +72,17 @@
     }
   },
   "newsOpenSource": "Open source",
+  "newsOpenImage": "Open image full screen",
+  "newsOpenImageWithDescription": "Open image full screen: {description}",
+  "@newsOpenImageWithDescription": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "newsCloseImage": "Close image view",
+  "newsImageUnavailable": "The image could not be loaded.",
   "newsChannelCountLabel": "{count, plural, =0{No channels selected} =1{1 channel selected} other{{count} channels selected}}",
   "@newsChannelCountLabel": {
     "placeholders": {

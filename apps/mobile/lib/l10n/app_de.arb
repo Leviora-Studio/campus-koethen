@@ -129,6 +129,20 @@
   },
   "newsOpenSource": "Quelle öffnen",
   "@newsOpenSource": {},
+  "newsOpenImage": "Bild im Vollbild öffnen",
+  "@newsOpenImage": {},
+  "newsOpenImageWithDescription": "Bild „{description}“ im Vollbild öffnen",
+  "@newsOpenImageWithDescription": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "newsCloseImage": "Bildansicht schließen",
+  "@newsCloseImage": {},
+  "newsImageUnavailable": "Das Bild konnte nicht geladen werden.",
+  "@newsImageUnavailable": {},
   "newsChannelCountLabel": "{count, plural, =0{Keine Kanäle ausgewählt} =1{1 Kanal ausgewählt} other{{count} Kanäle ausgewählt}}",
   "@newsChannelCountLabel": {
     "placeholders": {

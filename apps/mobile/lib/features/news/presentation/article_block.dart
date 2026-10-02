@@ -1,8 +1,6 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,7 +14,6 @@ import '../../../core/theme/app_metrics.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/content_blocks_view.dart';
 import '../../../core/widgets/panel.dart';
-import '../../../core/widgets/remote_image.dart';
 import '../../../l10n/l10n.dart';
 import '../../events/domain/unified_event.dart';
 import '../../events/presentation/event_save_button.dart';
@@ -25,14 +22,7 @@ import '../data/news_models.dart';
 import '../domain/article_age.dart';
 import '../domain/news_preview.dart';
 import 'news_age_text.dart';
-
-/// The tallest a banner may be drawn, as width divided by height.
-///
-/// Editors upload what they have — square press photos, portrait posters — and
-/// a feed that honours every shape turns one article into a full screen before
-/// its headline. Anything wider than this keeps its own proportions; anything
-/// taller is cropped to it.
-const double _maxBannerRatio = 16 / 9;
+import 'post_image_preview.dart';
 
 /// One article in the feed, drawn as its own card.
 ///
@@ -137,14 +127,7 @@ class ArticleBlock extends ConsumerWidget {
             // of them pushes three articles off the screen for no gain.
             if (article.heroImage != null) ...<Widget>[
               const SizedBox(height: AppSpacing.md),
-              RemoteImage(
-                url: article.heroImage!.url,
-                alternativeText: article.heroImage!.alternativeText,
-                aspectRatio: math.max(
-                  article.heroImage!.aspectRatio ?? _maxBannerRatio,
-                  _maxBannerRatio,
-                ),
-              ),
+              PostImagePreview(image: article.heroImage!),
             ],
 
             const SizedBox(height: AppSpacing.md),
@@ -342,7 +325,16 @@ class _ArticleBody extends ConsumerWidget {
       );
     }
 
-    final String preview = newsPreviewText(article.content);
+    final List<TextSpan> previewSpans = newsPreviewRuns(article.content)
+        .map(
+          (NewsPreviewRun run) => TextSpan(
+            text: run.text,
+            style: run.bold
+                ? const TextStyle(fontWeight: FontWeight.w700)
+                : null,
+          ),
+        )
+        .toList(growable: false);
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -350,7 +342,7 @@ class _ArticleBody extends ConsumerWidget {
         // is answered at the width the text actually gets and at the reader's
         // own text size.
         final TextPainter painter = TextPainter(
-          text: TextSpan(text: preview, style: style),
+          text: TextSpan(style: style, children: previewSpans),
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
           maxLines: kNewsPreviewLines,
@@ -361,8 +353,8 @@ class _ArticleBody extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              preview,
+            Text.rich(
+              TextSpan(children: previewSpans),
               style: style,
               maxLines: kNewsPreviewLines,
               overflow: TextOverflow.ellipsis,

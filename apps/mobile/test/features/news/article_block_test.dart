@@ -39,6 +39,7 @@ NewsArticle _article({
   NewsTagRef tag = _defaultTag,
   NewsChannelRef primaryChannel = _defaultPrimaryChannel,
   DateTime? publishedAt,
+  NewsImage? heroImage,
 }) => NewsArticle(
   slug: slug,
   title: title,
@@ -46,6 +47,7 @@ NewsArticle _article({
   channels: channels,
   tag: tag,
   primaryChannel: primaryChannel,
+  heroImage: heroImage,
   content: content ?? <ContentBlock>[_p('Kurzer Text.')],
 );
 
@@ -294,6 +296,30 @@ void main() {
     expect(inkWells.where((InkWell w) => w.onTap != null), hasLength(1));
   });
 
+  testWidgets('opening a post image does not expand the article', (
+    WidgetTester tester,
+  ) async {
+    await _pumpCard(
+      tester,
+      _article(
+        content: _longArticle,
+        heroImage: const NewsImage(url: '/v1/media/uploads/hero.jpg'),
+      ),
+    );
+
+    expect(find.text('Mehr anzeigen'), findsOneWidget);
+    await tester.tap(find.byTooltip('Bild im Vollbild öffnen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byTooltip('Bildansicht schließen'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Bildansicht schließen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Mehr anzeigen'), findsOneWidget);
+    expect(find.text('Weniger anzeigen'), findsNothing);
+  });
+
   testWidgets('only the real actions announce themselves as buttons', (
     WidgetTester tester,
   ) async {
@@ -318,6 +344,40 @@ void main() {
   });
 
   group('expanding', () {
+    testWidgets('bold text stays bold in the collapsed preview', (
+      WidgetTester tester,
+    ) async {
+      await _pumpCard(
+        tester,
+        _article(
+          content: <ContentBlock>[
+            ParagraphBlock(<InlineNode>[
+              const InlineText(text: 'Das ist '),
+              const InlineText(text: 'wichtig', bold: true),
+              const InlineText(text: ' für alle.'),
+            ]),
+          ],
+        ),
+      );
+
+      final Text preview = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is Text &&
+              widget.textSpan?.toPlainText() == 'Das ist wichtig für alle.',
+        ),
+      );
+      final TextSpan span = preview.textSpan! as TextSpan;
+      expect(
+        span.children!
+            .whereType<TextSpan>()
+            .singleWhere((TextSpan child) => child.text == 'wichtig')
+            .style
+            ?.fontWeight,
+        FontWeight.w700,
+      );
+    });
+
     testWidgets('a short article offers nothing to expand', (
       WidgetTester tester,
     ) async {
