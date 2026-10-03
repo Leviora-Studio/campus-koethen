@@ -101,3 +101,12 @@ auditConfig:
     # All 130 paths are devDependencies (eslint, jest, @nestjs/cli); none reach a
     # production image.
     - GHSA-mh99-v99m-4gvg
+    # braces 3.0.3 has no published fix for deeply nested patterns yet.
+    # The patch below rejects more than 100 nested braces or parentheses before
+    # the recursive walkers run. The CMS test resolves Strapi's installed copy
+    # and checks both paths. The audit sees the upstream version, not our patch;
+    # remove this one-advisory exception when a fixed release replaces it.
+    - GHSA-vfj7-8cjw-p6xm
+
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch
