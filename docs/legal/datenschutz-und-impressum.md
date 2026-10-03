@@ -68,7 +68,7 @@ Diese Erklärung wird angepasst, wenn sich Funktionen, Empfänger oder rechtlich
 
 ### Unabhängigkeitshinweis
 
-Campus Köthen ist keine offizielle App der Hochschule Anhalt. Die App wird unabhängig von Erik Engler, handelnd unter „Leviora Studio“, entwickelt und über die App Stores bereitgestellt. Das Campus-Backend und die redaktionellen Inhalte werden von der rechtlich selbstständigen Studierendenschaft der Hochschule Anhalt betrieben. Die Hochschule Anhalt selbst ist weder Entwicklerin noch Betreiberin der App.
+Campus Köthen ist keine offizielle App der Hochschule Anhalt. Die App wird von Erik Engler über die App Stores bereitgestellt. Das Campus-Backend und die redaktionellen Inhalte werden von der rechtlich selbstständigen Studierendenschaft der Hochschule Anhalt betrieben. Die Hochschule Anhalt selbst ist weder Entwicklerin noch Betreiberin der App.
 
 ---
 
@@ -117,4 +117,4 @@ Copyright © 2026 Erik Engler, handelnd unter „Leviora Studio“, und Jona Lor
 
 ### Unabhängigkeitshinweis
 
-Campus Köthen ist keine offizielle App der Hochschule Anhalt. Die App wird unabhängig von Erik Engler, handelnd unter „Leviora Studio“, entwickelt und über die App Stores bereitgestellt. Das Campus-Backend und die redaktionellen Inhalte werden von der rechtlich selbstständigen Studierendenschaft der Hochschule Anhalt betrieben. Die Hochschule Anhalt selbst ist weder Entwicklerin noch Betreiberin der App.
+Campus Köthen ist keine offizielle App der Hochschule Anhalt. Die App wird von Erik Engler über die App Stores bereitgestellt. Das Campus-Backend und die redaktionellen Inhalte werden von der rechtlich selbstständigen Studierendenschaft der Hochschule Anhalt betrieben. Die Hochschule Anhalt selbst ist weder Entwicklerin noch Betreiberin der App.

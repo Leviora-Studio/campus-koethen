@@ -441,7 +441,7 @@
   "aboutLicenseValue": "AGPL-3.0-only",
   "aboutCopyright": "Copyright © 2026 Erik Engler, trading as “Leviora Studio”, and Jona Loreen Sommer",
   "aboutIndependenceTitle": "Independence notice",
-  "aboutIndependenceNotice": "Campus Köthen is not an official Hochschule Anhalt app. The app is independently developed and distributed through app stores by Erik Engler, trading as “Leviora Studio”. The Campus backend and editorial content are operated by the legally independent student body of Hochschule Anhalt. Hochschule Anhalt itself neither develops nor operates the app.",
+  "aboutIndependenceNotice": "Campus Köthen is not an official Hochschule Anhalt app. The app is distributed through app stores by Erik Engler. The Campus backend and editorial content are operated by the legally independent student body of Hochschule Anhalt. Hochschule Anhalt itself neither develops nor operates the app.",
   "aboutOpenSourceLicenses": "Open source licenses",
   "aboutFontNotice": "Albert Sans typeface, licensed under the SIL Open Font License 1.1. Icons by Tabler Icons, licensed under the MIT License.",
   "imprintTitle": "Legal notice",
