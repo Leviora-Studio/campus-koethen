@@ -40,6 +40,9 @@ NewsArticle _article({
   NewsChannelRef primaryChannel = _defaultPrimaryChannel,
   DateTime? publishedAt,
   NewsImage? heroImage,
+  DateTime? eventStart,
+  DateTime? eventEnd,
+  bool eventAllDay = false,
 }) => NewsArticle(
   slug: slug,
   title: title,
@@ -49,6 +52,9 @@ NewsArticle _article({
   primaryChannel: primaryChannel,
   heroImage: heroImage,
   content: content ?? <ContentBlock>[_p('Kurzer Text.')],
+  eventStart: eventStart,
+  eventEnd: eventEnd,
+  eventAllDay: eventAllDay,
 );
 
 /// Several lines' worth of text, comfortably more than the preview shows.
@@ -184,6 +190,51 @@ void main() {
     expect(find.text('FSR.INS'), findsOneWidget);
     expect(find.text('FB5-News FSR.INS'), findsNothing);
     expect(find.text('Der Artikeltext.'), findsOneWidget);
+  });
+
+  testWidgets('shows a timed event below the title before the body', (
+    WidgetTester tester,
+  ) async {
+    await _pumpCard(
+      tester,
+      _article(
+        title: 'Ersti-Grillen',
+        eventStart: DateTime(2026, 10, 8, 16),
+        eventEnd: DateTime(2026, 10, 8, 21),
+        content: <ContentBlock>[_p('Treffpunkt im Innenhof.')],
+      ),
+    );
+
+    final Finder eventTime = find.textContaining('16:00–21:00');
+    expect(eventTime, findsOneWidget);
+    expect(find.textContaining('Oktober 2026'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Ersti-Grillen')).dy,
+      lessThan(tester.getTopLeft(eventTime).dy),
+    );
+    expect(
+      tester.getTopLeft(eventTime).dy,
+      lessThan(tester.getTopLeft(find.text('Treffpunkt im Innenhof.')).dy),
+    );
+  });
+
+  testWidgets('shows a localized all-day event', (WidgetTester tester) async {
+    await _pumpCard(
+      tester,
+      _article(eventStart: DateTime.utc(2026, 10, 8), eventAllDay: true),
+      locale: AppLocales.english,
+    );
+
+    expect(find.textContaining('October 8, 2026'), findsOneWidget);
+    expect(find.textContaining('All day'), findsOneWidget);
+  });
+
+  testWidgets('omits the event line for ordinary news', (
+    WidgetTester tester,
+  ) async {
+    await _pumpCard(tester, _article());
+    expect(find.textContaining('All day'), findsNothing);
+    expect(find.textContaining('2026 ·'), findsNothing);
   });
 
   testWidgets('an event post can be saved and unsaved from the news feed', (

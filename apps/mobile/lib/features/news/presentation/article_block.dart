@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_routes.dart';
+import '../../../core/locale/formatters.dart';
 import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
@@ -15,6 +16,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/content_blocks_view.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../l10n/l10n.dart';
+import '../../calendar/domain/calendar_entry.dart' show calendarDayOf;
 import '../../events/domain/unified_event.dart';
 import '../../events/presentation/event_save_button.dart';
 import '../application/news_feed_ui_providers.dart';
@@ -121,6 +123,10 @@ class ArticleBlock extends ConsumerWidget {
                   EventSaveButton(event: postToUnifiedEvent(article)),
               ],
             ),
+            if (article.isEventPost) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              _EventWhen(article: article, locale: locale, l10n: l10n),
+            ],
 
             // The banner follows the headline rather than leading it. A
             // reader scanning a feed reads headlines; a photo above every one
@@ -139,6 +145,72 @@ class ArticleBlock extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The event's own date and time stay visible even while the post is collapsed.
+class _EventWhen extends StatelessWidget {
+  const _EventWhen({
+    required this.article,
+    required this.locale,
+    required this.l10n,
+  });
+
+  final NewsArticle article;
+  final String locale;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+    final DateTime start = article.eventStart!;
+    final DateTime? end = article.eventEnd;
+    // All-day dates are calendar dates, not instants in the device's time
+    // zone. Reading their UTC components prevents a day shift west of UTC.
+    final DateTime startDay = calendarDayOf(start, allDay: article.eventAllDay);
+    final DateTime? endDay = end == null
+        ? null
+        : calendarDayOf(end, allDay: article.eventAllDay);
+    final String date = AppDateFormats.weekdayDate(startDay, locale);
+
+    final String when;
+    if (article.eventAllDay) {
+      when = endDay != null && endDay.isAfter(startDay)
+          ? '$date – ${AppDateFormats.weekdayDate(endDay, locale)} · '
+                '${l10n.todayAllDayLabel}'
+          : '$date · ${l10n.todayAllDayLabel}';
+    } else {
+      final String startTime = AppDateFormats.time(start, locale);
+      when = end == null
+          ? '$date · $startTime'
+          : endDay != null && endDay.isAfter(startDay)
+          ? '$date · $startTime – '
+                '${AppDateFormats.weekdayDate(endDay, locale)} · '
+                '${AppDateFormats.time(end, locale)}'
+          : '$date · $startTime–${AppDateFormats.time(end, locale)}';
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        ExcludeSemantics(
+          child: Icon(
+            AppIcons.event_outlined,
+            size: AppSizes.iconSmall,
+            color: colors.primary,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            when,
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: colors.primary),
+          ),
+        ),
+      ],
     );
   }
 }
