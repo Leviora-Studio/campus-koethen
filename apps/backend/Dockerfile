@@ -19,6 +19,7 @@ WORKDIR /repo
 
 # Only the manifests, so a source-only change does not bust the install cache.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/braces@3.0.3.patch patches/
 COPY apps/backend/package.json apps/backend/
 COPY apps/cms/package.json apps/cms/
 COPY packages/openapi/package.json packages/openapi/
