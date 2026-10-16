@@ -10,6 +10,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_banner.dart';
+import '../../../app/background_sync_providers.dart';
 import '../../../l10n/l10n.dart';
 import '../application/notification_providers.dart';
 import '../application/notification_settings_controller.dart';
@@ -19,6 +20,7 @@ import '../domain/notification_plan.dart';
 import '../domain/notification_preferences.dart';
 import 'pre_permission_sheet.dart';
 import 'daily_summary_time_tile.dart';
+import 'event_reminder_rule_tile.dart';
 
 /// `/more/settings/notifications` — the one place where the whole feature can
 /// be switched on, tuned and switched off again.
@@ -109,13 +111,17 @@ class _NotificationSettingsScreenState
           const DailySummaryTimeTile(),
           SectionHeader(label: l10n.notificationsSectionCategories),
           for (final NotificationCategory category
-              in NotificationCategory.values)
+              in NotificationCategory.values) ...<Widget>[
             _CategorySwitch(
               category: category,
               enabled: preferences.isCategoryEnabled(category),
               interactive: categoriesInteractive,
               muted: muted.contains(category),
             ),
+            if (category == NotificationCategory.eventReminder)
+              const EventReminderDefaultLeadTile(),
+          ],
+          _MoodleLeadTile(enabled: categoriesInteractive),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
@@ -129,6 +135,7 @@ class _NotificationSettingsScreenState
               icon: AppIcons.school_outlined,
             ),
           ),
+          const _BackgroundSyncTile(),
           SectionHeader(label: l10n.notificationsSectionStatus),
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -220,6 +227,21 @@ class _CategorySwitch extends ConsumerWidget {
         l10n.notificationsCategoryCanteenSubtitle,
         AppIcons.restaurant_outlined,
       ),
+      NotificationCategory.moodleDeadline => (
+        l10n.notificationsCategoryMoodleDeadline,
+        l10n.notificationsCategoryMoodleDeadlineSubtitle,
+        AppIcons.book_outlined,
+      ),
+      NotificationCategory.gradeChange => (
+        l10n.notificationsCategoryGradeChange,
+        l10n.notificationsCategoryGradeChangeSubtitle,
+        AppIcons.grade_outlined,
+      ),
+      NotificationCategory.newMail => (
+        l10n.notificationsCategoryNewMail,
+        l10n.notificationsCategoryNewMailSubtitle,
+        AppIcons.mail_outline,
+      ),
     };
     return _SemanticSwitchTile(
       icon: icon,
@@ -236,6 +258,94 @@ class _CategorySwitch extends ConsumerWidget {
                 .read(notificationSettingsProvider.notifier)
                 .setCategoryEnabled(category, value)
           : null,
+    );
+  }
+}
+
+class _MoodleLeadTile extends ConsumerWidget {
+  const _MoodleLeadTile({required this.enabled});
+
+  final bool enabled;
+
+  static const List<int> _choices = <int>[
+    60,
+    6 * 60,
+    24 * 60,
+    48 * 60,
+    7 * 24 * 60,
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final NotificationPreferences preferences = ref.watch(
+      notificationSettingsProvider,
+    );
+    String label(int minutes) => switch (minutes) {
+      60 => l10n.notificationsMoodleLeadOneHour,
+      360 => l10n.notificationsMoodleLeadSixHours,
+      1440 => l10n.notificationsMoodleLeadOneDay,
+      2880 => l10n.notificationsMoodleLeadTwoDays,
+      _ => l10n.notificationsMoodleLeadOneWeek,
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.sm),
+            child: Icon(AppIcons.schedule_outlined),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  l10n.notificationsMoodleLeadTitle,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  l10n.notificationsMoodleLeadSubtitle,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                DropdownButton<int>(
+                  isExpanded: true,
+                  value:
+                      _choices.contains(preferences.moodleDeadlineLeadMinutes)
+                      ? preferences.moodleDeadlineLeadMinutes
+                      : 24 * 60,
+                  onChanged:
+                      enabled &&
+                          preferences.isCategoryEnabled(
+                            NotificationCategory.moodleDeadline,
+                          )
+                      ? (int? value) {
+                          if (value == null) return;
+                          ref
+                              .read(notificationSettingsProvider.notifier)
+                              .setMoodleDeadlineLeadMinutes(value);
+                        }
+                      : null,
+                  items: <DropdownMenuItem<int>>[
+                    for (final int value in _choices)
+                      DropdownMenuItem<int>(
+                        value: value,
+                        child: Text(label(value)),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -280,6 +390,24 @@ class _SemanticSwitchTile extends StatelessWidget {
         value: value,
         onChanged: onChanged,
       ),
+    );
+  }
+}
+
+/// The switch for the periodic background sync (ADR-0002).
+class _BackgroundSyncTile extends ConsumerWidget {
+  const _BackgroundSyncTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    return _SemanticSwitchTile(
+      icon: AppIcons.sync,
+      title: l10n.notificationsBackgroundSyncTitle,
+      subtitle: l10n.notificationsBackgroundSyncSubtitle,
+      value: ref.watch(backgroundSyncEnabledProvider),
+      onChanged: (bool value) =>
+          ref.read(backgroundSyncEnabledProvider.notifier).set(value),
     );
   }
 }

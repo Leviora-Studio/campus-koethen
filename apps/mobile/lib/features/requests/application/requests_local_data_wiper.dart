@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/attachment_picker.dart';
 import '../domain/attachment_store.dart';
 import '../domain/request_store.dart';
+import 'case_status_controller.dart';
 import 'requests_controller.dart';
 import 'requests_providers.dart';
 import 'submissions_controller.dart';
@@ -24,9 +25,14 @@ class RequestsLocalDataWiper {
   final Ref _ref;
 
   /// Returns true only when both stores confirmed they are gone.
+  ///
+  /// A submission still running is cancelled first and its result marked
+  /// stale: an upload that ended after the wipe used to write its status link
+  /// or its frozen draft straight back into the store just emptied.
   Future<bool> wipe() async {
     final RequestStore store = _ref.read(requestStoreProvider);
     final AttachmentStore attachments = _ref.read(attachmentStoreProvider);
+    _ref.read(requestsInFlightProvider.notifier).abandonAll();
 
     bool complete = true;
     try {
@@ -41,9 +47,17 @@ class RequestsLocalDataWiper {
     }
 
     // Drops the in-memory copies too. Without this the screens keep showing
-    // drafts and cases whose bytes are already gone from disk.
+    // drafts and cases whose bytes are already gone from disk — and the
+    // loaded statuses would keep links, download URLs and personal data in
+    // memory until the process ends (E-10). Fetches still running are
+    // discarded by the status controller when they return.
     _ref.invalidate(requestsProvider);
     _ref.invalidate(submissionsProvider);
+    _ref.invalidate(caseStatusProvider);
+    // Rebuilt now rather than on its next read: a fetch returning after this
+    // point must already see the new generation, or its own state read would
+    // rebuild first and then write the old answer into the fresh state.
+    _ref.read(caseStatusProvider);
     return complete;
   }
 }

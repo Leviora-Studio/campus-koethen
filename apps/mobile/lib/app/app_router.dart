@@ -20,22 +20,29 @@ import '../features/mail/presentation/mail_message_screen.dart';
 import '../features/mail/presentation/mail_screen.dart';
 import '../features/mail/presentation/mail_search_screen.dart';
 import '../features/grades/presentation/grades_screen.dart';
+import '../features/hsa_ki/presentation/hsa_ki_chat_screen.dart';
+import '../features/student_service/presentation/student_service_screen.dart';
+import '../features/document_wallet/presentation/document_wallet_screen.dart';
 import '../features/moodle/presentation/moodle_course_screen.dart';
 import '../features/moodle/presentation/moodle_screen.dart';
+import '../features/nextcloud/presentation/nextcloud_screen.dart';
 import '../features/more/presentation/more_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/news/presentation/news_channel_screen.dart';
 import '../features/events/presentation/event_overview_screen.dart';
 import '../features/news/presentation/news_list_screen.dart';
+import '../features/library/presentation/library_screen.dart';
 import '../features/requests/presentation/application_form_screen.dart';
 import '../features/requests/presentation/feedback_form_screen.dart';
 import '../features/requests/presentation/requests_screen.dart';
 import '../features/requests/presentation/submission_detail_screen.dart';
 import '../features/settings/presentation/channel_settings_screen.dart';
 import '../features/notifications/presentation/notification_settings_screen.dart';
+import '../features/calendar/home_widget/calendar_home_widget_settings_screen.dart';
 import '../features/settings/presentation/navigation_settings_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/todos/presentation/todos_screen.dart';
+import '../features/timetable/presentation/timetable_screen.dart';
 import '../core/prefs/settings_controller.dart';
 import 'app_routes.dart';
 import 'app_shell.dart';
@@ -105,6 +112,16 @@ GoRouter createAppRouter({
               ),
             ],
           ),
+          // AppModule.timetable
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.timetable,
+                builder: (BuildContext _, GoRouterState _) =>
+                    const TimetableScreen(),
+              ),
+            ],
+          ),
           // AppModule.mail
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -159,6 +176,16 @@ GoRouter createAppRouter({
               ),
             ],
           ),
+          // AppModule.nextcloud
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.nextcloud,
+                builder: (BuildContext _, GoRouterState _) =>
+                    const NextcloudScreen(),
+              ),
+            ],
+          ),
           // AppModule.grades
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -169,6 +196,26 @@ GoRouter createAppRouter({
               ),
             ],
           ),
+          // AppModule.studentService
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.studentService,
+                builder: (BuildContext _, GoRouterState _) =>
+                    const StudentServiceScreen(),
+              ),
+            ],
+          ),
+          // AppModule.documentWallet
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.documentWallet,
+                builder: (BuildContext _, GoRouterState _) =>
+                    const DocumentWalletScreen(),
+              ),
+            ],
+          ),
           // AppModule.todos
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -176,6 +223,16 @@ GoRouter createAppRouter({
                 path: AppRoutes.todos,
                 builder: (BuildContext _, GoRouterState _) =>
                     const TodosScreen(),
+              ),
+            ],
+          ),
+          // AppModule.hsaKi
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.hsaKi,
+                builder: (BuildContext _, GoRouterState _) =>
+                    const HsaKiChatScreen(),
               ),
             ],
           ),
@@ -213,8 +270,16 @@ GoRouter createAppRouter({
             routes: <RouteBase>[
               GoRoute(
                 path: AppRoutes.canteen,
-                builder: (BuildContext _, GoRouterState _) =>
-                    const CanteenScreen(),
+                builder: (BuildContext _, GoRouterState state) => CanteenScreen(
+                  externalBalanceLaunchToken:
+                      state.uri.queryParameters[AppRoutes
+                              .canteenBalanceParam] ==
+                          'external'
+                      ? state.uri.queryParameters[AppRoutes
+                                .canteenBalanceLaunchParam] ??
+                            'initial'
+                      : null,
+                ),
                 routes: <RouteBase>[
                   GoRoute(
                     path: AppRoutes.canteenFavouritesPath,
@@ -299,6 +364,16 @@ GoRouter createAppRouter({
               ),
             ],
           ),
+          // AppModule.library
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.library,
+                builder: (BuildContext _, GoRouterState _) =>
+                    const LibraryScreen(),
+              ),
+            ],
+          ),
           // AppModule.more — settings and the legal pages stay here; every
           // other area is reachable from this screen through its own branch.
           StatefulShellBranch(
@@ -332,6 +407,11 @@ GoRouter createAppRouter({
                         path: 'notifications',
                         builder: (BuildContext _, GoRouterState _) =>
                             const NotificationSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'calendar-widget',
+                        builder: (BuildContext _, GoRouterState _) =>
+                            const CalendarHomeWidgetSettingsScreen(),
                       ),
                       GoRoute(
                         path: 'imprint',

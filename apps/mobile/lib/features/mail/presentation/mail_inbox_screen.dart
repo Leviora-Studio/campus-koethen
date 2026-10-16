@@ -14,6 +14,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/status_banner.dart';
 import '../../../l10n/l10n.dart';
+import '../../settings/domain/direct_service.dart';
+import '../../university_account/application/university_service_connector.dart';
+import '../../university_account/presentation/university_account_setup_sheet.dart';
 import '../application/mail_account_controller.dart';
 import '../application/mail_folders.dart';
 import '../application/mail_inbox_controller.dart';
@@ -59,10 +62,19 @@ class MailInboxScreen extends ConsumerWidget {
     );
     if (confirmed ?? false) {
       try {
-        await ref.read(mailAccountControllerProvider.notifier).signOut();
+        await ref
+            .read(universityServiceConnectorProvider)
+            .disconnect(DirectService.mail);
       } catch (error) {
+        // The connector can also refuse with its own failure (for example
+        // while the university account is being deleted), which the mail
+        // messages alone would only render as a generic text.
         messenger.showSnackBar(
-          SnackBar(content: Text(mailFailureMessage(l10n, error))),
+          SnackBar(
+            content: Text(
+              universityAccountErrorMessage(l10n, DirectService.mail, error),
+            ),
+          ),
         );
       }
     }
@@ -83,6 +95,7 @@ class MailInboxScreen extends ConsumerWidget {
     // Shows sync progress; the periodic/app-start scheduling itself lives in the
     // app shell.
     final MailSyncStatus sync = ref.watch(mailSyncControllerProvider);
+    final MailLiveSyncStatus live = ref.watch(mailLiveSyncControllerProvider);
     final MailPaginationStatus pagination = ref.watch(mailPaginationProvider);
     final bool cacheDegraded = ref.watch(mailCacheDegradedProvider);
 
@@ -228,6 +241,10 @@ class MailInboxScreen extends ConsumerWidget {
                     error: sync.error,
                     cacheDegraded: cacheDegraded,
                     lastSyncedAt: folder.isInbox ? sync.lastSyncedAt : null,
+                    liveConnection: folder.isInbox
+                        ? live.connection
+                        : MailLiveConnection.stopped,
+                    liveError: live.error,
                     onRetry: () => ref
                         .read(mailInboxControllerProvider.notifier)
                         .refresh(),
@@ -325,20 +342,27 @@ class _InboxStatusHeader extends StatelessWidget {
     required this.error,
     required this.cacheDegraded,
     required this.lastSyncedAt,
+    required this.liveConnection,
     required this.onRetry,
+    this.liveError,
   });
 
   final bool showError;
   final Object? error;
   final bool cacheDegraded;
   final DateTime? lastSyncedAt;
+  final MailLiveConnection liveConnection;
+  final Object? liveError;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     final String locale = Localizations.localeOf(context).languageCode;
-    if (!showError && !cacheDegraded && lastSyncedAt == null) {
+    if (!showError &&
+        !cacheDegraded &&
+        lastSyncedAt == null &&
+        liveConnection == MailLiveConnection.stopped) {
       return const SizedBox.shrink();
     }
 
@@ -379,6 +403,20 @@ class _InboxStatusHeader extends StatelessWidget {
                 AppDateFormats.dateTime(lastSyncedAt!, locale),
               ),
               style: context.type.dataSmall,
+            ),
+          if (liveConnection != MailLiveConnection.stopped)
+            Semantics(
+              liveRegion: true,
+              child: Text(switch (liveConnection) {
+                MailLiveConnection.stopped => '',
+                MailLiveConnection.connecting => l10n.mailLiveConnecting,
+                MailLiveConnection.idle => l10n.mailLiveConnected,
+                MailLiveConnection.polling => l10n.mailLivePolling,
+                MailLiveConnection.retrying => l10n.mailLiveRetrying,
+                MailLiveConnection.authRequired => l10n.mailLiveAuthRequired(
+                  mailFailureMessage(l10n, liveError),
+                ),
+              }, style: context.type.dataSmall),
             ),
         ],
       ),

@@ -8,20 +8,28 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 import '../../../core/locale/locale_mode.dart';
 import '../../../core/network/loaded.dart';
 import '../../../core/prefs/settings_controller.dart';
+import '../../../core/site/campus_site.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../l10n/l10n.dart';
+import '../../calendar/domain/calendar_entry.dart';
+import '../../calendar/presentation/calendar_source_sheets.dart';
 import '../../calendar/presentation/public_calendar_list.dart';
 import '../../campusmap/application/campus_map_providers.dart';
 import '../../campusmap/domain/map_catalog.dart';
+import '../../campusmap/presentation/default_building_picker.dart';
 import '../../canteen/application/canteen_providers.dart';
 import '../../canteen/data/canteen_models.dart';
+import '../../canteen/domain/canteen_sites.dart';
 import '../../news/presentation/channel_picker_sheet.dart';
+import '../../settings/presentation/campus_site_picker.dart';
 import '../../notifications/presentation/daily_summary_time_tile.dart';
 import '../../timetable/presentation/timetable_group_picker_sheet.dart';
+import '../../university_account/domain/university_identity.dart';
+import 'onboarding_university_steps.dart';
 
 /// The steps of the first-run setup, in order.
 ///
@@ -31,20 +39,46 @@ import '../../timetable/presentation/timetable_group_picker_sheet.dart';
 /// twice as long as what it actually had to establish. They live in the
 /// settings, where they always did. Language is the deliberate exception: it
 /// comes first so every explanation after it is immediately understandable.
-enum OnboardingStep { language, welcome, campus, content, notifications }
+enum OnboardingStep {
+  language,
+  welcome,
+  site,
+  campus,
+  content,
+  calendar,
+  universityAccess,
+  universityServices,
+  notifications,
+}
 
 /// Renders one step.
 class OnboardingStepView extends StatelessWidget {
   const OnboardingStepView({
     required this.step,
     required this.notificationsEnabled,
+    required this.universityIdentifier,
+    required this.universityPassword,
+    required this.universityStorageConsent,
+    required this.pendingUniversityIdentity,
     required this.onNotificationsEnabledChanged,
+    required this.onUniversityIdentifierChanged,
+    required this.onUniversityPasswordChanged,
+    required this.onUniversityStorageConsentChanged,
+    required this.onUniversityServicesBusyChanged,
     super.key,
   });
 
   final OnboardingStep step;
   final bool notificationsEnabled;
+  final String universityIdentifier;
+  final String universityPassword;
+  final bool universityStorageConsent;
+  final UniversityIdentity? pendingUniversityIdentity;
   final ValueChanged<bool> onNotificationsEnabledChanged;
+  final ValueChanged<String> onUniversityIdentifierChanged;
+  final ValueChanged<String> onUniversityPasswordChanged;
+  final ValueChanged<bool> onUniversityStorageConsentChanged;
+  final ValueChanged<bool> onUniversityServicesBusyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +107,23 @@ class OnboardingStepView extends StatelessWidget {
           ),
         ],
       ),
+      // Asked before everything it pre-selects: the canteen, the building and
+      // the contacts that come next all start from this answer.
+      OnboardingStep.site => _StepScaffold(
+        title: l10n.onboardingSiteTitle,
+        body: l10n.onboardingSiteBody,
+        icon: AppIcons.place_outlined,
+        children: <Widget>[
+          const CampusSiteOptions(),
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: Text(
+              l10n.onboardingSiteHint,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
       OnboardingStep.campus => _StepScaffold(
         title: l10n.onboardingCampusTitle,
         body: l10n.onboardingCampusBody,
@@ -88,6 +139,38 @@ class OnboardingStepView extends StatelessWidget {
         body: l10n.onboardingContentBody,
         icon: AppIcons.rss_feed_outlined,
         children: const <Widget>[_ContentPickers()],
+      ),
+      OnboardingStep.calendar => _StepScaffold(
+        title: l10n.onboardingCalendarTitle,
+        body: l10n.onboardingCalendarBody,
+        icon: AppIcons.calendar_month_outlined,
+        children: const <Widget>[_CalendarStep()],
+      ),
+      OnboardingStep.universityAccess => _StepScaffold(
+        title: l10n.onboardingUniversityTitle,
+        body: l10n.onboardingUniversityBody,
+        icon: AppIcons.account_circle_outlined,
+        children: <Widget>[
+          OnboardingUniversityAccessStep(
+            identifier: universityIdentifier,
+            password: universityPassword,
+            consent: universityStorageConsent,
+            onIdentifierChanged: onUniversityIdentifierChanged,
+            onPasswordChanged: onUniversityPasswordChanged,
+            onConsentChanged: onUniversityStorageConsentChanged,
+          ),
+        ],
+      ),
+      OnboardingStep.universityServices => _StepScaffold(
+        title: l10n.onboardingServicesTitle,
+        body: l10n.onboardingServicesBody,
+        icon: AppIcons.link,
+        children: <Widget>[
+          OnboardingUniversityServicesStep(
+            identity: pendingUniversityIdentity,
+            onBusyChanged: onUniversityServicesBusyChanged,
+          ),
+        ],
       ),
       OnboardingStep.notifications => _StepScaffold(
         title: l10n.onboardingNotificationsTitle,
@@ -238,7 +321,12 @@ class _CanteenStep extends ConsumerWidget {
                   ref.read(settingsProvider.notifier).setPreferredCanteen(slug),
               child: Column(
                 children: <Widget>[
-                  for (final Canteen canteen in value.value)
+                  for (final Canteen canteen in orderCanteensForSite(
+                    value.value,
+                    ref.watch(
+                      settingsProvider.select((AppSettings s) => s.campusSite),
+                    ),
+                  ))
                     RadioListTile<String>.adaptive(
                       value: canteen.slug,
                       title: Text(canteen.displayName),
@@ -275,25 +363,26 @@ class _DefaultBuildingStep extends ConsumerWidget {
         onRetry: () => ref.invalidate(mapCatalogProvider),
       );
     }
-    final String locale = Localizations.localeOf(context).languageCode;
-
+    final CampusSite site =
+        ref.watch(settingsProvider.select((AppSettings s) => s.campusSite)) ??
+        CampusSite.koethen;
+    final List<MapBuilding> siteBuildings = map.buildingsOf(site);
+    if (siteBuildings.isEmpty) {
+      // Not a failure: the site has no plans yet, and the map says so too.
+      return _Unavailable(
+        label: l10n.settingsDefaultBuilding,
+        message: l10n.onboardingNoPlansForSite,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _StepLabel(l10n.settingsDefaultBuilding),
-        RadioGroup<String>(
-          groupValue: chosen,
+        DefaultBuildingOptions(
+          buildings: siteBuildings,
+          chosen: chosen,
           onChanged: (String? key) =>
               ref.read(settingsProvider.notifier).setDefaultBuilding(key),
-          child: Column(
-            children: <Widget>[
-              for (final MapBuilding building in map.buildings)
-                RadioListTile<String>.adaptive(
-                  value: building.buildingKey,
-                  title: Text(building.name.resolve(locale)),
-                ),
-            ],
-          ),
         ),
       ],
     );
@@ -314,7 +403,7 @@ class _TimetableGroupStep extends StatelessWidget {
   }
 }
 
-/// News channels and public calendars, picked **inside** the setup.
+/// News channels picked **inside** the setup.
 ///
 /// These used to be rows that pushed the settings screens. That could not
 /// work: while the setup is unfinished the router sends every other route
@@ -335,6 +424,37 @@ class _ContentPickers extends StatelessWidget {
       children: <Widget>[
         _StepLabel(l10n.onboardingOpenChannels),
         const ChannelPickerList(),
+      ],
+    );
+  }
+}
+
+/// Chooses every local source that contributes entries to the merged calendar.
+class _CalendarStep extends StatelessWidget {
+  const _CalendarStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _StepLabel(l10n.calendarSourcesLabel),
+        const CalendarSourceVisibilitySwitch(
+          source: CalendarSource.timetable,
+          sourceAsTitle: true,
+        ),
+        const CalendarSourceVisibilitySwitch(
+          source: CalendarSource.moodle,
+          sourceAsTitle: true,
+        ),
+        const CalendarSourceVisibilitySwitch(
+          source: CalendarSource.publicCalendar,
+          sourceAsTitle: true,
+        ),
+        const ExchangeCalendarSwitch(),
+        const SavedEventsCalendarSwitch(),
+        const CanteenFavouriteMealsSwitch(),
         const SizedBox(height: AppSpacing.lg),
         _StepLabel(l10n.onboardingOpenCalendars),
         const PublicCalendarList(shrinkWrap: true),
@@ -378,6 +498,11 @@ class _NotificationStep extends StatelessWidget {
               _NotificationFeature(
                 icon: AppIcons.restaurant_outlined,
                 text: l10n.onboardingNotificationsCanteen,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _NotificationFeature(
+                icon: AppIcons.mail_outline,
+                text: l10n.onboardingNotificationsMail,
               ),
             ],
           ),
@@ -459,9 +584,15 @@ class _StepLoading extends StatelessWidget {
   const _StepLoading();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-    child: Center(child: CircularProgressIndicator()),
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    label: context.l10n.commonLoadingSemanticLabel,
+    child: const ExcludeSemantics(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    ),
   );
 }
 

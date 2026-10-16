@@ -1,8 +1,6 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,6 +24,7 @@ import '../domain/request_drafts.dart';
 import '../domain/status_gateway.dart';
 import '../domain/submitted_case.dart';
 import 'request_status_labels.dart';
+import 'submission_polling_controller.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 
 /// Everything the public API says about one case, rendered natively.
@@ -67,7 +66,7 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
     with WidgetsBindingObserver {
   static const Duration _pollInterval = Duration(seconds: 60);
 
-  Timer? _poll;
+  late final SubmissionPollingController _polling;
   bool _loadingDocument = false;
 
   /// URL of the document currently being fetched, so the spinner appears on
@@ -77,6 +76,10 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
   @override
   void initState() {
     super.initState();
+    _polling = SubmissionPollingController(
+      interval: _pollInterval,
+      onPoll: _refresh,
+    );
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refresh();
@@ -87,7 +90,7 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
   @override
   void dispose() {
     // Leaving the screen stops the polling immediately.
-    _poll?.cancel();
+    _polling.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -98,23 +101,26 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
       _refresh();
       _startPolling();
     } else {
-      _poll?.cancel();
-      _poll = null;
+      _polling.stop();
     }
   }
 
   void _startPolling() {
-    _poll?.cancel();
-    _poll = Timer.periodic(_pollInterval, (_) => _refresh());
+    _polling.start();
   }
 
   Future<void> _refresh() async {
     // Awaited, not read: on the first frame the stored cases are still being
     // loaded, and reading the empty state would silently skip the refresh the
     // screen exists for.
-    final List<SubmittedCase> cases = await ref.read(
-      submissionsProvider.future,
-    );
+    final List<SubmittedCase> cases;
+    try {
+      cases = await ref.read(submissionsProvider.future);
+    } catch (_) {
+      // Unreadable: the screen shows the error and its retry. Thrown on from
+      // here, every poll and pull-to-refresh ended in an unhandled error.
+      return;
+    }
     if (!mounted) return;
     final SubmittedCase? item = cases
         .where((SubmittedCase c) => c.id == widget.submissionId)
@@ -125,20 +131,40 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
         .refresh(item, now: DateTime.now());
     // The server's own instruction wins: while rate limited, stop asking.
     if (result is StatusRateLimited && mounted) {
-      _poll?.cancel();
-      _poll = null;
       final Duration wait = result.retryAfter ?? const Duration(minutes: 1);
-      Future<void>.delayed(wait, () {
-        if (mounted) _startPolling();
-      });
+      _polling.pauseFor(wait);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
-    final List<SubmittedCase> cases =
-        ref.watch(submissionsProvider).value ?? const <SubmittedCase>[];
+    // Not flattened with `.value ?? []`: "still loading" and "could not be
+    // read" are not "this case does not exist" — the stored link is the only
+    // way back to it, and saying it is gone invites a second submission.
+    final AsyncValue<List<SubmittedCase>> caseState = ref.watch(
+      submissionsProvider,
+    );
+    if (!caseState.hasValue) {
+      return ScreenScaffold(
+        title: l10n.requestsTitle,
+        body: caseState.hasError
+            ? EmptyView(
+                icon: AppIcons.error_outline,
+                message: l10n.requestsLoadFailedTitle,
+                action: FilledButton.icon(
+                  onPressed: () {
+                    ref.invalidate(submissionsProvider);
+                    _refresh();
+                  },
+                  icon: const Icon(AppIcons.refresh),
+                  label: Text(l10n.requestsStatusRetry),
+                ),
+              )
+            : const LoadingView(),
+      );
+    }
+    final List<SubmittedCase> cases = caseState.requireValue;
     final SubmittedCase? item = cases
         .where((SubmittedCase c) => c.id == widget.submissionId)
         .firstOrNull;
@@ -325,7 +351,8 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
               loading: _loadingDocumentUrl == document.downloadUrl,
               onOpen: () => _openDocument(
                 url: document.downloadUrl,
-                filename: document.filename,
+                filename:
+                    document.filename ?? l10n.requestsDocumentFallbackFilename,
                 mimeType: document.mimeType,
               ),
             ),
@@ -450,7 +477,13 @@ class _SubmissionDetailScreenState extends ConsumerState<SubmissionDetailScreen>
       ),
     );
     if (!(yes ?? false)) return;
-    await ref.read(submissionsProvider.notifier).remove(item.id);
+    try {
+      await ref.read(submissionsProvider.notifier).remove(item.id);
+    } catch (_) {
+      // Still stored, so the screen stays on the case and says why.
+      _message(l10n.requestsStoreWriteFailed);
+      return;
+    }
     ref.read(caseStatusProvider.notifier).forget(item.id);
     if (mounted) Navigator.of(context).pop();
   }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ApiError } from '../errors/api-error';
 import { Locale } from '../locale/locale';
+import { addCalendarDays, campusToday } from '../time/campus-date';
 import { asString } from '../util/coerce';
 
 /**
@@ -11,6 +12,11 @@ import { asString } from '../util/coerce';
  */
 
 export const MAX_PAGE_SIZE = 50;
+/**
+ * Highest `page` a list endpoint accepts. Far beyond any real feed at 50 per
+ * page; a larger value only asks Strapi for an absurd offset.
+ */
+export const MAX_PAGE = 10_000;
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_MENU_RANGE_DAYS = 31;
 export const DEFAULT_MENU_RANGE_DAYS = 14;
@@ -28,7 +34,7 @@ export function parseWith<T>(schema: z.ZodType<T>, value: unknown, locale: Local
 }
 
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce.number().int().min(1).max(MAX_PAGE).default(1),
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
 });
 
@@ -183,12 +189,9 @@ export function refineDateRange<T extends { from: string; to: string }>(
 
 export const dateRangeSchema = refineDateRange(
   z.object({ from: isoDate.optional(), to: isoDate.optional() }).transform((input) => {
-    const from = input.from ?? new Date().toISOString().slice(0, 10);
-    const to =
-      input.to ??
-      new Date(parseIsoDayUtc(from) + DEFAULT_MENU_RANGE_DAYS * 86_400_000)
-        .toISOString()
-        .slice(0, 10);
+    // The campus day, not the UTC day: see `campusToday`.
+    const from = input.from ?? campusToday();
+    const to = input.to ?? addCalendarDays(from, DEFAULT_MENU_RANGE_DAYS);
     return { from, to };
   }),
   MAX_MENU_RANGE_DAYS,

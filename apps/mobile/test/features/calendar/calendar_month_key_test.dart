@@ -8,9 +8,12 @@ import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/time/clock.dart';
+import 'package:campus_koethen/features/canteen/application/canteen_providers.dart';
 import 'package:campus_koethen/features/calendar/application/calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/application/public_calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
+import 'package:campus_koethen/features/events/application/saved_events_controller.dart';
+import 'package:campus_koethen/features/events/data/saved_events_store.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,29 +48,68 @@ void main() {
     Map<String, dynamic>? catalogueMeta,
     bool lateEvent = false,
     bool truncatedRange = false,
+    bool truncatedMonth = false,
+    bool catalogueFails = false,
+    bool groupEndpointFails = false,
+    bool timetableEntry = false,
     KeyValueStore? store,
   }) {
     requests = <RequestOptions>[];
     final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
       requests.add(options);
       if (options.path == '/calendars') {
+        if (catalogueFails) {
+          return const FakeHttpResponse(<String, dynamic>{}, statusCode: 500);
+        }
         return FakeHttpResponse(
           envelope(<Object>[_calendar], meta: catalogueMeta),
         );
       }
-      if (options.path == '/timetable/groups') {
+      if (options.path == '/timetable/groups/demo-group') {
+        if (groupEndpointFails) {
+          return const FakeHttpResponse(<String, dynamic>{}, statusCode: 404);
+        }
         return FakeHttpResponse(
           envelope(
-            <Object>[],
+            <String, dynamic>{'id': 'demo-group', 'shortName': 'Demo'},
             meta: <String, dynamic>{'from': '2026-09-24', 'to': '2026-10-22'},
           ),
+        );
+      }
+      if (options.path == '/timetable/status') {
+        return FakeHttpResponse(
+          envelope(<String, dynamic>{
+            'featureEnabled': true,
+            'groupCount': 1,
+            'coveredFrom': '2026-09-24',
+            'coveredTo': '2026-10-22',
+          }),
         );
       }
       if (options.path == '/timetable/entries') {
         return FakeHttpResponse(
           envelope(<String, dynamic>{
             'group': <String, dynamic>{'id': 'demo-group', 'shortName': 'Demo'},
-            'days': <Object>[],
+            'days': timetableEntry
+                ? <Object>[
+                    <String, dynamic>{
+                      'date': '2026-09-25',
+                      'entries': <Object>[
+                        <String, dynamic>{
+                          'id': 'lesson-1',
+                          'start': '2026-09-25T07:00:00.000Z',
+                          'end': '2026-09-25T08:30:00.000Z',
+                          'title': 'Mathematik 2',
+                          'status': 'regular',
+                          'type': 'regular_teaching',
+                          'teachers': <Object>[],
+                          'rooms': <Object>[],
+                          'groups': <Object>[],
+                        },
+                      ],
+                    },
+                  ]
+                : <Object>[],
           }),
         );
       }
@@ -86,6 +128,33 @@ void main() {
             },
           ]),
         );
+      }
+      if (truncatedMonth && options.path == '/calendars/events') {
+        final DateTime from = DateTime.parse(
+          options.queryParameters['from'] as String,
+        );
+        final DateTime to = DateTime.parse(
+          options.queryParameters['to'] as String,
+        );
+        if (to.difference(from).inDays > 25) {
+          return FakeHttpResponse(
+            envelope(<Object>[], meta: <String, dynamic>{'truncated': true}),
+          );
+        }
+        if (from.isAfter(DateTime(2026, 9, 10))) {
+          return FakeHttpResponse(
+            envelope(<Object>[
+              <String, dynamic>{
+                'id': 'month-split-event',
+                'calendarId': 'cal-1',
+                'calendarSlug': 'campus',
+                'title': 'Monatstermin nach Teilung',
+                'start': '2026-09-28T09:00:00.000Z',
+                'end': '2026-09-28T10:00:00.000Z',
+              },
+            ]),
+          );
+        }
       }
       if (truncatedRange && options.path == '/calendars/events') {
         if (options.queryParameters['from'] == '2026-09-24' &&
@@ -119,6 +188,7 @@ void main() {
         contentCacheProvider.overrideWithValue(
           SafeContentCache(MemoryContentCache()),
         ),
+        savedEventsStoreProvider.overrideWithValue(MemorySavedEventsStore()),
         apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
       ],
     );
@@ -189,6 +259,48 @@ void main() {
     );
   });
 
+  test(
+    'the month waits for the catalogue instead of returning nothing',
+    () async {
+      final ProviderContainer c = container();
+
+      await c.read(
+        publicCalendarMonthEntriesProvider(DateTime(2026, 5, 4)).future,
+      );
+
+      expect(eventRequests(), hasLength(1));
+    },
+  );
+
+  test(
+    'a failed catalogue surfaces as a month error, not as no events',
+    () async {
+      final ProviderContainer c = container(catalogueFails: true);
+
+      await expectLater(
+        c.read(publicCalendarMonthEntriesProvider(DateTime(2026, 5, 4)).future),
+        throwsA(anything),
+      );
+    },
+  );
+
+  test(
+    'the month splits a truncated response instead of dropping events',
+    () async {
+      final ProviderContainer c = container(truncatedMonth: true);
+      await loadCatalogue(c);
+
+      final List<CalendarEntry> entries = await c.read(
+        publicCalendarMonthEntriesProvider(DateTime(2026, 9, 15)).future,
+      );
+
+      expect(
+        entries.map((CalendarEntry entry) => entry.title),
+        contains('Monatstermin nach Teilung'),
+      );
+    },
+  );
+
   test('a day in another month does fetch its own window', () async {
     final ProviderContainer c = container();
     await loadCatalogue(c);
@@ -235,6 +347,32 @@ void main() {
     );
   });
 
+  test('an export range keeps its historic lower bound', () async {
+    final ProviderContainer c = container(
+      catalogueMeta: <String, dynamic>{
+        'from': '2026-01-01',
+        'to': '2026-12-31',
+        'maxRangeDays': 366,
+      },
+    );
+    await loadCatalogue(c);
+
+    await c.read(
+      publicCalendarRangeEntriesProvider(
+        CalendarDateWindow(
+          from: DateTime(2026, 1, 1),
+          to: DateTime(2026, 12, 31),
+        ),
+      ).future,
+    );
+
+    final RequestOptions request = requests.lastWhere(
+      (RequestOptions value) => value.path.contains('/calendars/events'),
+    );
+    expect(request.queryParameters['from'], '2026-01-01');
+    expect(request.queryParameters['to'], '2026-12-31');
+  });
+
   test(
     'the list splits a truncated response instead of dropping events',
     () async {
@@ -274,6 +412,40 @@ void main() {
     );
   });
 
+  test('the list keeps running multi-day and overnight entries', () {
+    final DateTime from = DateTime(2026, 8, 27, 18);
+    final List<CalendarEntry> entries = <CalendarEntry>[
+      CalendarEntry(
+        id: 'running-week',
+        source: CalendarSource.publicCalendar,
+        title: 'running-week',
+        start: DateTime(2026, 8, 24),
+        end: DateTime(2026, 8, 29),
+        allDay: true,
+      ),
+      CalendarEntry(
+        id: 'overnight',
+        source: CalendarSource.publicCalendar,
+        title: 'overnight',
+        start: DateTime(2026, 8, 26, 22),
+        end: DateTime(2026, 8, 27, 2),
+      ),
+      CalendarEntry(
+        id: 'ended-yesterday',
+        source: CalendarSource.publicCalendar,
+        title: 'ended-yesterday',
+        start: DateTime(2026, 8, 25),
+        end: DateTime(2026, 8, 27),
+        allDay: true,
+      ),
+    ];
+
+    expect(
+      calendarEntriesFrom(entries, from).map((CalendarEntry entry) => entry.id),
+      <String>['running-week', 'overnight'],
+    );
+  });
+
   test('a cached backend horizon keeps rolling forward with today', () {
     final CalendarDateWindow window = calendarListWindow(
       DateTime(2026, 9, 25),
@@ -295,7 +467,7 @@ void main() {
       );
       final DateTime today = DateTime(2026, 9, 24);
       c.listen(calendarListDataProvider(today), (_, _) {});
-      await c.read(timetableGroupsProvider.future);
+      await c.read(selectedTimetableGroupProvider.future);
       c.read(calendarListDataProvider(today));
       await c.read(
         timetableRangeProvider(
@@ -317,6 +489,102 @@ void main() {
       expect(timetableRequests.single.queryParameters['to'], '2026-10-22');
     },
   );
+
+  test(
+    'export uses status coverage when the selected group endpoint fails',
+    () async {
+      final ProviderContainer c = container(
+        groupEndpointFails: true,
+        timetableEntry: true,
+        store: InMemoryKeyValueStore(<String, Object>{
+          PreferenceKeys.preferredTimetableGroup: 'demo-group',
+          PreferenceKeys.calendarDisabledSources: <String>[
+            CalendarSource.moodle.storageValue,
+            CalendarSource.publicCalendar.storageValue,
+          ],
+        }),
+      );
+      final ProviderSubscription<CalendarData> export = c.listen(
+        calendarExportDataProvider,
+        (_, _) {},
+      );
+      expect(export.read().isLoading, isTrue);
+
+      await c.read(timetableStatusProvider.future);
+      await c.pump();
+      await c.read(
+        timetableRangeProvider(
+          TimetableRangeRequest(
+            groupId: 'demo-group',
+            from: DateTime(2026, 9, 24),
+            to: DateTime(2026, 10, 22),
+          ),
+        ).future,
+      );
+      await c.pump();
+
+      final CalendarData data = export.read();
+      expect(
+        requests.where(
+          (RequestOptions request) =>
+              request.path == '/timetable/groups/demo-group',
+        ),
+        isEmpty,
+      );
+      final RequestOptions timetableRequest = requests.singleWhere(
+        (RequestOptions request) => request.path == '/timetable/entries',
+      );
+      expect(timetableRequest.queryParameters['from'], '2026-09-24');
+      expect(timetableRequest.queryParameters['to'], '2026-10-22');
+      expect(data.hasTimetableError, isFalse);
+      expect(data.timetableState, CalendarTimetableState.ready);
+      expect(
+        data.entries.map((CalendarEntry entry) => entry.title),
+        contains('Mathematik 2'),
+      );
+    },
+  );
+
+  test('export waits for the opted-in saved-event store', () async {
+    final ProviderContainer c = container(
+      store: InMemoryKeyValueStore(<String, Object>{
+        PreferenceKeys.calendarSavedEventsEnabled: 1,
+        PreferenceKeys.calendarDisabledSources: kMergeableCalendarSources
+            .map((CalendarSource source) => source.storageValue)
+            .toList(growable: false),
+      }),
+    );
+    final ProviderSubscription<CalendarData> export = c.listen(
+      calendarExportDataProvider,
+      (_, _) {},
+    );
+
+    expect(export.read().isLoading, isTrue);
+    await c.read(savedEventsControllerProvider.future);
+    await c.pump();
+    expect(export.read().isLoading, isFalse);
+  });
+
+  test('export waits for opted-in canteen favourites', () async {
+    final ProviderContainer c = container(
+      store: InMemoryKeyValueStore(<String, Object>{
+        PreferenceKeys.calendarShowFavouriteMeals: 1,
+        PreferenceKeys.canteenFavourites: <String>['Bulgur-Pfanne'],
+        PreferenceKeys.calendarDisabledSources: kMergeableCalendarSources
+            .map((CalendarSource source) => source.storageValue)
+            .toList(growable: false),
+      }),
+    );
+    final ProviderSubscription<CalendarData> export = c.listen(
+      calendarExportDataProvider,
+      (_, _) {},
+    );
+
+    expect(export.read().isLoading, isTrue);
+    await c.read(canteensProvider.future);
+    await c.pump();
+    expect(export.read().isLoading, isFalse);
+  });
 
   test('focused calendar uses the rolling window only in list mode', () {
     final ProviderContainer c = ProviderContainer(

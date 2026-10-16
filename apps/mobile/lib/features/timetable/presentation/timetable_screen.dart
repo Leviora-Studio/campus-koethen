@@ -7,6 +7,7 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../core/locale/formatters.dart';
 import '../../../core/network/loaded.dart';
+import '../../../core/prefs/settings_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/widgets/offline_notice.dart';
@@ -15,6 +16,8 @@ import '../../../core/widgets/status_banner.dart';
 import '../../../core/widgets/translation_fallback_notice.dart';
 import '../../../l10n/l10n.dart';
 import '../application/timetable_pending_poller.dart';
+import '../application/timetable_change.dart';
+import '../application/timetable_change_controller.dart';
 import '../application/timetable_providers.dart';
 import '../application/timetable_lesson_info_filter.dart';
 import '../application/timetable_week.dart';
@@ -22,6 +25,8 @@ import '../data/timetable_models.dart';
 import 'timetable_entry_card.dart';
 import 'timetable_group_picker_sheet.dart';
 import 'timetable_lesson_info_filter_sheet.dart';
+import 'timetable_subscriptions_sheet.dart';
+import '../application/semester_assistant.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 import '../../../app/app_modules.dart';
 
@@ -63,14 +68,28 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
   }
 
   Future<void> _refresh() async {
+    ref.invalidate(timetableStatusProvider);
     ref.invalidate(timetableGroupsProvider);
-    final String? groupId = ref.read(selectedTimetableGroupIdProvider);
-    if (groupId == null) return;
+    ref.invalidate(timetablePeriodsProvider);
+    ref.invalidate(selectedTimetableGroupProvider);
+    final List<String> groupIds = ref.read(selectedTimetableGroupIdsProvider);
+    if (groupIds.isEmpty) return;
+    final DateTime weekStart = ref.read(selectedTimetableDayProvider);
+    // The aggregate only combines the per-group week entries; invalidating it
+    // alone would re-read their cached values without a new network request,
+    // so a pending plan could never resolve.
+    for (final String groupId in groupIds) {
+      ref.invalidate(
+        timetableWeekProvider(
+          TimetableWeekRequest(groupId: groupId, weekStart: weekStart),
+        ),
+      );
+    }
     ref.invalidate(
-      timetableWeekProvider(
-        TimetableWeekRequest(
-          groupId: groupId,
-          weekStart: ref.read(selectedTimetableDayProvider),
+      aggregatedTimetableWeekProvider(
+        AggregatedTimetableWeekRequest(
+          groupIds: groupIds,
+          weekStart: weekStart,
         ),
       ),
     );
@@ -94,7 +113,8 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
             onPressed: () => showTimetableLessonInfoFilterSheet(context),
             isSelected:
                 lessonInfoFilter.disabledValues.isNotEmpty ||
-                lessonInfoFilter.hideWithoutInfo,
+                lessonInfoFilter.hideWithoutInfo ||
+                lessonInfoFilter.hiddenCourses.isNotEmpty,
             icon: const Icon(AppIcons.tune),
           ),
         IconButton(
@@ -110,22 +130,19 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
       ],
       body: groupId == null
           ? _OnboardingView(l10n: l10n)
-          : _buildTimetable(context, l10n, groupId),
+          : _buildTimetable(context, l10n),
     );
   }
 
-  Widget _buildTimetable(
-    BuildContext context,
-    AppLocalizations l10n,
-    String groupId,
-  ) {
+  Widget _buildTimetable(BuildContext context, AppLocalizations l10n) {
     final DateTime selectedDay = ref.watch(selectedTimetableDayProvider);
-    final TimetableWeekRequest request = TimetableWeekRequest(
-      groupId: groupId,
-      weekStart: selectedDay,
-    );
+    final AggregatedTimetableWeekRequest request =
+        AggregatedTimetableWeekRequest(
+          groupIds: ref.watch(selectedTimetableGroupIdsProvider),
+          weekStart: selectedDay,
+        );
     final AsyncValue<Loaded<Timetable>> week = ref.watch(
-      timetableWeekProvider(request),
+      aggregatedTimetableWeekProvider(request),
     );
     final Loaded<Timetable>? loaded = week.value;
 
@@ -147,10 +164,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
           const LoadingView(),
         AsyncError<Loaded<Timetable>>(:final Object error)
             when loaded == null =>
-          ErrorView(
-            failure: error,
-            onRetry: () => ref.invalidate(timetableWeekProvider(request)),
-          ),
+          ErrorView(failure: error, onRetry: _refresh),
         // TIME-2: a refresh that fails over a plan already on screen was
         // completely silent — pull-to-refresh in flight mode simply put the
         // old week back. The banner keeps the data and says it is not fresh.
@@ -212,6 +226,13 @@ class _TimetableContent extends ConsumerWidget {
     final AppLocalizations l10n = context.l10n;
     final String locale = Localizations.localeOf(context).languageCode;
     final Timetable timetable = loaded.value;
+    final List<String> additionalGroupIds = ref
+        .watch(settingsProvider)
+        .timetableAdditionalGroupIds;
+    final int additionalModuleCount = ref
+        .watch(settingsProvider)
+        .timetableAdditionalModules
+        .length;
     final TimetableLessonInfoFilter lessonInfoFilter = ref.watch(
       timetableLessonInfoFilterProvider,
     );
@@ -220,13 +241,96 @@ class _TimetableContent extends ConsumerWidget {
       loaded.meta.dataState,
     );
     final DateTime? lastSync = loaded.meta.lastSuccessfulSyncAt;
+    // Hints are recorded per group; every subscribed group contributes to
+    // this plan, so all of them are shown and acknowledged together.
+    final Set<String> groupIds = <String>{
+      timetable.group.id,
+      ...ref.watch(selectedTimetableGroupIdsProvider),
+    };
+    final List<TimetableChange> changes =
+        (ref.watch(timetableChangeControllerProvider).value ??
+                const <TimetableChange>[])
+            .where(
+              (TimetableChange change) =>
+                  groupIds.contains(change.groupId) &&
+                  lessonInfoFilter.acceptsCourse(change.title),
+            )
+            .toList(growable: false);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: <Widget>[
+        if (ref.watch(timetableSemesterSuggestionProvider)
+            case final TimetableSemesterSuggestion suggestion) ...<Widget>[
+          StatusBanner(
+            tone: StatusTone.info,
+            icon: AppIcons.update,
+            title: l10n.timetableSemesterAssistantTitle,
+            message: l10n.timetableSemesterAssistantMessage(
+              suggestion.next.name,
+            ),
+            action: Wrap(
+              spacing: AppSpacing.xs,
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => ref
+                      .read(settingsProvider.notifier)
+                      .dismissTimetablePeriod(suggestion.next.id),
+                  child: Text(l10n.actionNotNow),
+                ),
+                FilledButton.tonal(
+                  onPressed: () =>
+                      showSemesterSuggestionSheet(context, suggestion),
+                  child: Text(l10n.timetableSemesterAssistantSelect),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         _GroupHeader(group: timetable.group),
+        const SizedBox(height: AppSpacing.sm),
+        Card(
+          child: ListTile(
+            onTap: () => showAdditionalTimetableGroupsSheet(context),
+            leading: const Icon(AppIcons.add_circle_outline),
+            title: Text(
+              l10n.timetableSubscriptionsAction(
+                additionalGroupIds.length,
+                additionalModuleCount,
+              ),
+            ),
+            trailing: const Icon(AppIcons.chevron_right),
+          ),
+        ),
         const SizedBox(height: AppSpacing.md),
+        if (changes.isNotEmpty) ...<Widget>[
+          Semantics(
+            liveRegion: true,
+            child: StatusBanner(
+              tone: StatusTone.warning,
+              icon: AppIcons.edit_calendar_outlined,
+              title: l10n.timetableChangesTitle,
+              message: l10n.timetableChangesCount(changes.length),
+              action: TextButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (BuildContext _) => _TimetableChangesSheet(
+                    groupIds: <String>{
+                      for (final TimetableChange change in changes)
+                        change.groupId,
+                    },
+                    changes: changes,
+                  ),
+                ),
+                child: Text(l10n.timetableChangesDetails),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         if (refreshError != null) ...<Widget>[
           StatusBanner(
             tone: StatusTone.warning,
@@ -323,6 +427,100 @@ class _TimetableContent extends ConsumerWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
+    );
+  }
+}
+
+class _TimetableChangesSheet extends ConsumerWidget {
+  const _TimetableChangesSheet({required this.groupIds, required this.changes});
+
+  final Set<String> groupIds;
+  final List<TimetableChange> changes;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final String locale = Localizations.localeOf(context).languageCode;
+    String description(TimetableChange change) => switch (change.kind) {
+      TimetableChangeKind.cancelled => l10n.timetableChangeCancelled(
+        change.title,
+      ),
+      TimetableChangeKind.room => l10n.timetableChangeRoom(
+        change.title,
+        change.oldRooms.isEmpty
+            ? l10n.timetableChangeUnknownValue
+            : change.oldRooms.join(', '),
+        change.newRooms.isEmpty
+            ? l10n.timetableChangeUnknownValue
+            : change.newRooms.join(', '),
+      ),
+      TimetableChangeKind.time => l10n.timetableChangeTime(
+        change.title,
+        AppDateFormats.dateTime(change.oldStart, locale),
+        change.newStart == null
+            ? l10n.timetableChangeUnknownValue
+            : AppDateFormats.dateTime(change.newStart!, locale),
+      ),
+    };
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  l10n.timetableChangesTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: changes.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final TimetableChange change = changes[index];
+                  return ListTile(
+                    leading: Icon(switch (change.kind) {
+                      TimetableChangeKind.cancelled =>
+                        AppIcons.event_busy_outlined,
+                      TimetableChangeKind.room =>
+                        AppIcons.meeting_room_outlined,
+                      TimetableChangeKind.time => AppIcons.schedule_outlined,
+                    }),
+                    title: Text(description(change)),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    final TimetableChangeController controller = ref.read(
+                      timetableChangeControllerProvider.notifier,
+                    );
+                    for (final String groupId in groupIds) {
+                      await controller.acknowledgeGroup(groupId);
+                    }
+                    if (context.mounted) Navigator.of(context).pop();
+                  },
+                  child: Text(l10n.timetableChangesAcknowledge),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -544,7 +742,11 @@ class _DayAgenda extends StatelessWidget {
     final List<TimetableEntry> allEntries =
         day?.entries ?? const <TimetableEntry>[];
     final List<TimetableEntry> entries = allEntries
-        .where((TimetableEntry entry) => filter.accepts(entry.lessonInfo))
+        .where(
+          (TimetableEntry entry) =>
+              !entry.groups.any((group) => group.id == filter.groupId) ||
+              filter.acceptsEntry(entry),
+        )
         .toList(growable: false);
 
     return Column(

@@ -22,6 +22,7 @@ import '../domain/moodle_downloader.dart';
 import '../domain/moodle_course.dart';
 import '../domain/moodle_repository.dart';
 import 'moodle_messages.dart';
+import 'moodle_course_refresh_controller.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 
 /// A course detail page with three tabs: contents (sections/modules/files),
@@ -36,8 +37,26 @@ class MoodleCourseScreen extends ConsumerStatefulWidget {
 }
 
 class _MoodleCourseScreenState extends ConsumerState<MoodleCourseScreen> {
-  bool _refreshing = false;
-  Object? _refreshError;
+  late final MoodleCourseRefreshController _refreshState;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshState = MoodleCourseRefreshController()
+      ..addListener(_onRefreshChanged);
+  }
+
+  @override
+  void dispose() {
+    _refreshState
+      ..removeListener(_onRefreshChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onRefreshChanged() {
+    if (mounted) setState(() {});
+  }
 
   /// Runs a manual refresh and actually reports what happened.
   ///
@@ -46,18 +65,9 @@ class _MoodleCourseScreenState extends ConsumerState<MoodleCourseScreen> {
   /// left the screen showing the same stale bundle with an unhandled async
   /// error behind it. Nothing on screen moved at all.
   Future<void> _refresh() async {
-    if (_refreshing) return;
-    setState(() {
-      _refreshing = true;
-      _refreshError = null;
-    });
-    try {
-      await refreshMoodleCourseDetail(ref, widget.courseId);
-    } catch (error) {
-      if (mounted) setState(() => _refreshError = error);
-    } finally {
-      if (mounted) setState(() => _refreshing = false);
-    }
+    await _refreshState.run(
+      () => refreshMoodleCourseDetail(ref, widget.courseId),
+    );
   }
 
   @override
@@ -79,8 +89,8 @@ class _MoodleCourseScreenState extends ConsumerState<MoodleCourseScreen> {
         actions: <Widget>[
           IconButton(
             tooltip: l10n.moodleRefresh,
-            onPressed: _refreshing ? null : _refresh,
-            icon: _refreshing
+            onPressed: _refreshState.refreshing ? null : _refresh,
+            icon: _refreshState.refreshing
                 ? Semantics(
                     liveRegion: true,
                     label: l10n.moodleRefreshing,
@@ -114,7 +124,7 @@ class _MoodleCourseScreenState extends ConsumerState<MoodleCourseScreen> {
             icon: AppIcons.error_outline,
             message: moodleFailureMessage(l10n, error),
             action: FilledButton.icon(
-              onPressed: _refreshing ? null : _refresh,
+              onPressed: _refreshState.refreshing ? null : _refresh,
               icon: const Icon(AppIcons.refresh),
               label: Text(l10n.moodleRefresh),
             ),
@@ -145,7 +155,7 @@ class _MoodleCourseScreenState extends ConsumerState<MoodleCourseScreen> {
               // A failed refresh over a bundle that is still good must be
               // visible: submission states here carry deadlines, and content
               // weeks old looks exactly like content from a minute ago.
-              if (_refreshError != null)
+              if (_refreshState.error != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.lg,
@@ -157,9 +167,9 @@ class _MoodleCourseScreenState extends ConsumerState<MoodleCourseScreen> {
                     tone: StatusTone.warning,
                     icon: AppIcons.sync_problem,
                     title: l10n.moodleRefreshFailed,
-                    message: moodleFailureMessage(l10n, _refreshError),
+                    message: moodleFailureMessage(l10n, _refreshState.error),
                     action: TextButton(
-                      onPressed: _refreshing ? null : _refresh,
+                      onPressed: _refreshState.refreshing ? null : _refresh,
                       child: Text(l10n.moodleRefresh),
                     ),
                   ),
@@ -286,13 +296,43 @@ class _ModuleTile extends ConsumerWidget {
       );
     }
 
-    // A description-only module (label/page snippet).
+    // A label is text placed on the course page itself; there is nothing
+    // further to open.
+    if (module.type == MoodleModuleType.label) {
+      return ListTile(
+        leading: Icon(_iconFor(module.type)),
+        title: Text(module.name),
+        subtitle: module.description.isEmpty
+            ? null
+            : Text(module.description, style: text.bodySmall),
+      );
+    }
+
+    // Any other activity (quiz, forum, page, …) the app does not render. It
+    // says so and opens the activity's own page in Moodle Web — a token-free
+    // link to exactly moodle.hs-anhalt.de, through the safe launcher.
+    final Uri? webLink = ref
+        .read(moodleProfileProvider)
+        .moduleWebUri(modName: module.rawType, cmid: module.id);
     return ListTile(
       leading: Icon(_iconFor(module.type)),
       title: Text(module.name),
-      subtitle: module.description.isEmpty
+      subtitle: Text(
+        <String>[
+          if (module.description.isNotEmpty) module.description,
+          l10n.moodleModuleUnsupported,
+        ].join('\n'),
+        style: text.bodySmall,
+      ),
+      trailing: webLink == null
           ? null
-          : Text(module.description, style: text.bodySmall),
+          : Tooltip(
+              message: l10n.moodleOpenInBrowser,
+              child: const Icon(AppIcons.open_in_new),
+            ),
+      onTap: webLink == null
+          ? null
+          : () => _openExternal(context, ref, webLink.toString()),
     );
   }
 
@@ -305,22 +345,22 @@ class _ModuleTile extends ConsumerWidget {
     MoodleModuleType.label => AppIcons.label_outline,
     _ => AppIcons.circle_outlined,
   };
+}
 
-  Future<void> _openExternal(
-    BuildContext context,
-    WidgetRef ref,
-    String url,
-  ) async {
-    final AppLocalizations l10n = context.l10n;
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    final LinkLaunchResult result = await ref
-        .read(linkLauncherProvider)
-        .open(url);
-    if (result != LinkLaunchResult.opened) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.moodleOpenLinkFailed)),
-      );
-    }
+/// Hands [url] to the safe launcher — never with a token — and says so when
+/// the OS could not open it.
+Future<void> _openExternal(
+  BuildContext context,
+  WidgetRef ref,
+  String url,
+) async {
+  final AppLocalizations l10n = context.l10n;
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final LinkLaunchResult result = await ref
+      .read(linkLauncherProvider)
+      .open(url);
+  if (result != LinkLaunchResult.opened) {
+    messenger.showSnackBar(SnackBar(content: Text(l10n.moodleOpenLinkFailed)));
   }
 }
 
@@ -383,8 +423,11 @@ class _FileTileState extends ConsumerState<_FileTile> {
           builder: (BuildContext _) => DocumentViewerScreen(document: doc),
         ),
       );
+    } on MoodleDownloadCancelled {
+      // A deliberate stop is not a failure: no error message for it.
     } catch (error) {
-      if (!mounted) return;
+      // Whatever the transport reports after a cancel is the cancel's doing.
+      if (!mounted || cancel.token.isCancelled) return;
       messenger.showSnackBar(
         SnackBar(content: Text(moodleFailureMessage(l10n, error))),
       );
@@ -505,15 +548,19 @@ class _AssignmentsTab extends StatelessWidget {
   }
 }
 
-class _AssignmentTile extends StatelessWidget {
+class _AssignmentTile extends ConsumerWidget {
   const _AssignmentTile({required this.assignment, required this.locale});
 
   final MoodleAssignment assignment;
   final String locale;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = context.l10n;
+    // Handing in happens in Moodle Web; the app only reads (AGENTS.md § 2).
+    final Uri? webLink = ref
+        .read(moodleProfileProvider)
+        .moduleWebUri(modName: 'assign', cmid: assignment.cmid);
     final TextTheme text = Theme.of(context).textTheme;
     final String due = assignment.dueDate == null
         ? l10n.moodleAssignmentNoDue
@@ -537,6 +584,12 @@ class _AssignmentTile extends StatelessWidget {
             status: assignment.status,
             dueDate: assignment.dueDate,
           ),
+          if (webLink != null)
+            TextButton.icon(
+              onPressed: () => _openExternal(context, ref, webLink.toString()),
+              icon: const Icon(AppIcons.open_in_new),
+              label: Text(l10n.moodleOpenInBrowser),
+            ),
           const Divider(height: AppSpacing.lg),
         ],
       ),

@@ -1,18 +1,45 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:campus_koethen/core/documents/document_viewer_screen.dart';
+import 'package:campus_koethen/core/links/safe_link_launcher.dart';
+import 'package:campus_koethen/features/grades/domain/exam_report.dart';
 import 'package:campus_koethen/features/grades/domain/grade.dart';
 import 'package:campus_koethen/features/grades/application/grades_providers.dart';
 import 'package:campus_koethen/features/grades/domain/grade_credentials.dart';
+import 'package:campus_koethen/features/grades/domain/grade_portal.dart';
 import 'package:campus_koethen/features/grades/presentation/grade_tile.dart';
 import 'package:campus_koethen/features/grades/presentation/grades_screen.dart';
+import 'package:campus_koethen/features/grades/presentation/grade_setup_screen.dart';
 import 'package:campus_koethen/features/more/presentation/more_screen.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_grades.dart';
 import '../../support/pump_app.dart';
+
+class _MemoryIdentityStore implements UniversityIdentityStore {
+  UniversityIdentity? value;
+  int writes = 0;
+
+  @override
+  Future<UniversityIdentity?> read() async => value;
+
+  @override
+  Future<void> write(UniversityIdentity identity) async {
+    writes++;
+    value = identity;
+  }
+
+  @override
+  Future<void> clear() async => value = null;
+}
 
 const GradeCredentials _creds = GradeCredentials(
   username: 'testuser',
@@ -24,14 +51,20 @@ List<Override> _grades({
   required FakeGradesGateway gateway,
   required InMemoryGradeCredentialStore store,
   required InMemoryGradeCacheStore cache,
+  InMemoryGradePortalStore? portalStore,
   MutableClock? clock,
 }) {
   return <Override>[
     legacyQisGatewayProvider.overrideWithValue(gateway),
     hisInOneGatewayProvider.overrideWithValue(gateway),
     gradesGatewayProvider.overrideWithValue(gateway),
+    examReportGatewayProvider.overrideWithValue(gateway),
     gradeCredentialStoreProvider.overrideWithValue(store),
-    gradePortalStoreProvider.overrideWithValue(InMemoryGradePortalStore()),
+    // Signed-in scenarios here already chose their portal; the one-time move
+    // of a choice-less 1.x account is covered in grade_portal_selection_test.
+    gradePortalStoreProvider.overrideWithValue(
+      portalStore ?? (InMemoryGradePortalStore()..write(GradePortal.hisInOne)),
+    ),
     gradeCacheStoreProvider.overrideWithValue(cache),
     gradeClockProvider.overrideWithValue(clock ?? MutableClock(_t0)),
   ];
@@ -145,6 +178,36 @@ void main() {
     expect(gateway.fetchCalls, 0);
   });
 
+  // Audit 2026-10-10: HISinOne is the standard portal, so the browser link
+  // before setup must not send students to the HIS-QIS legacy portal.
+  testWidgets('the setup browser link opens the standard HISinOne portal', (
+    WidgetTester tester,
+  ) async {
+    _tall(tester);
+    final _RecordingLauncher launcher = _RecordingLauncher();
+    await pumpScreen(
+      tester,
+      const GradesScreen(),
+      overrides: <Override>[
+        ..._grades(
+          gateway: FakeGradesGateway(report: sampleReport()),
+          store: InMemoryGradeCredentialStore(),
+          cache: InMemoryGradeCacheStore(),
+        ),
+        linkLauncherProvider.overrideWithValue(launcher),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Notenportal im Browser öffnen'));
+    await tester.tap(find.text('Notenportal im Browser öffnen'));
+    await tester.pumpAndSettle();
+
+    expect(launcher.opened, <String>[
+      'https://sscportal.ssc.hs-anhalt.de/qisserver/rds?state=user&type=0',
+    ]);
+  });
+
   testWidgets('setup signs in and reveals the overview', (
     WidgetTester tester,
   ) async {
@@ -161,7 +224,7 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), 'testuser');
     await tester.enterText(find.byType(TextFormField).at(1), 'test-pw');
-    await tester.tap(find.byType(Checkbox));
+    await tester.tap(find.byType(Checkbox).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Anmelden und Noten laden'));
     await tester.pumpAndSettle();
@@ -193,6 +256,113 @@ void main() {
     expect(gateway.fetchCalls, 0, reason: 'the 24h gate blocks the auto sync');
   });
 
+  testWidgets('exam reports section generates and opens a PDF on HISinOne', (
+    WidgetTester tester,
+  ) async {
+    _tall(tester);
+    const ExamReportOffer offer = ExamReportOffer(
+      buttonId: 'examsReadonly:exaReports:fieldset_exaReports:print_0',
+      label: 'Bescheinigung über bestandene Prüfungen',
+    );
+    final gateway =
+        FakeGradesGateway(
+            report: GradeReport(
+              <GradeEntry>[
+                GradeEntry(
+                  examNumber: '1',
+                  title: 'Grundlagen',
+                  grade: const Grade.graded(1.7),
+                  status: ExamStatus.passed,
+                  statusText: 'bestanden',
+                  examDate: DateTime(2026, 2, 12),
+                ),
+              ],
+              examReports: const <ExamReportOffer>[offer],
+            ),
+          )
+          ..examReportResult = ExamReportDownloadLoaded(
+            bytes: Uint8List.fromList(<int>[0x25, 0x50, 0x44, 0x46]),
+            filename: 'bescheinigung.pdf',
+          );
+    final store = InMemoryGradeCredentialStore()..write(_creds);
+    final cache = InMemoryGradeCacheStore();
+    await cache.writeReport(gateway.report!);
+    await cache.writeLastSuccessfulSync(_t0);
+    await cache.writeLastAttemptedSync(_t0);
+
+    await pumpScreen(
+      tester,
+      const GradesScreen(),
+      overrides: _grades(
+        gateway: gateway,
+        store: store,
+        cache: cache,
+        portalStore: InMemoryGradePortalStore()..write(GradePortal.hisInOne),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bescheinigungen'), findsOneWidget);
+    expect(
+      find.text('Bescheinigung über bestandene Prüfungen'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('PDF erstellen'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.downloadExamReportCalls, 1);
+    expect(gateway.lastRequestedOffer, offer);
+    expect(find.byType(DocumentViewerScreen), findsOneWidget);
+  });
+
+  testWidgets('exam reports section surfaces the diagnostic code on failure', (
+    WidgetTester tester,
+  ) async {
+    _tall(tester);
+    const ExamReportOffer offer = ExamReportOffer(
+      buttonId: 'examsReadonly:exaReports:fieldset_exaReports:print_0',
+      label: 'Bescheinigung über bestandene Prüfungen',
+    );
+    final gateway = FakeGradesGateway(
+      report: GradeReport(
+        <GradeEntry>[
+          GradeEntry(
+            examNumber: '1',
+            title: 'Grundlagen',
+            grade: const Grade.graded(1.7),
+            status: ExamStatus.passed,
+            statusText: 'bestanden',
+            examDate: DateTime(2026, 2, 12),
+          ),
+        ],
+        examReports: const <ExamReportOffer>[offer],
+      ),
+    )..examReportResult = const ExamReportUnavailable('job-not-finished');
+    final store = InMemoryGradeCredentialStore()..write(_creds);
+    final cache = InMemoryGradeCacheStore();
+    await cache.writeReport(gateway.report!);
+    await cache.writeLastSuccessfulSync(_t0);
+    await cache.writeLastAttemptedSync(_t0);
+
+    await pumpScreen(
+      tester,
+      const GradesScreen(),
+      overrides: _grades(
+        gateway: gateway,
+        store: store,
+        cache: cache,
+        portalStore: InMemoryGradePortalStore()..write(GradePortal.hisInOne),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('PDF erstellen'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('job-not-finished'), findsOneWidget);
+  });
+
   testWidgets('delete asks for confirmation and returns to setup', (
     WidgetTester tester,
   ) async {
@@ -216,7 +386,7 @@ void main() {
 
     await tester.tap(find.byType(PopupMenuButton<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Zugangsdaten und lokale Noten löschen'));
+    await tester.tap(find.text('Noten-Verbindung und lokale Noten löschen'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Löschen'));
     await tester.pumpAndSettle();
@@ -224,6 +394,116 @@ void main() {
     expect(store.clears, greaterThanOrEqualTo(1));
     expect(cache.clears, greaterThanOrEqualTo(1));
     expect(find.text('Anmelden und Noten laden'), findsOneWidget);
+  });
+
+  group('university identity reuse', () {
+    testWidgets(
+      'ticking "also use for other services" retains the identity centrally',
+      (WidgetTester tester) async {
+        _tall(tester);
+        final identityStore = _MemoryIdentityStore();
+        await pumpScreen(
+          tester,
+          const GradeSetupScreen(),
+          overrides: _grades(
+            gateway: FakeGradesGateway(report: sampleReport()),
+            store: InMemoryGradeCredentialStore(),
+            cache: InMemoryGradeCacheStore(),
+          ),
+          universityIdentityStore: identityStore,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextFormField).at(0), 'testuser');
+        await tester.enterText(find.byType(TextFormField).at(1), 'test-pw');
+        // Checkbox 0 is the grades-only storage consent, 1 is the new "also
+        // use for other services" offer.
+        await tester.tap(find.byType(Checkbox).at(0));
+        await tester.tap(find.byType(Checkbox).at(1));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Anmelden und Noten laden'));
+        await tester.pumpAndSettle();
+
+        expect(identityStore.writes, 1);
+        expect(identityStore.value?.identifier, 'testuser');
+        expect(identityStore.value?.password, 'test-pw');
+      },
+    );
+
+    testWidgets('hides the reuse offer once a central identity is stored', (
+      WidgetTester tester,
+    ) async {
+      _tall(tester);
+      await pumpScreen(
+        tester,
+        const GradeSetupScreen(),
+        overrides: _grades(
+          gateway: FakeGradesGateway(),
+          store: InMemoryGradeCredentialStore(),
+          cache: InMemoryGradeCacheStore(),
+        ),
+        universityIdentityStore: _MemoryIdentityStore()
+          ..value = const UniversityIdentity(
+            identifier: 'stud',
+            password: 'pw',
+          ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Diese Zugangsdaten auch für Mail, Moodle und Noten automatisch verwenden.',
+        ),
+        findsNothing,
+      );
+    });
+  });
+
+  testWidgets('announces and locks the grade sign-in loading state', (
+    WidgetTester tester,
+  ) async {
+    _tall(tester);
+    final FakeGradesGateway gateway = FakeGradesGateway()
+      ..pendingReport = Completer<GradeReport>();
+    await pumpScreen(
+      tester,
+      const GradeSetupScreen(),
+      overrides: _grades(
+        gateway: gateway,
+        store: InMemoryGradeCredentialStore(),
+        cache: InMemoryGradeCacheStore(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'testuser');
+    await tester.enterText(find.byType(TextFormField).at(1), 'test-pw');
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.tap(find.text('Anmelden und Noten laden'));
+    await tester.pump();
+
+    expect(find.text('Noten werden geladen …'), findsOneWidget);
+    expect(find.bySemanticsLabel('Noten werden aktualisiert'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.ancestor(
+              of: find.byTooltip('Passwort anzeigen'),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widgetList<PopScope>(find.byType(PopScope))
+          .any((PopScope scope) => !scope.canPop),
+      isTrue,
+    );
+
+    gateway.pendingReport!.complete(sampleReport());
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a long report builds only the rows that are on screen', (
@@ -269,4 +549,14 @@ void main() {
     );
     expect(find.text('Pruefung 59'), findsOneWidget);
   });
+}
+
+class _RecordingLauncher implements SafeLinkLauncher {
+  final List<String> opened = <String>[];
+
+  @override
+  Future<LinkLaunchResult> open(String? rawUrl) async {
+    if (rawUrl != null) opened.add(rawUrl);
+    return LinkLaunchResult.opened;
+  }
 }

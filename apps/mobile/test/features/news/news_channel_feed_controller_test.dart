@@ -1,11 +1,15 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:campus_koethen/core/cache/cache_providers.dart';
+import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/cache/content_cache.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
+import 'package:campus_koethen/features/news/application/news_auto_refresh.dart';
 import 'package:campus_koethen/features/news/application/news_channel_feed_controller.dart';
 import 'package:campus_koethen/features/news/data/news_models.dart';
 import 'package:dio/dio.dart';
@@ -83,6 +87,18 @@ ProviderContainer _container(_ChannelFeed feed) {
   );
   addTearDown(container.dispose);
   return container;
+}
+
+/// Runs the app-wide news auto refresh.
+///
+/// This fake serves only one channel's articles, so the main feed the refresh
+/// also reloads fails here; only the channel feed is under test.
+Future<void> _autoRefresh(ProviderContainer container) async {
+  try {
+    await container.read(newsAutoRefreshProvider.notifier).run();
+  } on Object {
+    // The main feed is not served by this fake.
+  }
 }
 
 List<String> _slugs(NewsChannelFeedState state) =>
@@ -245,6 +261,138 @@ void main() {
         .value!;
     expect(_slugs(state), <String>['a']);
     expect(state.page, 1);
+  });
+
+  test('a late page from the old locale never enters the new feed', () async {
+    final Completer<void> releaseGermanPage = Completer<void>();
+    final Completer<void> germanPageStarted = Completer<void>();
+    final FakeHttpAdapter adapter = FakeHttpAdapter((
+      RequestOptions options,
+    ) async {
+      final int page =
+          int.tryParse('${options.queryParameters['page'] ?? 1}') ?? 1;
+      final String locale = options.queryParameters['locale'] as String;
+      if (page == 2 && locale == 'de') {
+        germanPageStarted.complete();
+        await releaseGermanPage.future;
+      }
+      final List<String> slugs = locale == 'en'
+          ? <String>['english']
+          : page == 1
+          ? <String>['german']
+          : <String>['late-german-page'];
+      return FakeHttpResponse(
+        envelope(
+          slugs.map(_article).toList(),
+          meta: <String, dynamic>{
+            'pagination': <String, dynamic>{
+              'page': page,
+              'pageSize': 2,
+              'total': 2,
+              'totalPages': 2,
+            },
+          },
+        ),
+      );
+    });
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        keyValueStoreProvider.overrideWithValue(InMemoryKeyValueStore()),
+        contentCacheProvider.overrideWithValue(
+          SafeContentCache(MemoryContentCache()),
+        ),
+        apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(
+      newsChannelFeedControllerProvider('campus-news').future,
+    );
+
+    final Future<void> oldLoadMore = container
+        .read(newsChannelFeedControllerProvider('campus-news').notifier)
+        .loadMore();
+    await germanPageStarted.future;
+    await container
+        .read(settingsProvider.notifier)
+        .setLocaleMode(LocaleMode.english);
+    final NewsChannelFeedState refreshed = await container.read(
+      newsChannelFeedControllerProvider('campus-news').future,
+    );
+    expect(_slugs(refreshed), <String>['english']);
+
+    releaseGermanPage.complete();
+    await oldLoadMore;
+
+    expect(
+      _slugs(
+        container
+            .read(newsChannelFeedControllerProvider('campus-news'))
+            .requireValue,
+      ),
+      <String>['english'],
+    );
+  });
+
+  group('foreground auto refresh', () {
+    test('reloads a channel feed that is still on its first page', () async {
+      final _ChannelFeed feed = _ChannelFeed(
+        'campus-news',
+        <int, List<String>?>{
+          1: <String>['a', 'b'],
+          2: <String>['c', 'd'],
+        },
+      );
+      final ProviderContainer container = _container(feed);
+      await container.read(
+        newsChannelFeedControllerProvider('campus-news').future,
+      );
+
+      await _autoRefresh(container);
+      await container.read(
+        newsChannelFeedControllerProvider('campus-news').future,
+      );
+
+      int firstPageRequests = 0;
+      for (int i = 0; i < feed.requestedPages.length; i++) {
+        if (feed.requestedPages[i] == 1 &&
+            feed.requestedChannels[i] == 'campus-news') {
+          firstPageRequests++;
+        }
+      }
+      expect(firstPageRequests, 2);
+    });
+
+    test(
+      'leaves a channel feed alone that was scrolled past page one',
+      () async {
+        final _ChannelFeed feed = _ChannelFeed(
+          'campus-news',
+          <int, List<String>?>{
+            1: <String>['a', 'b'],
+            2: <String>['c', 'd'],
+          },
+        );
+        final ProviderContainer container = _container(feed);
+        await container.read(
+          newsChannelFeedControllerProvider('campus-news').future,
+        );
+        await container
+            .read(newsChannelFeedControllerProvider('campus-news').notifier)
+            .loadMore();
+
+        await _autoRefresh(container);
+        await container.read(
+          newsChannelFeedControllerProvider('campus-news').future,
+        );
+
+        final NewsChannelFeedState state = container
+            .read(newsChannelFeedControllerProvider('campus-news'))
+            .value!;
+        expect(state.page, 2);
+        expect(_slugs(state), <String>['a', 'b', 'c', 'd']);
+      },
+    );
   });
 
   test('two different channels keep separate feeds', () async {

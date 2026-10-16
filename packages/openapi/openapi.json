@@ -143,6 +143,7 @@
             "name": "page",
             "required": false,
             "in": "query",
+            "description": "Max 10000.",
             "schema": {
               "type": "number"
             }
@@ -158,14 +159,14 @@
             "name": "to",
             "required": false,
             "in": "query",
-            "description": "YYYY-MM-DD",
+            "description": "YYYY-MM-DD, a Europe/Berlin calendar day (inclusive). Defaults to from plus the maximum range.",
             "schema": {}
           },
           {
             "name": "from",
             "required": false,
             "in": "query",
-            "description": "YYYY-MM-DD",
+            "description": "YYYY-MM-DD, a Europe/Berlin calendar day. Defaults to today.",
             "schema": {}
           }
         ],
@@ -261,6 +262,7 @@
             "name": "page",
             "required": false,
             "in": "query",
+            "description": "Max 10000.",
             "schema": {
               "type": "number"
             }
@@ -525,6 +527,24 @@
             }
           },
           {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Max 50.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Max 10000.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
             "name": "department",
             "required": false,
             "in": "query",
@@ -551,6 +571,75 @@
           }
         },
         "summary": "List selectable class groups.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
+    "/v1/timetable/groups/{groupId}": {
+      "get": {
+        "description": "Returns one group by its stable Campus UUID so clients can retain the selection and its public label offline without downloading the catalogue.",
+        "operationId": "TimetableController_group_v1",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "description": "Stable Campus UUID.",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableGroupResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resolve one previously selected class group.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
+    "/v1/timetable/periods": {
+      "get": {
+        "description": "Contains Campus UUIDs only. WebUntis school-year and class identifiers remain server-internal.",
+        "operationId": "TimetableController_periods_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetablePeriodsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List semester catalogues available to the timetable assistant.",
         "tags": [
           "timetable"
         ]
@@ -595,6 +684,50 @@
           }
         },
         "summary": "List exact lesson information texts for a selected timetable group.",
+        "tags": [
+          "timetable"
+        ]
+      }
+    },
+    "/v1/timetable/modules": {
+      "get": {
+        "description": "Reads retained Campus timetable rows only. Module names and codes are source-provided; no upstream identifiers or live request are exposed.",
+        "operationId": "TimetableController_modules_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableModulesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List modules observed for one selectable study group.",
         "tags": [
           "timetable"
         ]
@@ -753,14 +886,14 @@
             "name": "to",
             "required": false,
             "in": "query",
-            "description": "YYYY-MM-DD",
+            "description": "YYYY-MM-DD, a Europe/Berlin calendar day (inclusive). Defaults to from plus the maximum range.",
             "schema": {}
           },
           {
             "name": "from",
             "required": false,
             "in": "query",
-            "description": "YYYY-MM-DD",
+            "description": "YYYY-MM-DD, a Europe/Berlin calendar day. Defaults to today.",
             "schema": {}
           },
           {
@@ -857,14 +990,14 @@
             "name": "to",
             "required": false,
             "in": "query",
-            "description": "YYYY-MM-DD",
+            "description": "YYYY-MM-DD, a Europe/Berlin calendar day (inclusive). Defaults to from plus the maximum range.",
             "schema": {}
           },
           {
             "name": "from",
             "required": false,
             "in": "query",
-            "description": "YYYY-MM-DD",
+            "description": "YYYY-MM-DD, a Europe/Berlin calendar day. Defaults to today.",
             "schema": {}
           }
         ],
@@ -1593,6 +1726,16 @@
             "type": "string",
             "example": "students-council"
           },
+          "site": {
+            "type": "string",
+            "enum": [
+              "koethen",
+              "bernburg",
+              "dessau"
+            ],
+            "example": "koethen",
+            "description": "Campus site the area belongs to. An area without a stored site is a Köthen one."
+          },
           "image": {
             "type": "string",
             "nullable": true,
@@ -1636,6 +1779,7 @@
           "name",
           "shortDescription",
           "iconKey",
+          "site",
           "image",
           "sortOrder",
           "generalEmail",
@@ -1762,6 +1906,16 @@
             "type": "string",
             "example": "students-council"
           },
+          "site": {
+            "type": "string",
+            "enum": [
+              "koethen",
+              "bernburg",
+              "dessau"
+            ],
+            "example": "koethen",
+            "description": "Campus site the area belongs to. An area without a stored site is a Köthen one."
+          },
           "descriptionText": {
             "type": "string",
             "description": "The sanitised long description as PLAIN TEXT. A search matches words, not formatting; links contribute their label, images nothing."
@@ -1809,6 +1963,7 @@
           "name",
           "shortDescription",
           "iconKey",
+          "site",
           "descriptionText",
           "generalEmail",
           "phone",
@@ -1906,6 +2061,16 @@
           "iconKey": {
             "type": "string"
           },
+          "site": {
+            "type": "string",
+            "enum": [
+              "koethen",
+              "bernburg",
+              "dessau"
+            ],
+            "example": "koethen",
+            "description": "Campus site the area belongs to. An area without a stored site is a Köthen one."
+          },
           "image": {
             "type": "string",
             "nullable": true,
@@ -1966,6 +2131,7 @@
           "name",
           "shortDescription",
           "iconKey",
+          "site",
           "image",
           "sortOrder",
           "generalEmail",
@@ -2010,6 +2176,16 @@
             "type": "string",
             "example": "Fasanerieallee"
           },
+          "site": {
+            "type": "string",
+            "enum": [
+              "koethen",
+              "bernburg",
+              "dessau"
+            ],
+            "example": "koethen",
+            "description": "Campus site of the canteen. The app lists the reader's own site first."
+          },
           "lastSuccessfulSyncAt": {
             "type": "string",
             "nullable": true,
@@ -2025,6 +2201,7 @@
           "slug",
           "displayName",
           "campusLabel",
+          "site",
           "lastSuccessfulSyncAt",
           "dataStale"
         ]
@@ -2062,12 +2239,23 @@
           "campusLabel": {
             "type": "string",
             "example": "Fasanerieallee"
+          },
+          "site": {
+            "type": "string",
+            "enum": [
+              "koethen",
+              "bernburg",
+              "dessau"
+            ],
+            "example": "koethen",
+            "description": "Campus site of the canteen. The app lists the reader's own site first."
           }
         },
         "required": [
           "slug",
           "displayName",
-          "campusLabel"
+          "campusLabel",
+          "site"
         ]
       },
       "MealMarkerDto": {
@@ -2344,6 +2532,76 @@
           "meta"
         ]
       },
+      "TimetableGroupResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimetableGroupDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimetablePeriodDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable Campus identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Source-provided semester label. Never translated."
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-05"
+          },
+          "validTo": {
+            "type": "string",
+            "format": "date",
+            "example": "2027-03-31"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableGroupDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "validFrom",
+          "validTo",
+          "groups"
+        ]
+      },
+      "TimetablePeriodsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetablePeriodDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "TimetableLessonInfoDto": {
         "type": "object",
         "properties": {
@@ -2369,6 +2627,42 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/TimetableLessonInfoDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimetableModuleDto": {
+        "type": "object",
+        "properties": {
+          "subjectCode": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source-provided module code."
+          },
+          "title": {
+            "type": "string",
+            "description": "Source-provided module title. Never translated."
+          }
+        },
+        "required": [
+          "subjectCode",
+          "title"
+        ]
+      },
+      "TimetableModulesResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableModuleDto"
+            }
           },
           "meta": {
             "$ref": "#/components/schemas/ResponseMetaDto"

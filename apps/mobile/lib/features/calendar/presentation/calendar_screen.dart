@@ -1,11 +1,16 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_modules.dart';
+import '../../../core/documents/app_document.dart';
+import '../../../core/documents/document_share_service.dart';
 import '../../../core/locale/formatters.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
@@ -30,8 +35,10 @@ import '../../timetable/presentation/timetable_group_picker_sheet.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_entry.dart';
 import '../domain/calendar_entry_details.dart';
+import '../domain/calendar_ics_export.dart';
 import '../domain/entry_rooms.dart';
 import 'calendar_entry_sheet.dart';
+import 'calendar_list_rows.dart';
 import 'calendar_source_sheets.dart';
 import 'week_grid_view.dart';
 import 'week_strip.dart';
@@ -52,7 +59,15 @@ import 'week_strip.dart';
 /// column, the gaps between them are visible as gaps, and "now" is a marker
 /// drawn straight across.
 class CalendarScreen extends ConsumerStatefulWidget {
-  const CalendarScreen({super.key});
+  const CalendarScreen({
+    this.exportShareService = const DocumentShareService(),
+    super.key,
+  });
+
+  /// Injectable so a test can verify what the export action hands off
+  /// without opening the real OS share sheet — same pattern as
+  /// `DocumentViewerScreen.shareService`.
+  final DocumentShareService exportShareService;
 
   @override
   ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
@@ -82,17 +97,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // "Not everything is showing" has to be visible from the outside, or a
     // missing appointment looks like a bug rather than like a setting.
     final bool everythingVisible =
-        data.enabledSources.length == kMergeableCalendarSources.length &&
+        kMergeableCalendarSources.every(data.enabledSources.contains) &&
         lessonInfoFilter.disabledValues.isEmpty &&
-        !lessonInfoFilter.hideWithoutInfo;
+        !lessonInfoFilter.hideWithoutInfo &&
+        lessonInfoFilter.hiddenCourses.isEmpty;
 
     return ScreenScaffold(
       eyebrow: ModuleCategory.study.label(l10n),
       title: l10n.navCalendar,
       actions: <Widget>[
+        _ExportCalendarAction(shareService: widget.exportShareService),
         IconButton(
           tooltip: l10n.calendarSourcesLabel,
-          onPressed: () => showCalendarSourcesSheet(context),
+          onPressed: () => showCalendarSourcesSheet(context, ref),
           isSelected: !everythingVisible,
           icon: const Icon(AppIcons.tune),
         ),
@@ -107,15 +124,155 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 }
 
+/// "Kalender exportieren": writes everything currently merged into ONE
+/// RFC 5545 file and hands it to the OS share sheet — a one-time, local
+/// export the reader saves or forwards wherever they like, never a
+/// server-hosted subscription feed (`docs/implementation-phases-quality-audit-2026-09-30.md`,
+/// Phase 14 §1, flags what a live feed would need and deliberately leaves it
+/// open; this sidesteps that question rather than answering it).
+///
+/// Reads a dedicated aggregation over each source's complete known range
+/// rather than only the current day/week/month or the list view's rolling
+/// future window. It is subscribed only while this action runs: merely opening
+/// the calendar must not fetch historic backend ranges or personal Exchange
+/// appointments just because the export icon exists.
+class _ExportCalendarAction extends ConsumerStatefulWidget {
+  const _ExportCalendarAction({required this.shareService});
+
+  final DocumentShareService shareService;
+
+  @override
+  ConsumerState<_ExportCalendarAction> createState() =>
+      _ExportCalendarActionState();
+}
+
+class _ExportCalendarActionState extends ConsumerState<_ExportCalendarAction> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+
+    return IconButton(
+      tooltip: l10n.calendarExportAction,
+      icon: _busy
+          ? const SizedBox.square(
+              dimension: AppSizes.icon,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(AppIcons.ios_share),
+      onPressed: _busy ? null : _export,
+    );
+  }
+
+  Future<void> _export() async {
+    final AppLocalizations l10n = context.l10n;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    ProviderSubscription<CalendarData>? exportSubscription;
+
+    try {
+      // Keep the auto-disposed export aggregation alive only for this user
+      // action. Merely opening the calendar must not fetch every historic
+      // backend range or personal Exchange appointment.
+      exportSubscription = ref.listenManual<CalendarData>(
+        calendarExportDataProvider,
+        (_, _) {},
+      );
+      CalendarData data = exportSubscription.read();
+      final DateTime deadline = DateTime.now().add(const Duration(seconds: 30));
+      while (data.isLoading && DateTime.now().isBefore(deadline) && mounted) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        data = exportSubscription.read();
+      }
+      if (!mounted) return;
+
+      final bool incomplete =
+          data.isLoading ||
+          data.hasTimetableError ||
+          data.hasMoodleError ||
+          data.hasPublicCalendarError ||
+          data.hasSavedEventsError ||
+          data.hasCanteenFavouritesError ||
+          data.hasExchangeCalendarError ||
+          (data.enabledSources.contains(CalendarSource.moodle) &&
+              !data.moodleConnected) ||
+          (data.enabledSources.contains(CalendarSource.exchangeCalendar) &&
+              !data.exchangeCalendarConnected) ||
+          (data.timetableState != CalendarTimetableState.hidden &&
+              data.timetableState != CalendarTimetableState.ready);
+      if (incomplete) {
+        final bool exportPartial =
+            await showDialog<bool>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                title: Text(l10n.calendarExportIncompleteTitle),
+                content: Text(l10n.calendarExportIncompleteMessage),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text(l10n.calendarExportCancel),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: Text(l10n.calendarExportPartialAction),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (!exportPartial || !mounted) return;
+      }
+
+      if (data.entries.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.calendarExportEmpty)),
+        );
+        return;
+      }
+      final String ics = icsFromCalendarEntries(
+        data.entries,
+        calendarName: l10n.calendarExportCalendarName,
+      );
+      await widget.shareService.share(
+        AppDocument(
+          filename: 'campus-koethen-kalender.ics',
+          mediaType: 'text/calendar',
+          bytes: Uint8List.fromList(utf8.encode(ics)),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.calendarExportFailed)),
+        );
+      }
+    } finally {
+      exportSubscription?.close();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
 /// The scrollable header shared by all views: per-source error banners and
 /// (when needed) the "pick a course" hint.
 ///
 /// One source failing never removes the others — the banner says which one is
 /// missing and the rest of the calendar keeps its data.
-List<Widget> _calendarHeader(BuildContext context, CalendarData data) {
+List<Widget> _calendarHeader(
+  BuildContext context,
+  WidgetRef ref,
+  CalendarData data,
+) {
   final AppLocalizations l10n = context.l10n;
   final AppMetrics metrics = context.metrics;
-  Widget banner(String message) => Padding(
+  Widget banner(
+    String title, {
+    String? message,
+    StatusTone tone = StatusTone.warning,
+    IconData icon = AppIcons.sync_problem,
+    Widget? action,
+  }) => Padding(
     padding: EdgeInsets.fromLTRB(
       metrics.screenPadding,
       AppSpacing.sm,
@@ -123,20 +280,60 @@ List<Widget> _calendarHeader(BuildContext context, CalendarData data) {
       0,
     ),
     child: StatusBanner(
-      tone: StatusTone.warning,
-      icon: AppIcons.sync_problem,
-      title: message,
+      tone: tone,
+      icon: icon,
+      title: title,
+      message: message,
+      action: action,
     ),
   );
   return <Widget>[
-    if (data.hasTimetableError) banner(l10n.calendarTimetableUnavailable),
+    switch (data.timetableState) {
+      CalendarTimetableState.hidden => banner(
+        l10n.calendarTimetableHidden,
+        tone: StatusTone.info,
+        icon: AppIcons.visibility_off_outlined,
+        action: OutlinedButton(
+          onPressed: () => showCalendarSourcesSheet(context, ref),
+          child: Text(l10n.calendarSourcesLabel),
+        ),
+      ),
+      CalendarTimetableState.disabled => banner(
+        l10n.timetableDisabledTitle,
+        message: l10n.timetableDisabledMessage,
+        icon: AppIcons.cloud_off_outlined,
+      ),
+      CalendarTimetableState.needsGroup => const _GroupHint(),
+      CalendarTimetableState.pending => banner(
+        l10n.timetablePendingTitle,
+        message: l10n.timetablePendingMessage,
+        tone: StatusTone.info,
+        icon: AppIcons.schedule_outlined,
+      ),
+      CalendarTimetableState.unavailable => banner(
+        l10n.calendarTimetableUnavailable,
+      ),
+      CalendarTimetableState.loading ||
+      CalendarTimetableState.ready => const SizedBox.shrink(),
+    },
     if (data.hasMoodleError) banner(l10n.calendarMoodleUnavailable),
     // The third source had a flag and a string and no banner, so a failed
     // public-calendar load looked exactly like a day with nothing scheduled.
     // "Not happening" and "we could not ask" are the two readings this
     // header exists to keep apart.
     if (data.hasPublicCalendarError) banner(l10n.calendarPublicUnavailable),
-    if (data.needsGroup) const _GroupHint(),
+    if (data.enabledSources.contains(CalendarSource.exchangeCalendar) &&
+        !data.exchangeCalendarConnected)
+      banner(
+        l10n.calendarExchangeNeedsMail,
+        tone: StatusTone.info,
+        icon: AppIcons.link_off,
+        action: OutlinedButton(
+          onPressed: () => showCalendarSourcesSheet(context, ref),
+          child: Text(l10n.calendarSourcesLabel),
+        ),
+      ),
+    if (data.hasExchangeCalendarError) banner(l10n.calendarExchangeUnavailable),
   ];
 }
 
@@ -281,7 +478,7 @@ class _DayAgendaView extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
               children: <Widget>[
-                ..._calendarHeader(context, data),
+                ..._calendarHeader(context, ref, data),
                 SectionHeader(
                   label: AppDateFormats.weekdayDate(focused, locale),
                 ),
@@ -388,26 +585,16 @@ class _EntryRow extends ConsumerWidget {
     final DateTime start = entry.start.toLocal();
     final DateTime? end = entry.end?.toLocal();
 
-    // A deadline has no duration, so it is never "now" — it is ahead of you or
-    // it is behind you. Treating its start as its end says exactly that.
-    final DateTime finish = end ?? start;
-    final DateTime? currentTime = now;
-    final TimeRailEmphasis emphasis;
-    if (currentTime == null) {
-      emphasis = TimeRailEmphasis.normal;
-    } else if (!start.isAfter(currentTime) && finish.isAfter(currentTime)) {
-      emphasis = TimeRailEmphasis.now;
-    } else if (!finish.isAfter(currentTime)) {
-      emphasis = TimeRailEmphasis.past;
-    } else {
-      emphasis = TimeRailEmphasis.normal;
-    }
+    final TimeRailEmphasis emphasis = calendarEntryEmphasis(entry, now);
 
     // Source is always conveyed with a text label (and an icon), never by
     // colour alone; the public-calendar colour is an extra decorative accent.
     final String sourceLabel = switch (entry.source) {
       CalendarSource.moodle => l10n.calendarSourceMoodle,
       CalendarSource.timetable => l10n.calendarSourceTimetable,
+      CalendarSource.exchangeCalendar => l10n.calendarSourceExchange,
+      CalendarSource.canteenFavourite =>
+        entry.sourceLabel ?? l10n.calendarSourceCanteenFavourite,
       CalendarSource.publicCalendar ||
       CalendarSource.postEvent ||
       CalendarSource.savedEvents =>
@@ -606,7 +793,7 @@ class _WeekView extends ConsumerWidget {
 
     return Column(
       children: <Widget>[
-        ..._calendarHeader(context, data),
+        ..._calendarHeader(context, ref, data),
         Padding(
           padding: EdgeInsets.fromLTRB(
             metrics.screenPadding,
@@ -754,7 +941,7 @@ class _ListView extends ConsumerWidget {
     if (data.entries.isEmpty) {
       return ListView(
         children: <Widget>[
-          ..._calendarHeader(context, data),
+          ..._calendarHeader(context, ref, data),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.xl),
             child: data.isLoading
@@ -767,8 +954,8 @@ class _ListView extends ConsumerWidget {
 
     final DateTime now = DateTime.now();
     final DateTime today = TimetableWeek.dayOf(now);
-    final List<_ListRow> rows = _listRows(
-      header: _calendarHeader(context, data),
+    final List<CalendarListRow> rows = _listRows(
+      header: _calendarHeader(context, ref, data),
       entries: data.entries,
       today: today,
       now: now,
@@ -782,101 +969,37 @@ class _ListView extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
       itemCount: rows.length,
       itemBuilder: (BuildContext context, int index) => switch (rows[index]) {
-        _StaticRow(:final Widget child) => child,
-        _DayHeadingRow(:final DateTime day) => SectionHeader(
+        StaticCalendarListRow(:final Widget child) => child,
+        DayHeadingCalendarListRow(:final DateTime day) => SectionHeader(
           label: AppDateFormats.weekdayDate(day, locale),
         ),
-        _NowRuleRow(:final DateTime at) => _nowRule(
+        NowRuleCalendarListRow(:final DateTime at) => _nowRule(
           now: at,
           locale: locale,
           l10n: l10n,
         ),
-        _EntryRowSpec(:final CalendarEntry entry, :final DateTime? now) =>
+        EntryCalendarListRow(
+          :final CalendarEntry entry,
+          :final DateTime? now,
+        ) =>
           _EntryRow(entry: entry, locale: locale, now: now),
       },
     );
   }
 }
 
-/// One row of the list view, described rather than built.
-///
-/// Deciding what the list contains stays a single pass over the merged
-/// entries; turning a row into widgets happens only for the rows on screen.
-sealed class _ListRow {
-  const _ListRow();
-}
-
-/// A row that is already a widget — the per-source banners above the list,
-/// of which there are at most a handful.
-class _StaticRow extends _ListRow {
-  const _StaticRow(this.child);
-
-  final Widget child;
-}
-
-class _DayHeadingRow extends _ListRow {
-  const _DayHeadingRow(this.day);
-
-  final DateTime day;
-}
-
-class _NowRuleRow extends _ListRow {
-  const _NowRuleRow(this.at);
-
-  final DateTime at;
-}
-
-class _EntryRowSpec extends _ListRow {
-  const _EntryRowSpec({required this.entry, required this.now});
-
-  final CalendarEntry entry;
-
-  /// The current time, or `null` when this entry's day is not today.
-  final DateTime? now;
-}
-
-/// Describes the whole list: the banners, then each day's heading and entries,
-/// with the "now" rule placed inside today exactly where [_railFor] puts it.
-List<_ListRow> _listRows({
+/// Delegates pure row planning so this screen only maps presentation models
+/// to lazily built widgets.
+List<CalendarListRow> _listRows({
   required List<Widget> header,
   required List<CalendarEntry> entries,
   required DateTime today,
   required DateTime now,
 }) {
-  // Group by day, preserving the merged (ascending) order — the same grouping
-  // the eagerly built list did, so the order of days and of entries within a
-  // day is unchanged.
-  final List<DateTime> orderedDays = <DateTime>[];
-  final Map<DateTime, List<CalendarEntry>> byDay =
-      <DateTime, List<CalendarEntry>>{};
-  for (final CalendarEntry entry in entries) {
-    final DateTime key = entry.day;
-    byDay
-        .putIfAbsent(key, () {
-          orderedDays.add(key);
-          return <CalendarEntry>[];
-        })
-        .add(entry);
-  }
-
-  final List<_ListRow> rows = <_ListRow>[
-    for (final Widget widget in header) _StaticRow(widget),
-  ];
-
-  for (final DateTime day in orderedDays) {
-    rows.add(_DayHeadingRow(day));
-    final bool isToday = day == today;
-    bool nowPlaced = !isToday;
-    for (final CalendarEntry entry in byDay[day]!) {
-      if (!nowPlaced && entry.start.toLocal().isAfter(now)) {
-        rows.add(_NowRuleRow(now));
-        nowPlaced = true;
-      }
-      rows.add(_EntryRowSpec(entry: entry, now: isToday ? now : null));
-    }
-    // Today with nothing left ahead of it: the rule goes after the last entry.
-    if (!nowPlaced) rows.add(_NowRuleRow(now));
-  }
-
-  return rows;
+  return buildCalendarListRows(
+    header: header,
+    entries: entries,
+    today: today,
+    now: now,
+  );
 }

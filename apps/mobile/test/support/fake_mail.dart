@@ -77,11 +77,21 @@ class FakeMailGateway implements MailGateway {
     this.markSeenError,
     this.sendGate,
     this.sendStarted,
+    this.messagesExists,
+    this.uidValidity,
   });
 
   MailFailure? verifyError;
   MailFailure? fetchInboxError;
   MailFailure? sendError;
+
+  /// Makes every `deleteMessage` fail, as a refusing server does.
+  MailFailure? deleteError;
+
+  /// Makes every `moveMessage` fail.
+  MailFailure? moveError;
+  final List<({String mailboxPath, String id, String targetPath})>
+  movedMessages = <({String mailboxPath, String id, String targetPath})>[];
   List<MailMessageHeader> inbox;
   List<MailMessageHeader> olderInbox;
   MailMessageDetail? detail;
@@ -127,9 +137,15 @@ class FakeMailGateway implements MailGateway {
   int appendCalls = 0;
   bool lastIncludeAttachmentBytes = false;
   final List<String> markedSeen = <String>[];
+  final List<({String mailboxPath, String id})> deletedMessages =
+      <({String mailboxPath, String id})>[];
   final List<String> fetchedMailboxes = <String>[];
+  final StreamController<MailLiveSignal> liveSignals =
+      StreamController<MailLiveSignal>.broadcast();
+  int watchInboxCalls = 0;
   String? lastFetchHeadersBeforeId;
   int? lastFetchHeadersLimit;
+  List<String> lastFetchMessageIds = <String>[];
   final List<OutgoingMessage> sent = <OutgoingMessage>[];
   final List<OutgoingMessage> appended = <OutgoingMessage>[];
 
@@ -143,13 +159,27 @@ class FakeMailGateway implements MailGateway {
     if (verifyError != null) throw verifyError!;
   }
 
+  int fetchMailboxesCalls = 0;
+
   @override
   Future<List<MailFolder>> fetchMailboxes(MailCredentials credentials) async {
+    fetchMailboxesCalls++;
     return folders;
   }
 
+  /// IMAP EXISTS reported with every header page. Unset, the fake's [inbox]
+  /// is the whole mailbox; a test modelling a mailbox larger than the fetched
+  /// window sets it explicitly.
+  int? messagesExists;
+
+  /// UIDVALIDITY reported with every header page (null: not reported).
+  int? uidValidity;
+
+  /// The UIDVALIDITY guard passed with the last markSeen/deleteMessage.
+  int? lastExpectedUidValidity;
+
   @override
-  Future<List<MailMessageHeader>> fetchHeaders(
+  Future<MailHeaderPage> fetchHeaders(
     MailCredentials credentials, {
     String mailboxPath = kInboxPath,
     int limit = 50,
@@ -170,7 +200,11 @@ class FakeMailGateway implements MailGateway {
       await fetchOlderHeadersGate?.future;
     }
     if (fetchInboxError != null) throw fetchInboxError!;
-    return beforeId == null ? inbox : olderInbox;
+    return MailHeaderPage(
+      headers: beforeId == null ? inbox : olderInbox,
+      messagesExists: messagesExists ?? inbox.length,
+      uidValidity: uidValidity,
+    );
   }
 
   @override
@@ -212,6 +246,7 @@ class FakeMailGateway implements MailGateway {
     bool includeAttachmentBytes = false,
   }) async {
     lastIncludeAttachmentBytes = includeAttachmentBytes;
+    lastFetchMessageIds = List<String>.of(ids);
     return ids
         .map((String id) => detailsById[id])
         .whereType<MailMessageDetail>()
@@ -223,9 +258,46 @@ class FakeMailGateway implements MailGateway {
     MailCredentials credentials, {
     String mailboxPath = kInboxPath,
     required String id,
+    int? expectedUidValidity,
   }) async {
+    lastExpectedUidValidity = expectedUidValidity;
     if (markSeenError != null) throw markSeenError!;
     markedSeen.add(id);
+  }
+
+  @override
+  Future<void> deleteMessage(
+    MailCredentials credentials, {
+    String mailboxPath = kInboxPath,
+    required String id,
+    int? expectedUidValidity,
+  }) async {
+    lastExpectedUidValidity = expectedUidValidity;
+    if (deleteError != null) throw deleteError!;
+    deletedMessages.add((mailboxPath: mailboxPath, id: id));
+  }
+
+  @override
+  Future<void> moveMessage(
+    MailCredentials credentials, {
+    String mailboxPath = kInboxPath,
+    required String id,
+    required String targetPath,
+    int? expectedUidValidity,
+  }) async {
+    lastExpectedUidValidity = expectedUidValidity;
+    if (moveError != null) throw moveError!;
+    movedMessages.add((
+      mailboxPath: mailboxPath,
+      id: id,
+      targetPath: targetPath,
+    ));
+  }
+
+  @override
+  Stream<MailLiveSignal> watchInbox(MailCredentials credentials) {
+    watchInboxCalls++;
+    return liveSignals.stream;
   }
 
   @override
@@ -261,6 +333,7 @@ class FakePickedMailFile implements PickedMailFile {
     required this.mediaType,
     required Uint8List bytes,
     this.readError,
+    this.reportedSizeBytes,
     // The public parameter is named `bytes` for a readable call site, so it
     // cannot be an initializing formal for the private `_bytes` field (that
     // would force callers to write the private name).
@@ -275,16 +348,24 @@ class FakePickedMailFile implements PickedMailFile {
 
   /// When set, [readBytes] throws this instead of returning the bytes.
   final Object? readError;
+  final int? reportedSizeBytes;
 
   int readCalls = 0;
 
   @override
-  Future<int?> sizeBytes() async => _bytes.length;
+  Future<int?> sizeBytes() async => reportedSizeBytes ?? _bytes.length;
 
   @override
-  Future<Uint8List> readBytes() async {
+  Future<Uint8List> readBytes({
+    int maxBytes = MailAttachmentLimits.maxFileBytes,
+  }) async {
     readCalls++;
     if (readError != null) throw readError!;
+    if (_bytes.length > maxBytes) {
+      throw const MailAttachmentLimitException(
+        MailAttachmentBudgetIssue.fileTooLarge,
+      );
+    }
     return _bytes;
   }
 }

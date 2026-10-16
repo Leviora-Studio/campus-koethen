@@ -30,16 +30,13 @@ publicCalendarsCatalogProvider = FutureProvider<Loaded<List<PublicCalendar>>>((
   return loaded;
 }, retry: (_, _) => null);
 
-/// Bounds of the visible month (± a week), as YYYY-MM-DD, for the events query.
-({String from, String to}) _monthWindow(DateTime focused) {
+/// Bounds of the visible month (± a week) for the events query.
+CalendarDateWindow _monthWindow(DateTime focused) {
   final List<DateTime> weeks = monthWeekStarts(focused);
-  final DateTime from = weeks.first;
-  final DateTime to = TimetableWeek.shift(
-    weeks.last,
-    TimetableWeek.lengthInDays,
+  return CalendarDateWindow(
+    from: weeks.first,
+    to: TimetableWeek.shift(weeks.last, TimetableWeek.lengthInDays),
   );
-  String iso(DateTime d) => d.toIso8601String().slice10();
-  return (from: iso(from), to: iso(to));
 }
 
 /// Public-calendar events for the currently selected calendars in the month
@@ -72,8 +69,13 @@ final _monthEntriesProvider =
       Ref ref,
       DateTime anchor,
     ) async {
-      final ({String from, String to}) window = _monthWindow(anchor);
-      return _loadEntries(ref, from: window.from, to: window.to);
+      // Awaiting the catalogue (instead of reading its current value) keeps a
+      // loading or failed catalogue visible to the aggregator rather than
+      // turning it into a silent "no events".
+      final Loaded<List<PublicCalendar>> catalogue = await ref.watch(
+        publicCalendarsCatalogProvider.future,
+      );
+      return _loadWindowEntries(ref, _monthWindow(anchor), catalogue);
     }, retry: (_, _) => null);
 
 /// Public-calendar events for the full horizon advertised by the backend.
@@ -94,12 +96,25 @@ final _listEntriesProvider =
       retry: (_, _) => null,
     );
 
+/// Public-calendar entries for an explicit inclusive export window. Unlike
+/// the rolling list provider this preserves the backend's advertised historic
+/// lower bound instead of shifting the horizon to today.
+final publicCalendarRangeEntriesProvider =
+    FutureProvider.family<List<CalendarEntry>, CalendarDateWindow>(
+      (Ref ref, CalendarDateWindow window) async {
+        final Loaded<List<PublicCalendar>> catalogue = await ref.watch(
+          publicCalendarsCatalogProvider.future,
+        );
+        return _loadWindowEntries(ref, window, catalogue);
+      },
+      retry: (_, _) => null,
+      isAutoDispose: true,
+    );
+
 Future<List<CalendarEntry>> _loadListEntries(Ref ref, DateTime today) async {
-  final String locale = ref.watch(localeCodeProvider);
-  final Loaded<List<PublicCalendar>>? catalogue = ref
-      .watch(publicCalendarsCatalogProvider)
-      .value;
-  if (catalogue == null) return const <CalendarEntry>[];
+  final Loaded<List<PublicCalendar>> catalogue = await ref.watch(
+    publicCalendarsCatalogProvider.future,
+  );
   final PublicCalendarSelectionState selection = ref.watch(
     publicCalendarSelectionProvider,
   );
@@ -114,6 +129,26 @@ Future<List<CalendarEntry>> _loadListEntries(Ref ref, DateTime today) async {
     catalogue.meta.from,
     catalogue.meta.to,
   );
+  return _loadWindowEntries(ref, window, catalogue, slugs: slugs);
+}
+
+Future<List<CalendarEntry>> _loadWindowEntries(
+  Ref ref,
+  CalendarDateWindow window,
+  Loaded<List<PublicCalendar>> catalogue, {
+  List<String>? slugs,
+}) async {
+  final String locale = ref.watch(localeCodeProvider);
+  final PublicCalendarSelectionState selection = ref.watch(
+    publicCalendarSelectionProvider,
+  );
+  final List<String> selected =
+      slugs ??
+      PublicCalendarSelectionRules.effectiveSelection(
+        available: catalogue.value,
+        selected: selection.selectedSlugs,
+      );
+  if (selected.isEmpty) return const <CalendarEntry>[];
   // Old backend versions do not advertise their request limit; they used
   // 120-day list requests, so keep that safe fallback during rollout.
   final int maxDays = catalogue.meta.maxRangeDays ?? 120;
@@ -125,7 +160,7 @@ Future<List<CalendarEntry>> _loadListEntries(Ref ref, DateTime today) async {
     final Loaded<List<PublicCalendarEvent>> response = await repository
         .fetchEvents(
           locale: locale,
-          slugs: slugs,
+          slugs: selected,
           from: part.from.toIso8601String().slice10(),
           to: part.to.toIso8601String().slice10(),
         );
@@ -161,33 +196,6 @@ Future<List<CalendarEntry>> _loadListEntries(Ref ref, DateTime today) async {
     chunks.expand((chunk) => chunk).toList(growable: false),
     bySlug,
   );
-}
-
-Future<List<CalendarEntry>> _loadEntries(
-  Ref ref, {
-  required String from,
-  required String to,
-}) async {
-  final String locale = ref.watch(localeCodeProvider);
-  final List<PublicCalendar> catalog =
-      ref.watch(publicCalendarsCatalogProvider).value?.value ??
-      const <PublicCalendar>[];
-  final PublicCalendarSelectionState selection = ref.watch(
-    publicCalendarSelectionProvider,
-  );
-  final List<String> slugs = PublicCalendarSelectionRules.effectiveSelection(
-    available: catalog,
-    selected: selection.selectedSlugs,
-  );
-  if (slugs.isEmpty) return const <CalendarEntry>[];
-
-  final Loaded<List<PublicCalendarEvent>> loaded = await ref
-      .watch(publicCalendarsRepositoryProvider)
-      .fetchEvents(locale: locale, slugs: slugs, from: from, to: to);
-  final Map<String, PublicCalendar> bySlug = <String, PublicCalendar>{
-    for (final PublicCalendar c in catalog) c.slug: c,
-  };
-  return publicCalendarEventsToCalendarEntries(loaded.value, bySlug);
 }
 
 extension _Slice on String {

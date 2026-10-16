@@ -38,6 +38,7 @@ describe('CanteenService freshness lookup', () => {
     displayNameEn: 'Köthen Canteen',
     campusLabelDe: 'Fasanerieallee',
     campusLabelEn: 'Fasanerieallee',
+    siteKey: 'koethen',
   };
 
   function makePrisma(finishedAt: Date) {
@@ -65,12 +66,29 @@ describe('CanteenService freshness lookup', () => {
           displayNameEn: true,
           campusLabelDe: true,
           campusLabelEn: true,
+          siteKey: true,
         },
       }),
     );
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     // The whole-history read is what this replaced; it must not come back.
     expect(prisma.syncRun.findMany).not.toHaveBeenCalled();
+  });
+
+  it('tells the app which campus site each canteen belongs to', async () => {
+    const prisma = makePrisma(new Date('2026-08-24T02:00:00.000Z'));
+    prisma.canteen.findMany.mockResolvedValue([
+      { ...canteenRow, id: 'c1' },
+      { ...canteenRow, id: 'c2', slug: 'dessau', siteKey: 'dessau' },
+    ]);
+    const service = new CanteenService(prisma as unknown as PrismaService, env);
+
+    const result = await service.listCanteens(de);
+
+    expect(result.map((c) => [c.slug, c.site])).toEqual([
+      ['koethen-fasanerieallee', 'koethen'],
+      ['dessau', 'dessau'],
+    ]);
   });
 
   it('does not query at all when there is no active canteen', async () => {
@@ -416,7 +434,7 @@ describe('CanteenService menu derivation', () => {
 
     expect(menu.days[0]!.meals[0]!.prices).toEqual([
       { group: 'student', label: 'Studierende', amount: '3.50', currency: 'EUR' },
-      { group: 'employee', label: 'Bedienstete', amount: '5.05', currency: 'EUR' },
+      { group: 'employee', label: 'Mitarbeiter', amount: '5.05', currency: 'EUR' },
       { group: 'guest', label: 'Gäste', amount: '7.00', currency: 'EUR' },
     ]);
   });

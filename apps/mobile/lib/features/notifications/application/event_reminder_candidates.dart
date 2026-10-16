@@ -2,6 +2,8 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:meta/meta.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../core/locale/formatters.dart';
@@ -16,10 +18,13 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../domain/delivery_window.dart';
 import '../domain/notification_category.dart';
 import '../domain/notification_request.dart';
+import 'daily_summary_providers.dart' show notificationPlanningDayProvider;
 import 'notification_providers.dart';
+import 'notification_settings_controller.dart';
+import 'saved_event_scope.dart';
 
-/// N1 · `event.reminder` — one reminder exactly 24 hours before an event
-/// (ADR-0001 § 7.3, P3).
+/// N1 · `event.reminder` — at most one locally configured reminder per event
+/// (ADR-0001 amendment of 2026-10-07).
 ///
 /// This file holds the whole category: the entries it is allowed to look at,
 /// the rule that turns one of them into a request, and the text that request
@@ -39,11 +44,8 @@ import 'notification_providers.dart';
 /// always fully in scope, however far out they lie.
 const int kEventReminderHorizonMonths = 2;
 
-/// Exactly 24 hours, as an **absolute duration** (P3).
-///
-/// Not "the same wall-clock time on the previous day": on the two nights the
-/// clocks change those are an hour apart, and the approved rule names the
-/// duration, not the dial.
+/// Default lead. Every selected lead remains an **absolute duration** rather
+/// than a wall-clock rule across daylight-saving changes.
 const Duration kEventReminderLead = Duration(hours: 24);
 
 /// The already-localised text of one reminder.
@@ -52,19 +54,57 @@ const Duration kEventReminderLead = Duration(hours: 24);
 /// [eventReminderRequests] stays a pure function that can be tested with
 /// fixed strings — the planner's own convention, one level up.
 abstract interface class EventReminderCopy {
-  /// `Morgen: Campus Sommerfest 2026`, or the `Heute` variant when
-  /// the delivery window moved the reminder onto the day of the event itself.
-  String title(CalendarEntry entry, {required bool onEventDay});
+  /// `Morgen: Campus Sommerfest 2026`, the `Heute` variant when the reminder
+  /// is delivered on the day of the event itself, or
+  /// `Mittwoch, 22. Juli: Campus Sommerfest 2026` when it is delivered two or
+  /// more days ahead.
+  String title(CalendarEntry entry, {required EventReminderDay day});
 
   /// `Morgen um 16:00 Uhr, Campuswiese.`
-  String body(CalendarEntry entry, {required bool onEventDay});
+  String body(CalendarEntry entry, {required EventReminderDay day});
 }
+
+/// The event's day, seen from the day the reminder is delivered on.
+@immutable
+class EventReminderDay {
+  const EventReminderDay({required this.daysAhead, required this.date});
+
+  /// Calendar days from delivery to the event: `0` today, `1` tomorrow.
+  ///
+  /// Counted on the calendar, not in 24-hour blocks: a reminder at 20:00 the
+  /// evening before a 19:30 event on the night the clocks go forward is only
+  /// 22.5 hours ahead, and still "tomorrow".
+  final int daysAhead;
+
+  /// The event's calendar day; only its date parts are meaningful.
+  final DateTime date;
+
+  @override
+  bool operator ==(Object other) =>
+      other is EventReminderDay &&
+      other.daysAhead == daysAhead &&
+      other.date == date;
+
+  @override
+  int get hashCode => Object.hash(daysAhead, date);
+}
+
+/// Whole calendar days from the date of [from] to the date of [to].
+///
+/// Built from the date parts in UTC, where every day has 24 hours, so a
+/// daylight-saving change in between never turns into a day more or less.
+int calendarDaysBetween(DateTime from, DateTime to) => DateTime.utc(
+  to.year,
+  to.month,
+  to.day,
+).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
 
 /// The sources N1 is allowed to read (ADR-0001 § 7.2).
 ///
 /// Deliberately a closed set rather than "everything the calendar merged":
-/// P5 rules out individual reminders for lectures and Moodle deadlines, and
-/// those two are entries in exactly the same list. A source added to
+/// Lectures remain excluded, while Moodle deadlines use their own neutral,
+/// configurable category rather than the event category. Both sources are
+/// entries in exactly the same merged list. A source added to
 /// [CalendarSource] later is therefore out of scope until somebody names it
 /// here, which is a product decision.
 const Set<CalendarSource> kEventReminderSources = <CalendarSource>{
@@ -77,14 +117,14 @@ const Set<CalendarSource> kEventReminderSources = <CalendarSource>{
 /// A pure function: no provider, no clock of its own, no platform. What it
 /// drops, and why:
 ///
-/// * a source that is not [kEventReminderSources] — a lecture and a Moodle
-///   deadline reach the daily overview and nothing else (P5);
+/// * a source that is not [kEventReminderSources] — lectures have no
+///   individual reminder; Moodle deadlines are handled by their own provider;
 /// * `isCancelled` — a cancelled event is not something to look forward to;
 /// * an event that has already started, and a desired instant already past.
 ///   The planner drops past moments too, but doing it here as well keeps the
 ///   rule readable where it is stated rather than only as a side effect;
 /// * nothing else. In particular an `allDay` entry is kept: it has a defined
-///   `start`, and ADR-0001 § 7.3 applies the 24-hour rule to it unchanged.
+///   `start`, and the configured lead applies to it unchanged.
 ///
 /// Deduplication is **not** done here. It has already happened in
 /// [notificationEventEntriesProvider], through the events feature's own
@@ -95,6 +135,8 @@ List<NotificationRequest> eventReminderRequests({
   required Iterable<CalendarEntry> entries,
   required tz.TZDateTime now,
   required EventReminderCopy copy,
+  Duration defaultLead = kEventReminderLead,
+  Map<String, int> overrides = const <String, int>{},
 }) {
   final tz.Location location = now.location;
   final List<NotificationRequest> requests = <NotificationRequest>[];
@@ -106,17 +148,34 @@ List<NotificationRequest> eventReminderRequests({
     final tz.TZDateTime start = tz.TZDateTime.from(entry.start, location);
     if (!start.isAfter(now)) continue;
 
-    final tz.TZDateTime desired = start.subtract(kEventReminderLead);
-    // The same shift the planner will apply — asked here only to choose
-    // between "morgen" and "heute". Both call [DeliveryWindow], so the text
-    // and the schedule cannot disagree about which day the reminder lands on.
-    final tz.TZDateTime delivered = DeliveryWindow.shiftIntoWindow(desired);
+    final int? overrideMinutes = overrides[entry.id];
+    if (overrideMinutes == -1) continue;
+    final Duration lead = overrideMinutes == null
+        ? defaultLead
+        : Duration(minutes: overrideMinutes);
+
+    final tz.TZDateTime desired = start.subtract(lead);
+    // The same shift the planner will apply to this trigger — asked here only
+    // to choose the wording of the day. Both call [DeliveryWindow] with the
+    // event start as the target, so the text and the schedule cannot disagree
+    // about which day the reminder lands on, and a short lead before an early,
+    // late or all-day event falls back to the latest 20:00 before it rather
+    // than arriving after it has begun.
+    final tz.TZDateTime delivered = DeliveryWindow.shiftIntoWindowBefore(
+      desired,
+      start,
+    );
     if (!delivered.isAfter(now)) continue;
 
-    final bool onEventDay =
-        delivered.year == start.year &&
-        delivered.month == start.month &&
-        delivered.day == start.day;
+    // An all-day date is read from its own fields, exactly as the calendar
+    // shows it (`calendarDayOf`); a timed event on the dial of the device zone.
+    final DateTime eventDate = entry.allDay
+        ? calendarDayOf(entry.start, allDay: true)
+        : DateTime(start.year, start.month, start.day);
+    final EventReminderDay day = EventReminderDay(
+      daysAhead: calendarDaysBetween(delivered, eventDate),
+      date: eventDate,
+    );
 
     requests.add(
       NotificationRequest(
@@ -124,9 +183,9 @@ List<NotificationRequest> eventReminderRequests({
         // Taken over, never re-derived: `CalendarEntry.id` is already stable
         // and source-prefixed (ADR-0001 § 4.1, § 7.6).
         target: entry.id,
-        trigger: AbsoluteTrigger(desired),
-        title: copy.title(entry, onEventDay: onEventDay),
-        body: copy.body(entry, onEventDay: onEventDay),
+        trigger: AbsoluteTrigger(desired, before: start),
+        title: copy.title(entry, day: day),
+        body: copy.body(entry, day: day),
         // Public campus data: title, time and place may show on the lock
         // screen (P9, ADR-0001 § 7.7).
         visibility: NotificationVisibility.publicContent,
@@ -160,22 +219,25 @@ List<NotificationRequest> eventReminderRequests({
 /// reminder (ADR-0001 § 7.3, "genau eine").
 final Provider<List<CalendarEntry>> notificationEventEntriesProvider =
     Provider<List<CalendarEntry>>((Ref ref) {
-      final DateTime now = ref.watch(notificationClockProvider).now();
+      // The planning day, not a clock read: the clock is no app state and
+      // would never rebuild this provider, so an app left open across the end
+      // of a month would keep the old two-month horizon (VF-N03).
+      // `NotificationHost` moves the planning day on at midnight and on resume.
+      final DateTime today = ref.watch(notificationPlanningDayProvider);
 
       final List<CalendarEntry> live = <CalendarEntry>[];
       for (int i = 0; i < kEventReminderHorizonMonths; i++) {
-        final DateTime month = DateTime(now.year, now.month + i);
+        final DateTime month = DateTime(today.year, today.month + i);
         live.addAll(
           ref.watch(publicCalendarMonthEntriesProvider(month)).value ??
               const <CalendarEntry>[],
         );
       }
 
-      final List<SavedEventSnapshot> saved =
-          (ref.watch(savedEventsControllerProvider).value ??
-                  const <SavedEventSnapshot>[])
-              .where((SavedEventSnapshot s) => !s.isOrphaned && !s.isCancelled)
-              .toList(growable: false);
+      final List<SavedEventSnapshot> saved = notifiableSavedEvents(
+        ref.watch(savedEventsControllerProvider).value ??
+            const <SavedEventSnapshot>[],
+      );
 
       final List<PublicCalendar> catalog =
           ref.watch(publicCalendarsCatalogProvider).value?.value ??
@@ -210,16 +272,58 @@ final calendarEntryForNotificationProvider =
       return null;
     });
 
+/// How long a tapped `event.reminder` waits for its sources before it
+/// resolves against whatever has loaded by then.
+const Duration kNotificationTapSourceTimeout = Duration(seconds: 5);
+
+/// [calendarEntryForNotificationProvider], but only once the sources it
+/// resolves against have loaded — the tap side of N1 (F-08).
+///
+/// The synchronous lookup reads every source as `.value`, which is right for
+/// planning and wrong for a tap on a **cold start**: the app was opened by the
+/// notification, nothing has loaded yet, and a live event would be reported
+/// as "no longer available". So the tap waits for the saved events, the
+/// calendar catalogue and the public-calendar months of the horizon, each
+/// failure swallowed (a failed source is simply an absent one) and the whole
+/// wait bounded by [timeout]. Then it asks the ordinary lookup.
+///
+/// Takes the container rather than a `Ref`: it is called from a tap handler
+/// above the widget tree, and it must not create a provider of its own that
+/// could be disposed while it waits.
+Future<CalendarEntry?> loadCalendarEntryForNotification(
+  ProviderContainer container,
+  String id, {
+  Duration timeout = kNotificationTapSourceTimeout,
+}) async {
+  final DateTime today = container.read(notificationPlanningDayProvider);
+  Future<void> settled(Future<Object?> source) =>
+      source.then<void>((_) {}, onError: (Object _) {});
+  await Future.wait<void>(<Future<void>>[
+    settled(container.read(savedEventsControllerProvider.future)),
+    settled(container.read(publicCalendarsCatalogProvider.future)),
+    for (int i = 0; i < kEventReminderHorizonMonths; i++)
+      settled(
+        container.read(
+          publicCalendarMonthEntriesProvider(
+            DateTime(today.year, today.month + i),
+          ).future,
+        ),
+      ),
+  ]).timeout(timeout, onTimeout: () => const <void>[]);
+  return container.read(calendarEntryForNotificationProvider(id));
+}
+
 /// N1's contribution to the plan.
 final Provider<List<NotificationRequest>> eventReminderCandidatesProvider =
     Provider<List<NotificationRequest>>((Ref ref) {
       final tz.Location? location = ref
           .watch(notificationLocationProvider)
           .value;
-      // Without a resolved zone there is no such thing as "24 hours before,
-      // shifted into 07:00–20:00 local". The plan is empty until it arrives.
+      // Without a resolved zone there is no local 07:00–20:00 window. The
+      // plan is empty until it arrives.
       if (location == null) return const <NotificationRequest>[];
 
+      final preferences = ref.watch(notificationSettingsProvider);
       return eventReminderRequests(
         entries: ref.watch(notificationEventEntriesProvider),
         now: tz.TZDateTime.from(
@@ -227,6 +331,8 @@ final Provider<List<NotificationRequest>> eventReminderCandidatesProvider =
           location,
         ),
         copy: ref.watch(eventReminderCopyProvider),
+        defaultLead: Duration(minutes: preferences.eventReminderMinutes),
+        overrides: preferences.eventReminderOverrides,
       );
     });
 
@@ -254,25 +360,38 @@ class LocalisedEventReminderCopy implements EventReminderCopy {
   final String localeCode;
 
   @override
-  String title(CalendarEntry entry, {required bool onEventDay}) => onEventDay
-      ? l10n.notificationEventReminderTitleToday(entry.title)
-      : l10n.notificationEventReminderTitleTomorrow(entry.title);
+  String title(CalendarEntry entry, {required EventReminderDay day}) =>
+      switch (day.daysAhead) {
+        0 => l10n.notificationEventReminderTitleToday(entry.title),
+        1 => l10n.notificationEventReminderTitleTomorrow(entry.title),
+        _ => l10n.notificationEventReminderTitleOnDate(_date(day), entry.title),
+      };
 
   @override
-  String body(CalendarEntry entry, {required bool onEventDay}) {
-    final String when = switch ((entry.allDay, onEventDay)) {
-      (true, true) => l10n.notificationEventReminderWhenTodayAllDay,
-      (true, false) => l10n.notificationEventReminderWhenTomorrowAllDay,
-      (false, true) => l10n.notificationEventReminderWhenToday(
-        AppDateFormats.time(entry.start, localeCode),
-      ),
-      (false, false) => l10n.notificationEventReminderWhenTomorrow(
-        AppDateFormats.time(entry.start, localeCode),
-      ),
-    };
+  String body(CalendarEntry entry, {required EventReminderDay day}) {
+    final String when;
+    if (entry.allDay) {
+      when = switch (day.daysAhead) {
+        0 => l10n.notificationEventReminderWhenTodayAllDay,
+        1 => l10n.notificationEventReminderWhenTomorrowAllDay,
+        _ => l10n.notificationEventReminderWhenOnDateAllDay(_date(day)),
+      };
+    } else {
+      final String time = AppDateFormats.time(entry.start, localeCode);
+      when = switch (day.daysAhead) {
+        0 => l10n.notificationEventReminderWhenToday(time),
+        1 => l10n.notificationEventReminderWhenTomorrow(time),
+        _ => l10n.notificationEventReminderWhenOnDate(_date(day), time),
+      };
+    }
     final String? place = entry.location?.trim();
     return place == null || place.isEmpty
         ? l10n.notificationEventReminderBody(when)
         : l10n.notificationEventReminderBodyWithLocation(when, place);
   }
+
+  /// `Mittwoch, 22. Juli` · `Wednesday, July 22` — weekday and date, no year:
+  /// the longest lead is a week.
+  String _date(EventReminderDay day) =>
+      DateFormat.MMMMEEEEd(localeCode).format(day.date);
 }

@@ -9,8 +9,8 @@ import 'notification_payload.dart';
 /// When a request wants to be delivered.
 ///
 /// Two cases, because time is not one thing here (ADR-0001 § 7.4): the
-/// 24-hour lead of an event reminder is an **absolute duration** and moves
-/// with the clock across a daylight-saving change, while the chosen overview time
+/// event-reminder lead is an **absolute duration** and moves with the clock
+/// across a daylight-saving change, while the chosen overview time
 /// and the 11:00 canteen hint are **wall-clock times** that stay where they
 /// are on the dial.
 sealed class NotificationTrigger {
@@ -21,16 +21,24 @@ sealed class NotificationTrigger {
 /// subject to the delivery window (P7).
 @immutable
 final class AbsoluteTrigger extends NotificationTrigger {
-  const AbsoluteTrigger(this.instant);
+  const AbsoluteTrigger(this.instant, {this.before});
 
   final DateTime instant;
 
-  @override
-  bool operator ==(Object other) =>
-      other is AbsoluteTrigger && other.instant == instant;
+  /// What the reminder is about — an event start, a deadline — where it has
+  /// one. The delivery window may move [instant], but never onto or past this
+  /// moment (`DeliveryWindow.shiftIntoWindowBefore`): a reminder that arrives
+  /// after its deadline is worse than one that arrives a little early.
+  final DateTime? before;
 
   @override
-  int get hashCode => instant.hashCode;
+  bool operator ==(Object other) =>
+      other is AbsoluteTrigger &&
+      other.instant == instant &&
+      other.before == before;
+
+  @override
+  int get hashCode => Object.hash(instant, before);
 }
 
 /// A local wall-clock time on a given calendar day.

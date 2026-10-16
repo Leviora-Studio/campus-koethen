@@ -34,6 +34,9 @@ Die Einordnung bleibt als `planKind` (`schematic`) **im Katalog**. Die App legt 
 zusätzliches anklickbares Badge; Hinweise innerhalb der kanonischen SVG-Pläne bleiben davon
 unberührt.
 
+> **Standorte:** Jedes Gebäude trägt einen `siteKey` (`koethen`, `bernburg`, `dessau`); alle bisherigen
+> Pläne gehören zu Köthen. Die Karte gruppiert nach Standort, Details in [sites.md](sites.md).
+
 ## 1. Datenfluss
 
 ```
@@ -434,7 +437,9 @@ Für jedes weitere Gebäude ist vor der Aufnahme erneut zu bestätigen:
 6. **Pflege** — wer meldet Umbauten, und wie schnell?
 
 Der schematische Charakter jedes Plans ist in der App sichtbar und in DE/EN formuliert. Eine
-Quellenangabe wird pro Gebäude im Katalog geführt und im Informationsdialog angezeigt.
+Quellenangabe wird pro Gebäude im Katalog geführt und im Informationsdialog angezeigt („Über
+diesen Plan“, Schaltfläche unten links auf der Karte; ARB `campusMapSchematicNotice` und
+`campusMapSourceAttribution`).
 
 ## 9. Einen weiteren Raum, eine Etage oder ein Gebäude ergänzen
 

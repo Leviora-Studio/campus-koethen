@@ -228,13 +228,13 @@ in Strapi angelegter Tag erscheint hier — und damit in der App — ohne Codeä
 
 ### `GET /v1/posts`
 
-| Parameter  | Typ           | Standard | Regeln                                                         |
-| ---------- | ------------- | -------- | -------------------------------------------------------------- |
-| `channels` | CSV von Slugs | _fehlt_  | max. 25 Werte, je max. 100 Zeichen ⇒ sonst `400` · siehe unten |
-| `tags`     | CSV von Slugs | _fehlt_  | max. 25 Werte, je max. 100 Zeichen ⇒ sonst `400` · siehe unten |
-| `page`     | Integer >= 1  | `1`      |                                                                |
-| `pageSize` | Integer 1–50  | `20`     | Werte > 50 ⇒ `400`                                             |
-| `locale`   | `de` \| `en`  | `de`     |                                                                |
+| Parameter  | Typ             | Standard | Regeln                                                         |
+| ---------- | --------------- | -------- | -------------------------------------------------------------- |
+| `channels` | CSV von Slugs   | _fehlt_  | max. 25 Werte, je max. 100 Zeichen ⇒ sonst `400` · siehe unten |
+| `tags`     | CSV von Slugs   | _fehlt_  | max. 25 Werte, je max. 100 Zeichen ⇒ sonst `400` · siehe unten |
+| `page`     | Integer 1–10000 | `1`      | Werte > 10000 ⇒ `400`                                          |
+| `pageSize` | Integer 1–50    | `20`     | Werte > 50 ⇒ `400`                                             |
+| `locale`   | `de` \| `en`    | `de`     |                                                                |
 
 **Verhalten von `channels` — vertraglich festgeschrieben:**
 
@@ -242,8 +242,9 @@ in Strapi angelegter Tag erscheint hier — und damit in der App — ohne Codeä
 | ------------------------------ | ------------------------------------- |
 | Parameter **fehlt**            | alle aktiven Kanäle                   |
 | `?channels=` (vorhanden, leer) | **bewusst keine** Kanäle ⇒ `data: []` |
-| `?channels=campus-news`        | nur dieser Kanal                      |
+| `?channels=campus-news`        | nur dieser Kanal, sofern er aktiv ist |
 | unbekannter Slug enthalten     | wird ignoriert, kein Fehler           |
+| inaktiver Slug enthalten       | wird ignoriert, kein Fehler           |
 | mehr als 25 Slugs              | `400 VALIDATION_FAILED`               |
 
 Der Unterschied zwischen „fehlt“ und „leer“ ist wichtig: Deaktiviert der Nutzer **alle** Kanäle,
@@ -300,22 +301,29 @@ Sortierung: `publishedAt` DESC, dann `slug` ASC (deterministisch).
 
 Reiner Event-Feed für Beiträge mit dem Tag `event`.
 
-| Parameter  | Typ           | Standard           | Regeln                                                                        |
-| ---------- | ------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `from`     | `YYYY-MM-DD`  | heute              | optional                                                                      |
-| `to`       | `YYYY-MM-DD`  | `from` + Lookahead | optional, `to >= from`, Spanne max. Server-Maximalbereich (Standard 400 Tage) |
-| `channels` | CSV von Slugs | _fehlt_            | max. 25 Werte, je max. 100 Zeichen                                            |
-| `page`     | Integer >= 1  | `1`                |                                                                               |
-| `pageSize` | Integer 1–50  | `20`               | Werte > 50 ⇒ `400`                                                            |
-| `locale`   | `de` \| `en`  | `de`               |                                                                               |
+| Parameter  | Typ             | Standard                | Regeln                                                                        |
+| ---------- | --------------- | ----------------------- | ----------------------------------------------------------------------------- |
+| `from`     | `YYYY-MM-DD`    | heute                   | optional; „heute“ ist der Kalendertag in `Europe/Berlin`                      |
+| `to`       | `YYYY-MM-DD`    | `from` + Maximalbereich | optional, `to >= from`, Spanne max. Server-Maximalbereich (Standard 400 Tage) |
+| `channels` | CSV von Slugs   | _fehlt_                 | max. 25 Werte, je max. 100 Zeichen                                            |
+| `page`     | Integer 1–10000 | `1`                     | Werte > 10000 ⇒ `400`                                                         |
+| `pageSize` | Integer 1–50    | `20`                    | Werte > 50 ⇒ `400`                                                            |
+| `locale`   | `de` \| `en`    | `de`                    |                                                                               |
 
 Das Abfrageintervall ist als **Überlappung** definiert: `eventStart <= to AND (eventEnd ?? eventStart) >= from`.
+`from` und `to` sind Kalendertage in `Europe/Berlin`: Das Intervall reicht von 00:00 Uhr Berliner
+Zeit am `from`-Tag bis zum Ende des `to`-Tags in Berliner Zeit. Fehlt `to`, gilt `from` plus
+Server-Maximalbereich.
+Wie im Feed nur zeitlich gültige Beiträge (`validFrom` <= jetzt <= `validUntil`).
 Sortierung: `eventStart` ASC, dann `slug` ASC (deterministisch).
 
 ### `GET /v1/posts/:slug`
 
 Liefert genau denselben Aufbau wie ein Listeneintrag.
-Unbekannter Slug ⇒ `404 POST_NOT_FOUND`.
+Es gelten dieselben Sichtbarkeitsregeln wie im Feed: Der Beitrag muss zeitlich gültig sein
+(`validFrom` <= jetzt <= `validUntil`) und in mindestens einem **aktiven** Kanal liegen.
+Unbekannter, gesperrter (Embargo), abgelaufener oder nur in inaktiven Kanälen liegender Slug ⇒
+`404 POST_NOT_FOUND` — bewusst ununterscheidbar.
 
 ```jsonc
 {
@@ -380,6 +388,7 @@ Nur aktive Bereiche, sortiert nach `sortOrder`, dann `name`.
       "name": "Studierendenrat",
       "shortDescription": "Die gewählte Vertretung der Studierendenschaft.",
       "iconKey": "students-council",
+      "site": "koethen",
       "sortOrder": 10,
       "generalEmail": null,
       "phone": null,
@@ -402,6 +411,11 @@ Kontaktperson ist gültig (`personCount: 0`) und muss im Client vollständig nut
 Zusätzlich `description` (Blocks, gleiche Regeln wie News-`content`) und `persons` — nur aktive
 Personen, sortiert nach `sortOrder`, dann `name`.
 
+Welche Personen ein Bereich hat, bestimmt in jeder Sprache die kanonische deutsche Fassung — dieselbe
+Quelle, aus der die Liste `personCount` zählt; das gilt auch für den Suchindex. Aus der
+Übersetzung kommen nur `role` und `description`. Fehlt dort ein gepflegter Text, bleibt der
+deutsche stehen und `translationFallback` ist `true`.
+
 ```jsonc
 {
   "data": {
@@ -409,6 +423,7 @@ Personen, sortiert nach `sortOrder`, dann `name`.
     "name": "…",
     "shortDescription": "…",
     "iconKey": "…",
+    "site": "koethen",
     "generalEmail": null,
     "phone": null,
     "website": null,
@@ -450,6 +465,7 @@ Stattdessen lädt der Client diesen Index **einmal**, cacht ihn und sucht lokal.
       "name": "…",
       "shortDescription": "…",
       "iconKey": "…",
+      "site": "koethen",
       "descriptionText": "Wir helfen bei Anträgen.\nSprechzeiten nach Vereinbarung.",
       "generalEmail": null,
       "phone": null,
@@ -502,6 +518,7 @@ Ausschließlich aus Backend-Daten. Der Client kennt **keine** `location_id`.
       "slug": "koethen-fasanerieallee",
       "displayName": "Mensa Köthen",
       "campusLabel": "Fasanerieallee",
+      "site": "koethen",
       "lastSuccessfulSyncAt": "2026-07-22T12:00:04.000Z",
       "dataStale": false,
     },
@@ -510,20 +527,21 @@ Ausschließlich aus Backend-Daten. Der Client kennt **keine** `location_id`.
 }
 ```
 
-`displayName` und `campusLabel` sind API-eigene, zweisprachige Texte.
+`displayName` und `campusLabel` sind API-eigene, zweisprachige Texte. `site` ist der Campus-Standort
+(`koethen`, `bernburg` oder `dessau`); die App zeigt den eigenen Standort zuerst.
 
 ### `GET /v1/canteens/:slug/menu`
 
 | Parameter | Typ          | Standard         | Regeln                                              |
 | --------- | ------------ | ---------------- | --------------------------------------------------- |
-| `from`    | `YYYY-MM-DD` | heute            |                                                     |
-| `to`      | `YYYY-MM-DD` | `from` + 13 Tage | `to >= from`, Spanne **max. 31 Tage** ⇒ sonst `400` |
+| `from`    | `YYYY-MM-DD` | heute            | „heute“ ist der Kalendertag in `Europe/Berlin`      |
+| `to`      | `YYYY-MM-DD` | `from` + 14 Tage | `to >= from`, Spanne **max. 31 Tage** ⇒ sonst `400` |
 | `locale`  | `de` \| `en` | `de`             |                                                     |
 
 ```jsonc
 {
   "data": {
-    "canteen": { "slug": "…", "displayName": "…", "campusLabel": "…" },
+    "canteen": { "slug": "…", "displayName": "…", "campusLabel": "…", "site": "koethen" },
     "days": [
       {
         "date": "2026-07-20",
@@ -545,7 +563,7 @@ Ausschließlich aus Backend-Daten. Der Client kennt **keine** `location_id`.
             "allergens": ["gluten", "gluten_wheat"],
             "prices": [
               { "group": "student", "label": "Studierende", "amount": "1.95", "currency": "EUR" },
-              { "group": "employee", "label": "Bedienstete", "amount": "4.95", "currency": "EUR" },
+              { "group": "employee", "label": "Mitarbeiter", "amount": "4.95", "currency": "EUR" },
               { "group": "guest", "label": "Gäste", "amount": "7.00", "currency": "EUR" },
             ],
           },
@@ -560,7 +578,7 @@ Ausschließlich aus Backend-Daten. Der Client kennt **keine** `location_id`.
     "lastSuccessfulSyncAt": "2026-07-22T12:00:04.000Z",
     "dataStale": false,
     "from": "2026-07-20",
-    "to": "2026-08-02",
+    "to": "2026-08-03",
   },
 }
 ```
@@ -568,6 +586,10 @@ Ausschließlich aus Backend-Daten. Der Client kennt **keine** `location_id`.
 Verbindliche Regeln:
 
 - **Es gibt kein Bildfeld.** `food.image_url` der Quelle wird weder gespeichert noch ausgeliefert.
+- `id` (Gericht) und `counterId` (Ausgabestelle) sind die IDs der Quelle meine-mensa. Das ist eine
+  bewusste Ausnahme von der Regel gegen interne Fremd-IDs (AGENTS §7). `id` ändert sich, sobald
+  ein Gericht neu veröffentlicht wird; Clients behandeln sie als undurchsichtigen Schlüssel und
+  merken Favoriten über den Gerichtsnamen.
 - `amount` ist ein **String in Dezimaldarstellung**, damit keine Float-Rundung entsteht. Die
   Formatierung übernimmt der Client locale-gerecht.
 - Es werden **alle** in der Quelle vorhandenen Preisgruppen ausgeliefert. Fehlt eine Gruppe, fehlt
@@ -617,9 +639,17 @@ kann statt wie ein Absturz.
 | ------------ | ------------------------ | ----------------------------------------------------------- |
 | `query`      | String, max. 100 Zeichen | Suche über Kurzname, Langname und Bereich; case-insensitive |
 | `department` | String                   | exakter Bereichsfilter (`shortName`)                        |
+| `page`       | Integer 1–10000          | Seite; Standard `1`; Werte > 10000 ⇒ `400`                  |
+| `pageSize`   | Integer, 1 bis 50        | Einträge pro Seite; Standard `20`                           |
 | `locale`     | `de` \| `en`             | wie überall                                                 |
 
-Liefert alle aktiven Gruppen in **einer** Antwort (Größenordnung 270). Sortierung: `shortName` ASC.
+Liefert den vollständigen sichtbaren Katalog **paginiert** und ohne feste
+Gesamtkappung. `query` wird serverseitig ausgewertet, damit auch Treffer hinter
+der ersten Seite auffindbar sind. Sortierung: `shortName`, `longName`,
+`department`, `id` jeweils aufsteigend. Exakte, anhand ihrer Stundenplandaten
+bestätigte Aliasse werden innerhalb desselben Semesterkatalogs auf einen sichtbaren
+Eintrag konsolidiert; Gruppen mit abweichenden Plänen bleiben auch bei gleichem Namen
+getrennt sichtbar, ebenso gleichnamige Gruppen verschiedener Semester.
 
 ```jsonc
 {
@@ -635,6 +665,12 @@ Liefert alle aktiven Gruppen in **einer** Antwort (Größenordnung 270). Sortier
     "requestedLocale": "de",
     "resolvedLocale": "de",
     "translationFallback": false,
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "total": 503,
+      "totalPages": 26,
+    },
     "featureEnabled": true,
     "from": "2026-07-30",
     "to": "2026-08-27", // Ende des konfigurierten Stundenplan-Zeitfensters
@@ -645,6 +681,92 @@ Liefert alle aktiven Gruppen in **einer** Antwort (Größenordnung 270). Sortier
 ```
 
 Es gibt **kein** Feld mit der WebUntis-ID.
+
+### `GET /v1/timetable/groups/:groupId`
+
+Löst eine bereits gespeicherte **Campus-UUID** einzeln auf. Dadurch müssen
+Kaltstart, Einstellungen und Kalender nicht den Gruppenkatalog laden. Ein durch
+die Dublettenprüfung ausgeblendeter Alt-Alias liefert seinen sichtbaren
+Vertreter aus demselben Semesterkatalog, nie eine gleichnamige Gruppe eines
+anderen Semesters; der Client kann die lokale Campus-UUID darauf migrieren. Die Antwort
+hat dieselbe öffentliche Gruppenform und dieselben Zeitraum-/Freshness-Metadaten
+wie der Katalog, aber keinen Pagination-Block. Unbekannte oder syntaktisch
+ungültige UUIDs liefern den unten beschriebenen Fehlervertrag. Externe IDs
+werden auch hier nie ausgegeben.
+
+### `GET /v1/timetable/periods`
+
+Liefert bis zu acht synchronisierte Semesterkataloge in chronologischer Reihenfolge. Der
+Semester-Assistent nutzt die Zuordnung ausschließlich, um nach Ende des gewählten Zeitraums einen
+neuen Hauptkurs vorzuschlagen; ein Wechsel erfolgt nie automatisch. Deaktiviertes WebUntis liefert
+eine leere Liste. Schuljahres- und Klassen-IDs der Quelle bleiben serverintern.
+
+```jsonc
+{
+  "data": [
+    {
+      "id": "6ca8…",
+      "name": "2026/2027",
+      "validFrom": "2026-10-05",
+      "validTo": "2027-03-31",
+      "groups": [
+        {
+          "id": "8f1c…",
+          "shortName": "AIN3",
+          "longName": "Angewandte Informatik 3. Semester",
+          "department": "FB5",
+        },
+      ],
+    },
+  ],
+  "meta": {
+    "requestedLocale": "de",
+    "resolvedLocale": "de",
+    "translationFallback": false,
+    "featureEnabled": true,
+    "lastSuccessfulSyncAt": "…",
+    "dataStale": false,
+  },
+}
+```
+
+Ein vollständiger, nicht-leerer Kataloglauf aktualisiert die Gruppen-Zuordnung eines Zeitraums
+transaktional. Eine leere, teilweise nicht persistierbare oder fehlgeschlagene Antwort behält die
+letzte erfolgreiche Zuordnung.
+
+### `GET /v1/timetable/modules`
+
+`groupId` ist erforderlich und muss eine Campus-UUID sein; unbekannte Gruppen liefern
+`404 TIMETABLE_GROUP_NOT_FOUND`. Der Endpunkt listet die bereits für diese Studiengruppe
+beobachteten Module aus dem operativen Campus-Datenbestand. Er löst keinen WebUntis-Aufruf aus und
+liefert weder Schuljahres-, Klassen- noch andere interne Quell-IDs.
+
+```jsonc
+{
+  "data": [
+    {
+      "subjectCode": "MATH2",
+      "title": "Mathematik 2",
+    },
+    {
+      "subjectCode": null,
+      "title": "Wahlpflichtfach Robotik",
+    },
+  ],
+  "meta": {
+    "requestedLocale": "de",
+    "resolvedLocale": "de",
+    "translationFallback": false,
+    "featureEnabled": true,
+    "lastSuccessfulSyncAt": "…",
+    "dataStale": false,
+  },
+}
+```
+
+Codes und Titel stammen unverändert aus der Quelle. Die App bildet daraus nur lokal einen stabilen
+Auswahlschlüssel, lädt den Zeitplan der zugehörigen Studiengruppe über deren Campus-UUID und lässt
+bei einem Modul-Abo alle nicht gewählten Module dieser Gruppe aus der Zusammenführung heraus.
 
 ### `GET /v1/timetable/entries`
 
@@ -821,11 +943,14 @@ Tagen; ihre Reichweite ist damit nicht auf eine feste Tageszahl im Client begren
 ### `GET /v1/calendars/events`
 
 Aggregierte Termine über **mehrere** ausgewählte Kalender. Das Abfrageintervall ist als **Überlappung** definiert: `startsAt <= to AND endsAt >= from`.
+`from` und `to` sind Kalendertage in `Europe/Berlin`: Das Intervall reicht von 00:00 Uhr Berliner
+Zeit am `from`-Tag bis zum Ende des `to`-Tags in Berliner Zeit. Fehlt `to`, gilt `from` plus
+Server-Maximalbereich. `meta.from` und `meta.to` geben genau diese Kalendertage zurück.
 
 | Parameter  | Typ          | Regeln                                                                                      |
 | ---------- | ------------ | ------------------------------------------------------------------------------------------- |
 | `calendar` | Slug         | **mehrfach** angebbar, ein Slug je Kalender; dedupliziert; max. 50                          |
-| `from`     | `YYYY-MM-DD` | optional, Standard heute                                                                    |
+| `from`     | `YYYY-MM-DD` | optional, Standard heute (Kalendertag in `Europe/Berlin`)                                   |
 | `to`       | `YYYY-MM-DD` | optional, `to >= from`, Spanne max. Server-Maximalbereich (Standard 400 Tage) ⇒ sonst `400` |
 | `locale`   | `de` \| `en` |                                                                                             |
 
@@ -1000,7 +1125,10 @@ Regeln, die der Endpunkt durchsetzt:
   Container; sie ein zweites Mal durch `gzip` zu schicken kostet auf beiden Seiten Rechenzeit und
   liefert ein eher größeres Ergebnis.
 - `Cache-Control: public, max-age=86400` — ein ausgetauschtes Bild bekommt vom CMS einen neuen
-  Dateinamen, sodass ein langer Cache nichts veraltet.
+  Dateinamen, sodass ein langer Cache nichts veraltet. Das gilt **nur** für `200` und `304`.
+  Fehlerantworten (`404`, `503`, …) tragen wie jede Fehlerantwort der API
+  `Cache-Control: no-store`, damit ein kurzer CMS-Ausfall kein Bild für einen Tag verschwinden
+  lässt.
 
 #### Revalidierung mit `If-None-Match`
 

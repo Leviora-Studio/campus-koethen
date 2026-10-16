@@ -24,6 +24,10 @@ List<File> _dartFiles(String path) => Directory(path)
 
 String _sourceOf(String path) => File(path).readAsStringSync();
 
+/// Forward-slash form of [File.path] — on Windows, `Directory.listSync`
+/// yields backslash paths, which never equal a hardcoded `lib/...` literal.
+String _posixPath(File file) => file.path.replaceAll('\\', '/');
+
 /// The manifest without its comments — a rule that explains why a permission
 /// is absent must not itself count as asking for it.
 String _manifestDeclarations() => _sourceOf(
@@ -91,7 +95,7 @@ void main() {
           if (file.readAsStringSync().contains(
             "package:flutter_local_notifications/",
           ))
-            file.path,
+            _posixPath(file),
       ];
 
       expect(importers, <String>[
@@ -109,11 +113,18 @@ void main() {
     });
   });
 
-  group('categories are the approved three (LEVIORA-159)', () {
+  group('categories are the approved closed set', () {
     test('no more and no fewer', () {
       expect(
         NotificationCategory.values.map((NotificationCategory c) => c.key),
-        <String>['event.reminder', 'daily.summary', 'canteen.favourite'],
+        <String>[
+          'event.reminder',
+          'daily.summary',
+          'canteen.favourite',
+          'moodle.deadline',
+          'grade.change',
+          'mail.new',
+        ],
       );
     });
 
@@ -122,13 +133,13 @@ void main() {
         NotificationCategory.values
             .map((NotificationCategory c) => c.channelId)
             .toSet(),
-        hasLength(3),
+        hasLength(NotificationCategory.values.length),
       );
       expect(
         NotificationCategory.values
             .map((NotificationCategory c) => c.keyPrefix)
             .toSet(),
-        hasLength(3),
+        hasLength(NotificationCategory.values.length),
       );
     });
 
@@ -192,10 +203,17 @@ void main() {
       },
     );
 
-    test('the iOS project has no push entitlement and no background mode', () {
+    test('the iOS project has no push entitlement and only the local '
+        'background modes of ADR-0002', () {
       final String plist = _sourceOf('ios/Runner/Info.plist');
       expect(plist, isNot(contains('aps-environment')));
-      expect(plist, isNot(contains('UIBackgroundModes')));
+      // `remote-notification` would be a push; `fetch` and `processing` are
+      // the BGTaskScheduler modes of the periodic background sync.
+      expect(plist, isNot(contains('remote-notification')));
+      expect(plist, contains('UIBackgroundModes'));
+      expect(plist, contains('<string>fetch</string>'));
+      expect(plist, contains('<string>processing</string>'));
+      expect(plist, contains('dev.erikengler.campuskoethen.background-sync'));
     });
   });
 }

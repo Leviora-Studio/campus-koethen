@@ -5,6 +5,7 @@ import 'package:campus_koethen/features/notifications/application/canteen_favour
 import 'package:campus_koethen/features/notifications/application/daily_summary_providers.dart';
 import 'package:campus_koethen/features/notifications/application/event_reminder_candidates.dart';
 import 'package:campus_koethen/features/notifications/application/notification_providers.dart';
+import 'package:campus_koethen/features/notifications/application/moodle_deadline_candidates.dart';
 import 'package:campus_koethen/features/notifications/domain/notification_category.dart';
 import 'package:campus_koethen/features/notifications/domain/notification_request.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,27 +21,40 @@ NotificationRequest request(NotificationCategory category) =>
     );
 
 void main() {
-  test('the aggregate keeps every approved category after parallel merges', () {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        eventReminderCandidatesProvider.overrideWithValue(<NotificationRequest>[
-          request(NotificationCategory.eventReminder),
-        ]),
-        dailySummaryCandidatesProvider.overrideWithValue(<NotificationRequest>[
-          request(NotificationCategory.dailySummary),
-        ]),
-        canteenFavouriteCandidatesProvider.overrideWithValue(
-          <NotificationRequest>[request(NotificationCategory.canteenFavourite)],
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
+  test(
+    'the aggregate keeps every scheduled category after parallel merges',
+    () {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          eventReminderCandidatesProvider.overrideWithValue(
+            <NotificationRequest>[request(NotificationCategory.eventReminder)],
+          ),
+          dailySummaryCandidatesProvider.overrideWithValue(
+            <NotificationRequest>[request(NotificationCategory.dailySummary)],
+          ),
+          canteenFavouriteCandidatesProvider.overrideWithValue(
+            <NotificationRequest>[
+              request(NotificationCategory.canteenFavourite),
+            ],
+          ),
+          moodleDeadlineCandidatesProvider.overrideWithValue(
+            <NotificationRequest>[request(NotificationCategory.moodleDeadline)],
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    expect(
-      container
-          .read(notificationCandidatesProvider)
-          .map((NotificationRequest candidate) => candidate.category),
-      NotificationCategory.values,
-    );
-  });
+      expect(
+        container
+            .read(notificationCandidatesProvider)
+            .map((NotificationRequest candidate) => candidate.category),
+        const <NotificationCategory>[
+          NotificationCategory.eventReminder,
+          NotificationCategory.dailySummary,
+          NotificationCategory.canteenFavourite,
+          NotificationCategory.moodleDeadline,
+        ],
+      );
+    },
+  );
 }

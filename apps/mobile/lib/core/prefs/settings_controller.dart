@@ -7,25 +7,83 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_modules.dart';
 import '../../app/navigation_config.dart';
 import '../locale/locale_mode.dart';
+import '../site/campus_site.dart';
+import '../theme/appearance_preferences.dart';
 import 'key_value_store.dart';
 import 'preference_keys.dart';
 
-/// All locally persisted user settings that are plain scalars.
+class TimetableModuleSubscription {
+  const TimetableModuleSubscription({
+    required this.groupId,
+    required this.moduleKey,
+  });
+
+  final String groupId;
+  final String moduleKey;
+
+  String get storageValue =>
+      '${Uri.encodeComponent(groupId)}|${Uri.encodeComponent(moduleKey)}';
+
+  static TimetableModuleSubscription? fromStorage(String value) {
+    final int separator = value.indexOf('|');
+    if (separator <= 0 || separator == value.length - 1) return null;
+    try {
+      final String groupId = Uri.decodeComponent(value.substring(0, separator));
+      final String moduleKey = Uri.decodeComponent(
+        value.substring(separator + 1),
+      );
+      if (groupId.isEmpty ||
+          groupId.length > 100 ||
+          moduleKey.isEmpty ||
+          moduleKey.length > 300) {
+        return null;
+      }
+      return TimetableModuleSubscription(
+        groupId: groupId,
+        moduleKey: moduleKey,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TimetableModuleSubscription &&
+      other.groupId == groupId &&
+      other.moduleKey == moduleKey;
+
+  @override
+  int get hashCode => Object.hash(groupId, moduleKey);
+}
+
+/// All locally persisted user settings that are small scalar values or lists.
 class AppSettings {
   const AppSettings({
     this.localeMode = LocaleMode.german,
-    this.themeMode = ThemeMode.light,
+    this.brightnessPreference = BrightnessPreference.system,
+    this.accentScheme = AccentScheme.pink,
     this.reducedMotion = false,
     this.navigation = NavigationConfig.defaults,
     this.preferredCanteenSlug,
+    this.campusSite,
     this.timetableGroupId,
+    this.timetableAdditionalGroupIds = const <String>[],
+    this.timetableAdditionalModules = const <TimetableModuleSubscription>[],
+    this.dismissedTimetablePeriodId,
     this.defaultBuildingKey,
     this.onboardingCompleted = false,
     this.mailDownloadAttachments = false,
+    this.mailExchangeCalendarEnabled = false,
   });
 
   final LocaleMode localeMode;
-  final ThemeMode themeMode;
+  final BrightnessPreference brightnessPreference;
+  final AccentScheme accentScheme;
+
+  /// Material consumes [ThemeMode], while storage and UI use the explicit
+  /// product vocabulary above. In particular, `system` stays `system`.
+  ThemeMode get themeMode => brightnessPreference.themeMode;
 
   /// The **local** reduced-motion wish. The operating system's own setting is
   /// honoured separately, so this being false does not mean "animate".
@@ -36,9 +94,22 @@ class AppSettings {
   /// Slug of the canteen the user prefers, or `null` for "not chosen yet".
   final String? preferredCanteenSlug;
 
+  /// The campus site the reader studies at, or `null` for "not chosen yet".
+  final CampusSite? campusSite;
+
   /// **Campus** UUID of the chosen timetable group, or `null` for "not chosen
   /// yet". The app never stores an upstream identifier.
   final String? timetableGroupId;
+
+  /// Additional Campus UUIDs merged into the primary group, capped on write.
+  final List<String> timetableAdditionalGroupIds;
+
+  /// Individual modules loaded from other groups without subscribing to the
+  /// complete group timetable.
+  final List<TimetableModuleSubscription> timetableAdditionalModules;
+
+  /// A dismissed next-semester suggestion. A different period is shown again.
+  final String? dismissedTimetablePeriodId;
 
   /// buildingKey the campus map opens on, or `null` for "not chosen yet".
   final String? defaultBuildingKey;
@@ -51,23 +122,36 @@ class AppSettings {
   /// are available offline. Off by default to keep the cache small.
   final bool mailDownloadAttachments;
 
+  /// Whether personal Exchange appointments may be read and merged locally.
+  /// This remains false until the reader explicitly opts in.
+  final bool mailExchangeCalendarEnabled;
+
   AppSettings copyWith({
     LocaleMode? localeMode,
-    ThemeMode? themeMode,
+    BrightnessPreference? brightnessPreference,
+    AccentScheme? accentScheme,
     bool? reducedMotion,
     NavigationConfig? navigation,
     String? preferredCanteenSlug,
     bool clearPreferredCanteen = false,
+    CampusSite? campusSite,
+    bool clearCampusSite = false,
     String? timetableGroupId,
     bool clearTimetableGroup = false,
+    List<String>? timetableAdditionalGroupIds,
+    List<TimetableModuleSubscription>? timetableAdditionalModules,
+    String? dismissedTimetablePeriodId,
+    bool clearDismissedTimetablePeriod = false,
     String? defaultBuildingKey,
     bool clearDefaultBuilding = false,
     bool? onboardingCompleted,
     bool? mailDownloadAttachments,
+    bool? mailExchangeCalendarEnabled,
   }) {
     return AppSettings(
       localeMode: localeMode ?? this.localeMode,
-      themeMode: themeMode ?? this.themeMode,
+      brightnessPreference: brightnessPreference ?? this.brightnessPreference,
+      accentScheme: accentScheme ?? this.accentScheme,
       reducedMotion: reducedMotion ?? this.reducedMotion,
       navigation: navigation ?? this.navigation,
       defaultBuildingKey: clearDefaultBuilding
@@ -77,11 +161,21 @@ class AppSettings {
       preferredCanteenSlug: clearPreferredCanteen
           ? null
           : (preferredCanteenSlug ?? this.preferredCanteenSlug),
+      campusSite: clearCampusSite ? null : (campusSite ?? this.campusSite),
       timetableGroupId: clearTimetableGroup
           ? null
           : (timetableGroupId ?? this.timetableGroupId),
+      timetableAdditionalGroupIds:
+          timetableAdditionalGroupIds ?? this.timetableAdditionalGroupIds,
+      timetableAdditionalModules:
+          timetableAdditionalModules ?? this.timetableAdditionalModules,
+      dismissedTimetablePeriodId: clearDismissedTimetablePeriod
+          ? null
+          : (dismissedTimetablePeriodId ?? this.dismissedTimetablePeriodId),
       mailDownloadAttachments:
           mailDownloadAttachments ?? this.mailDownloadAttachments,
+      mailExchangeCalendarEnabled:
+          mailExchangeCalendarEnabled ?? this.mailExchangeCalendarEnabled,
     );
   }
 }
@@ -94,8 +188,28 @@ final Provider<KeyValueStore> keyValueStoreProvider = Provider<KeyValueStore>(
   (Ref ref) => InMemoryKeyValueStore(),
 );
 
+/// Counts the local preference resets of this process.
+///
+/// A controller that owns keys [SettingsController.resetLocalPreferences]
+/// clears watches this, so its in-memory state follows the store.
+class PreferencesResetGeneration extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void _bump() => state = state + 1;
+}
+
+final NotifierProvider<PreferencesResetGeneration, int>
+preferencesResetGenerationProvider =
+    NotifierProvider<PreferencesResetGeneration, int>(
+      PreferencesResetGeneration.new,
+    );
+
 /// Reads and writes [AppSettings].
 class SettingsController extends Notifier<AppSettings> {
+  static const int maxAdditionalTimetableGroups = 12;
+  static const int maxAdditionalTimetableModules = 48;
+
   KeyValueStore get _store => ref.read(keyValueStoreProvider);
 
   @override
@@ -110,24 +224,58 @@ class SettingsController extends Notifier<AppSettings> {
   /// actually persisted rather than assume the defaults took hold.
   AppSettings _read() {
     final KeyValueStore store = _store;
+    final String? primary = store.getString(
+      PreferenceKeys.preferredTimetableGroup,
+    );
+    final List<String> additionalGroups =
+        (store.getStringList(PreferenceKeys.additionalTimetableGroups) ??
+                const <String>[])
+            .where((id) => id.isNotEmpty && id != primary)
+            .toSet()
+            .take(maxAdditionalTimetableGroups)
+            .toList(growable: false);
+    final List<TimetableModuleSubscription> additionalModules =
+        _normaliseTimetableModules(
+          (store.getStringList(PreferenceKeys.additionalTimetableModules) ??
+                  const <String>[])
+              .map(TimetableModuleSubscription.fromStorage)
+              .whereType<TimetableModuleSubscription>(),
+          primary: primary,
+          fullGroups: additionalGroups.toSet(),
+        );
     return AppSettings(
       localeMode: LocaleMode.fromStorage(
         store.getString(PreferenceKeys.localeMode),
       ),
-      themeMode: _themeModeFromStorage(
-        store.getString(PreferenceKeys.themeMode),
+      brightnessPreference: BrightnessPreference.fromStorage(
+        store.getString(PreferenceKeys.brightnessPreference) ??
+            store.getString(PreferenceKeys.legacyThemeMode),
+      ),
+      accentScheme: AccentScheme.fromStorage(
+        store.getString(PreferenceKeys.accentScheme),
       ),
       reducedMotion: store.getInt(PreferenceKeys.reducedMotion) == 1,
       navigation: NavigationConfig.fromStorage(
         store.getStringList(PreferenceKeys.navigationTabs),
       ),
       preferredCanteenSlug: store.getString(PreferenceKeys.preferredCanteen),
-      timetableGroupId: store.getString(PreferenceKeys.preferredTimetableGroup),
+      campusSite: CampusSite.fromStorage(
+        store.getString(PreferenceKeys.campusSite),
+      ),
+      timetableGroupId: primary,
+      timetableAdditionalGroupIds: List<String>.unmodifiable(additionalGroups),
+      timetableAdditionalModules:
+          List<TimetableModuleSubscription>.unmodifiable(additionalModules),
+      dismissedTimetablePeriodId: store.getString(
+        PreferenceKeys.dismissedTimetablePeriod,
+      ),
       defaultBuildingKey: store.getString(PreferenceKeys.defaultBuilding),
       onboardingCompleted:
           store.getInt(PreferenceKeys.onboardingCompleted) == 1,
       mailDownloadAttachments:
           store.getInt(PreferenceKeys.mailDownloadAttachments) == 1,
+      mailExchangeCalendarEnabled:
+          store.getInt(PreferenceKeys.mailExchangeCalendarEnabled) == 1,
     );
   }
 
@@ -136,9 +284,20 @@ class SettingsController extends Notifier<AppSettings> {
     await _store.setString(PreferenceKeys.localeMode, mode.storageValue);
   }
 
-  Future<void> setThemeMode(ThemeMode mode) async {
-    state = state.copyWith(themeMode: mode);
-    await _store.setString(PreferenceKeys.themeMode, _themeModeToStorage(mode));
+  Future<void> setBrightnessPreference(BrightnessPreference preference) async {
+    state = state.copyWith(brightnessPreference: preference);
+    await _store.setString(
+      PreferenceKeys.brightnessPreference,
+      preference.storageValue,
+    );
+    // Once the v2 value exists it wins on every read. Removing the old value
+    // avoids leaving two apparently active sources in a preferences export.
+    await _store.remove(PreferenceKeys.legacyThemeMode);
+  }
+
+  Future<void> setAccentScheme(AccentScheme scheme) async {
+    state = state.copyWith(accentScheme: scheme);
+    await _store.setString(PreferenceKeys.accentScheme, scheme.storageValue);
   }
 
   Future<void> setPreferredCanteen(String? slug) async {
@@ -151,15 +310,135 @@ class SettingsController extends Notifier<AppSettings> {
     await _store.setString(PreferenceKeys.preferredCanteen, slug);
   }
 
+  Future<void> setCampusSite(CampusSite? site) async {
+    if (site == null) {
+      state = state.copyWith(clearCampusSite: true);
+      await _store.remove(PreferenceKeys.campusSite);
+      return;
+    }
+    state = state.copyWith(campusSite: site);
+    await _store.setString(PreferenceKeys.campusSite, site.storageValue);
+  }
+
   /// Stores the **Campus** UUID of the chosen timetable group.
   Future<void> setTimetableGroup(String? groupId) async {
     if (groupId == null) {
-      state = state.copyWith(clearTimetableGroup: true);
+      state = state.copyWith(
+        clearTimetableGroup: true,
+        timetableAdditionalGroupIds: const <String>[],
+        timetableAdditionalModules: const <TimetableModuleSubscription>[],
+        clearDismissedTimetablePeriod: true,
+      );
       await _store.remove(PreferenceKeys.preferredTimetableGroup);
+      await _store.remove(PreferenceKeys.additionalTimetableGroups);
+      await _store.remove(PreferenceKeys.additionalTimetableModules);
+      await _store.remove(PreferenceKeys.dismissedTimetablePeriod);
       return;
     }
-    state = state.copyWith(timetableGroupId: groupId);
+    final List<String> additional = state.timetableAdditionalGroupIds
+        .where((String id) => id != groupId)
+        .toList(growable: false);
+    final List<TimetableModuleSubscription> modules =
+        _normaliseTimetableModules(
+          state.timetableAdditionalModules,
+          primary: groupId,
+          fullGroups: additional.toSet(),
+        );
+    state = state.copyWith(
+      timetableGroupId: groupId,
+      timetableAdditionalGroupIds: additional,
+      timetableAdditionalModules: modules,
+      clearDismissedTimetablePeriod: true,
+    );
     await _store.setString(PreferenceKeys.preferredTimetableGroup, groupId);
+    await _store.setStringList(
+      PreferenceKeys.additionalTimetableGroups,
+      additional,
+    );
+    await _store.setStringList(
+      PreferenceKeys.additionalTimetableModules,
+      modules.map((item) => item.storageValue).toList(growable: false),
+    );
+    await _store.remove(PreferenceKeys.dismissedTimetablePeriod);
+  }
+
+  Future<void> setAdditionalTimetableGroups(Iterable<String> groupIds) async {
+    final String? primary = state.timetableGroupId;
+    final List<String> next = groupIds
+        .where((String id) => id.isNotEmpty && id != primary)
+        .toSet()
+        .take(maxAdditionalTimetableGroups)
+        .toList(growable: false);
+    final Set<String> fullGroups = next.toSet();
+    final List<TimetableModuleSubscription> modules =
+        _normaliseTimetableModules(
+          state.timetableAdditionalModules,
+          primary: primary,
+          fullGroups: fullGroups,
+        );
+    state = state.copyWith(
+      timetableAdditionalGroupIds: next,
+      timetableAdditionalModules: modules,
+    );
+    await _store.setStringList(PreferenceKeys.additionalTimetableGroups, next);
+    await _store.setStringList(
+      PreferenceKeys.additionalTimetableModules,
+      modules.map((item) => item.storageValue).toList(growable: false),
+    );
+  }
+
+  Future<void> setAdditionalTimetableModules(
+    Iterable<TimetableModuleSubscription> subscriptions,
+  ) async {
+    final String? primary = state.timetableGroupId;
+    final Set<String> fullGroups = state.timetableAdditionalGroupIds.toSet();
+    final List<TimetableModuleSubscription> next = _normaliseTimetableModules(
+      subscriptions,
+      primary: primary,
+      fullGroups: fullGroups,
+    );
+    state = state.copyWith(timetableAdditionalModules: next);
+    await _store.setStringList(
+      PreferenceKeys.additionalTimetableModules,
+      next.map((item) => item.storageValue).toList(growable: false),
+    );
+  }
+
+  Future<void> dismissTimetablePeriod(String periodId) async {
+    state = state.copyWith(dismissedTimetablePeriodId: periodId);
+    await _store.setString(PreferenceKeys.dismissedTimetablePeriod, periodId);
+  }
+
+  static List<TimetableModuleSubscription> _normaliseTimetableModules(
+    Iterable<TimetableModuleSubscription> subscriptions, {
+    required String? primary,
+    required Set<String> fullGroups,
+  }) {
+    final List<TimetableModuleSubscription> result =
+        <TimetableModuleSubscription>[];
+    final Set<TimetableModuleSubscription> seen =
+        <TimetableModuleSubscription>{};
+    final Set<String> moduleGroups = <String>{};
+    for (final TimetableModuleSubscription subscription in subscriptions) {
+      if (result.length >= maxAdditionalTimetableModules) break;
+      if (subscription.groupId.isEmpty ||
+          subscription.groupId.length > 100 ||
+          subscription.moduleKey.isEmpty ||
+          subscription.moduleKey.length > 300 ||
+          subscription.groupId == primary ||
+          fullGroups.contains(subscription.groupId) ||
+          !seen.add(subscription)) {
+        continue;
+      }
+      if (!moduleGroups.contains(subscription.groupId) &&
+          fullGroups.length + moduleGroups.length >=
+              maxAdditionalTimetableGroups) {
+        continue;
+      }
+      moduleGroups.add(subscription.groupId);
+      result.add(subscription);
+    }
+    return result;
   }
 
   Future<void> setReducedMotion(bool enabled) async {
@@ -215,19 +494,27 @@ class SettingsController extends Notifier<AppSettings> {
     bool complete = true;
     for (final String key in <String>[
       PreferenceKeys.localeMode,
-      PreferenceKeys.themeMode,
+      PreferenceKeys.brightnessPreference,
+      PreferenceKeys.legacyThemeMode,
+      PreferenceKeys.accentScheme,
       PreferenceKeys.reducedMotion,
       PreferenceKeys.navigationTabs,
       PreferenceKeys.preferredCanteen,
       PreferenceKeys.preferredTimetableGroup,
+      PreferenceKeys.additionalTimetableGroups,
+      PreferenceKeys.additionalTimetableModules,
+      PreferenceKeys.dismissedTimetablePeriod,
       PreferenceKeys.defaultBuilding,
       PreferenceKeys.mailDownloadAttachments,
+      PreferenceKeys.mailExchangeCalendarEnabled,
+      PreferenceKeys.calendarHomeWidgetEnabled,
+      PreferenceKeys.calendarHomeWidgetShowDetails,
     ]) {
       // Each key on its own: a throw used to abandon the loop, leaving a half
       // reset behind a snack bar that said it was done — and the untouched
       // values came back at the next start (SET-6).
       try {
-        await _store.remove(key);
+        if (!await _store.remove(key)) complete = false;
       } catch (_) {
         complete = false;
       }
@@ -235,6 +522,9 @@ class SettingsController extends Notifier<AppSettings> {
     // Rebuilt from the store rather than assumed: after a partial failure the
     // published state has to match what is actually persisted.
     state = _read();
+    // Settings with a controller of their own (the home screen widget) have
+    // to re-read the store as well, or their live state outlasts the reset.
+    ref.read(preferencesResetGenerationProvider.notifier)._bump();
     return complete;
   }
 
@@ -246,17 +536,13 @@ class SettingsController extends Notifier<AppSettings> {
     );
   }
 
-  static ThemeMode _themeModeFromStorage(String? value) => switch (value) {
-    'light' => ThemeMode.light,
-    'dark' => ThemeMode.dark,
-    _ => ThemeMode.light,
-  };
-
-  static String _themeModeToStorage(ThemeMode mode) => switch (mode) {
-    ThemeMode.light => 'light',
-    ThemeMode.dark => 'dark',
-    ThemeMode.system => 'light',
-  };
+  Future<void> setMailExchangeCalendarEnabled(bool enabled) async {
+    state = state.copyWith(mailExchangeCalendarEnabled: enabled);
+    await _store.setInt(
+      PreferenceKeys.mailExchangeCalendarEnabled,
+      enabled ? 1 : 0,
+    );
+  }
 }
 
 final NotifierProvider<SettingsController, AppSettings> settingsProvider =

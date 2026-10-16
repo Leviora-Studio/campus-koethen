@@ -5,6 +5,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/background/background_sync_settings.dart';
+import '../../../core/prefs/settings_controller.dart';
+
 import '../domain/mail_credentials.dart';
 import '../domain/mail_failure.dart';
 import '../domain/mail_gateway.dart';
@@ -92,9 +95,33 @@ class MailAccountController extends AsyncNotifier<MailAccountState> {
     } on TimeoutException {
       throw const MailFailure(MailFailureKind.timeout);
     }
-    await ref
-        .read(mailLocalDataCoordinatorProvider)
-        .writeCredentials(credentials);
+    final bool wasSignedIn = state.value?.isSignedIn ?? false;
+    try {
+      final coordinator = ref.read(mailLocalDataCoordinatorProvider);
+      final MailCredentials? previous = await coordinator.readCredentials();
+      // Case-insensitive, like the university account connector: another
+      // spelling of the same address is a password change, not a new account.
+      if (previous?.emailAddress.toLowerCase() != address.toLowerCase()) {
+        // Record the wipe and invalidate every in-memory holder before the new
+        // account can become visible. This also clears artifacts left by an
+        // interrupted/legacy account even when no credential is present.
+        await coordinator.wipe(onIntentRecorded: _invalidateMailSession);
+      } else {
+        // A password refresh for the same mailbox may keep its encrypted
+        // cache, but outstanding requests still belong to the old
+        // authenticated session and must not write after the replacement.
+        _invalidateMailSession();
+      }
+      await coordinator.writeCredentials(credentials);
+    } catch (error, stackTrace) {
+      if (wasSignedIn) {
+        // Mutation has begun after successful remote verification. The old
+        // public account must no longer look usable when its local wipe or the
+        // replacement write could only be completed partially.
+        state = AsyncError<MailAccountState>(error, stackTrace);
+      }
+      rethrow;
+    }
     _removing = false;
 
     // The inbox watches this controller, so publishing the new account state is
@@ -119,6 +146,8 @@ class MailAccountController extends AsyncNotifier<MailAccountState> {
 
   void _invalidateMailSession() {
     _removing = true;
+    // A new or removed account is a fresh start for the background sync too.
+    unawaited(BackgroundMailGuard(ref.read(keyValueStoreProvider)).release());
     _sessionGeneration++;
     ref.read(mailSessionGenerationProvider.notifier).advance();
   }

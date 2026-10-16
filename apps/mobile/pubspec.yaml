@@ -4,7 +4,7 @@ description: "Campus Köthen — an independent, unofficial campus app."
 # Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 publish_to: 'none'
 
-version: 1.2.4+9
+version: 2.1.0+14
 
 environment:
   sdk: ^3.12.2
@@ -29,6 +29,8 @@ dependencies:
   # Imported directly for MediaType on multipart parts. Already a transitive
   # dependency of dio; declared so the import is not an implicit one.
   http_parser: ^4.1.2
+  # WebDAV multistatus responses from Nextcloud are XML.
+  xml: ^6.6.1
 
   # Content cache
   hive_ce: ^2.15.0
@@ -79,6 +81,15 @@ dependencies:
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
   app_settings: ^9.0.0
+  # Native Android/iOS home-screen widget bridge. The widget UI itself remains
+  # native; this only writes local payloads and requests a refresh.
+  home_widget: ^0.10.0
+
+  # PBKDF2/AES-256-GCM/RSA-OAEP for the HSA-GPT (HAWKI) chat-history keychain —
+  # see lib/features/hsa_ki/crypto/. Must stay byte-compatible with HAWKI's own
+  # WebCrypto-based frontend, never a "close enough" substitute.
+  pointycastle: ^4.0.0
+  workmanager: ^0.10.10
 
 dev_dependencies:
   flutter_test:

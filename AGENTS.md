@@ -8,7 +8,10 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
 
 ## 1. Projektidentität — nicht verhandelbar
 
-- Sichtbarer App-Name: **Campus Köthen**. Technische Kennung: `dev.erikengler.campuskoethen`.
+- Sichtbarer App-Name: **Campus Köthen**. Technische Kennungen: Android-`applicationId`
+  `erikengler.campuskoethen` (Kotlin-Namespace `dev.erikengler.campuskoethen`), iOS-Bundle-ID
+  `campus-koethen` (Widget `campus-koethen.CampusCalendarWidget`). Diese Store-Kennungen werden
+  nicht geändert — eine neue Kennung wäre im Store eine neue App ohne Update-Pfad.
 - Das Projekt ist **unabhängig und inoffiziell**. Es darf an keiner Stelle den Eindruck einer
   offiziellen Anwendung der Hochschule Anhalt erwecken.
 - **Verboten:** Logos, Wappen, geschützte Markenassets, kopierte Designsysteme der Hochschule;
@@ -32,26 +35,87 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
    **Eng begrenzte, ausdrücklich beschlossene Ausnahme (nur diese):** Persönliche, besonders
    sensible Dienste dürfen aus Datenschutzgründen **direkt** vom Gerät an den jeweiligen
    offiziellen Anbieter angebunden werden, damit weder Campus-Backend noch Strapi Zugangsdaten
-   oder personenbezogene Inhalte erhalten. Aktuell sind das **genau vier**:
-   - der **Studenten-Mailclient** → direkt zu `mail.hs-anhalt.de` (IMAPS/SMTP);
+   oder personenbezogene Inhalte erhalten. Aktuell sind das **genau sechs**:
+   - der **Studenten-Mailclient** → direkt zu `mail.hs-anhalt.de` (IMAPS/SMTP; ausschließlich für
+     die authentifizierte Empfängersuche EWS `ResolveNames` am festen HTTPS-Endpunkt
+     `https://mail.hs-anhalt.de/EWS/Exchange.asmx`, kein Autodiscover und keine beliebigen
+     EWS-Operationen; sowie ausschließlich nach ausdrücklichem Opt-in lesender
+     Exchange-Kalenderzugriff über exakt denselben Endpunkt). Der EWS-Kalender darf nur Betreff,
+     Beginn, Ende, Ganztags-/Absagestatus und Ort des eigenen Standardkalenders abfragen; keine
+     Bodies, Teilnehmerlisten, Schreiboperationen oder Redirects. Termine bleiben im regulären
+     Betrieb flüchtig im Arbeitsspeicher und werden ausschließlich lokal mit den anderen
+     Kalenderquellen vereinigt. Sie dürfen weder in den persistenten Homescreen-Widget-Payload
+     noch in geplante Betriebssystem-Benachrichtigungen gelangen. Nur ein vom Nutzer bewusst
+     ausgelöster ICS-Export darf die aktuell geladenen Termine an ein vom Nutzer gewähltes Ziel
+     übergeben;
    - der **Notenspiegel** → direkt und **nur** zu genau dem Host des Portals, auf dem das
      jeweilige Konto eingerichtet wurde. Die Hochschule Anhalt betreibt zwei Prüfungsportale
      parallel; jedes hat seine EIGENE, getrennte Host-Allowlist (kein gemeinsamer Pool):
      `https://service.ssc.hs-anhalt.de` (HIS-QIS, Bestandsportal) und
-     `https://sscportal.ssc.hs-anhalt.de` (HISinOne, neueres Portal). Welches Portal ein
-     Konto nutzt, wird bei der Einrichtung einmalig ermittelt (`docs/grades.md`
-     „Portalwahl") und lokal gespeichert;
+     `https://sscportal.ssc.hs-anhalt.de` (HISinOne, neueres Portal und Standard). Welches Portal
+     ein Konto nutzt, wird bei der Einrichtung einmalig ermittelt (`docs/grades.md`
+     „Portalwahl", HISinOne zuerst) und lokal gespeichert; ein Konto ohne gespeicherte Wahl
+     wechselt einmalig auf HISinOne.
+     Dieselbe HISinOne-Verbindung (für Login, Seiten und Formularaktionen **ausschließlich**
+     `https://sscportal.ssc.hs-anhalt.de`, **nicht** das HIS-QIS-Bestandsportal) erweitert um
+     konkret benannte, ausschließlich
+     **lesende** Funktionen auf der Seite „Studienservice" (ein Formular, Tab-Wechsel per
+     Voll-POST): Bescheinigungsübersicht, Personendaten und Kontaktdaten, Studiengangsübersicht
+     sowie die nur über die Zahlungsübersicht ableitbaren Status-Hinweise (Hörerstatus unter
+     Personendaten; ein Rückmeldestatus existiert nicht als eigenes Feld, nur indirekt über
+     offene/keine offenen Zahlungen); zusätzlich um den Abruf der auf der Notenübersichtsseite
+     selbst angebotenen drei festen Bescheinigungen (Leistungsübersicht bestandener Leistungen
+     auf Deutsch und Englisch, Übersicht fehlender Leistungen) über deren eigene Druck-Buttons —
+     eine normale volle Formularabgabe, kein AJAX-Auftrag, kein Polling. Diese Funktionen nutzen
+     dieselben, bereits für den Notenspiegel hinterlegten Zugangsdaten wieder — kein zweiter
+     Login, kein separater `+`/`−`-Dienst. Der erzeugte Bescheinigungsabruf — ob aus dem
+     Studienservice-Auftrag oder aus einem Notenübersicht-Druck-Button — ist zweistufig: zuerst
+     ausschließlich per `GET` an `https://sscportal.ssc.hs-anhalt.de/qisserver/rds` mit exakt
+     `state=docdownload`, danach folgt ein serverseitiger Redirect auf denselben Pfad und
+     Zustand, aber auf die **separate** Origin `https://untrust-sscportal.ssc.hs-anhalt.de`
+     (bestätigt 2026-10-04 durch einen echten `Location`-Header eines abgeschlossenen Auftrags,
+     zusätzlich durch den `Content-Security-Policy`-Header des Portals selbst belegt, der genau
+     diesen Host unter `child-src` listet). Ziel und Einweg-Token für beide Stufen müssen aus der
+     jeweils aktuellen AJAX-Antwort beziehungsweise dem Formular-Redirect stammen, und diese enge
+     Pfad-/Parameter-Prüfung auf genau diesen zwei Hosts ist **keine** gemeinsame oder allgemeine
+     Allowlist.
+     Erlaubte Formularaktionen sind nur Login, Studienservice-Tabwechsel, Start und Polling der
+     vom Nutzer gewählten Studienservice-Bescheinigung, sowie das Absenden genau eines der drei
+     festen Bescheinigungs-Buttons auf der Notenübersichtsseite. **Ausdrücklich ausgeschlossen**
+     bleibt jede Änderung
+     des Hochschul-Datensatzes: keine Prüfungsanmeldung, keine Adressänderung und kein Antrag.
+     Eine unbekannte oder unerwartete Seitenstruktur erhält einen klassifizierten Fehler und wird
+     **nie** geraten geparst;
    - die **Moodle-Integration** (Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines) →
      direkt und **nur** zu `https://moodle.hs-anhalt.de`. Kein Moodle-Token, keine Kurs-,
      Aufgaben-, Abgabe-, Ankündigungs- oder Deadline-Daten dürfen ein Campus-Köthen-Backend
-     erreichen. Der quellenübergreifende Kalender führt Stundenplan (Campus API) und
-     Moodle-Deadlines **ausschließlich lokal auf dem Gerät** zusammen.
+     erreichen. Der quellenübergreifende Kalender führt Stundenplan (Campus API),
+     Moodle-Deadlines und optional Exchange-Termine **ausschließlich lokal auf dem Gerät**
+     zusammen.
+   - der **Nextcloud-Dateiexplorer** → direkt und **nur** zur exakten Origin
+     `https://cloud.hs-anhalt.de`. Die Anmeldung erfolgt ausschließlich über Nextcloud Login Flow
+     v2 im Systembrowser; Campus Köthen erhält und übermittelt dabei nie das zentrale
+     Hochschulpasswort. Das ausgegebene App-Passwort, `loginName` und die für WebDAV ermittelte
+     Nutzer-ID liegen ausschließlich im gerätegebundenen Keychain/Keystore. Verzeichnislisten und
+     geladene Dateien bleiben flüchtig im Arbeitsspeicher und werden nicht in Hive,
+     SharedPreferences oder einem Campus-Backend gespeichert. Erlaubt sind nur Login Flow v2,
+     die OCS-Abfrage des eigenen Benutzerprofils, der Widerruf des eigenen App-Passworts sowie
+     WebDAV-Aufrufe unter `/remote.php/dav/files/{eigene Nutzer-ID}`. Schreibzugriffe sind eng
+     begrenzt auf bewusst ausgelöste Uploads (Dateipicker oder der bestätigte, unverschlüsselte
+     Export einer Datei aus der Offline-Dokumentenablage) ohne stilles Überschreiben und bestätigtes Löschen;
+     ein Ordner-DELETE muss ausdrücklich auf die rekursive Wirkung hinweisen. Nach separater
+     Bestätigung darf die OCS-Share-API einen nur lesbaren öffentlichen Link (`shareType=3`,
+     `permissions=1`) erzeugen. Der Link bleibt flüchtig, wird nie geloggt oder persistiert und
+     darf nur an das OS-Share-Sheet übergeben werden. Keine Umbenennungen, Verschiebungen,
+     Hintergrundmutationen oder frei konfigurierbaren Nextcloud-Server. `−` versucht den
+     serverseitigen Widerruf und löscht die lokale Berechtigung auch dann verifiziert, wenn der
+     Server nicht erreichbar ist. Details: [`docs/nextcloud.md`](docs/nextcloud.md).
    - die **Antragstellung und das Feedback** (Finanzanträge und Rückmeldungen an das Gremiensystem
-     des Studierendenrats) → direkt an dessen öffentliche API. Anders als die drei anderen ist
+     des Studierendenrats) → direkt an dessen öffentliche API. Anders als die vier anderen ist
      dieser Dienst **nicht** nutzerauthentifiziert; ausschlaggebend ist der Inhalt: Eine
      Einreichung trägt den Namen der antragstellenden Person und eine **Kopie des
      Studierendenausweises**. Genau solche Daten sollen kein Campus-Köthen-Backend erreichen,
-     weshalb hier dieselbe Begründung greift wie bei den übrigen drei. Die Adresse ist **nie**
+     weshalb hier dieselbe Begründung greift wie bei den übrigen vier. Die Adresse ist **nie**
      eine Quellcode-Konstante, sondern kommt als `REQUESTS_BASE_URL` aus dem Build-Environment
      und muss **HTTPS** sein; daraus entsteht eine exakte Origin-Allowlist. Der zurückgegebene
      **Statuslink ist ein Geheimnis** — er ist der einzige Zugang zum Vorgang, wird verschlüsselt
@@ -63,11 +127,53 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
      **ausschließlich** per `POST` mit dem Link im JSON-Body, nie über einen Query-Parameter.
      Entwürfe, Anhänge und Ergebnis bleiben auf dem Gerät.
      Details: [`docs/requests.md`](docs/requests.md).
+   - der **HSA-GPT-Chat** (HAWKI, der KI-Dienst der Hochschule Anhalt) → direkt und **nur** zu
+     `https://ki.hs-anhalt.de`. Anmeldung erfolgt mit denselben, bereits hinterlegten
+     Hochschulzugangsdaten über HAWKIs Web-Login (`GET /login`, `POST /req/login`, danach
+     `/logout`; zwischen Login und Logout zusätzlich `GET /profile` ausschließlich als Quelle des
+     nach dem Login erneuerten CSRF-Tokens); das Passwort wird dabei einmalig verwendet, um über HAWKIs eigene
+     Profilfunktion (`POST /req/profile/create-token`) ein persönliches, jederzeit über
+     `POST /req/profile/revoke-token` widerrufbares Sanctum-API-Token zu erzeugen. Gespeichert wird
+     ausschließlich dieses Token, **niemals** das Passwort. Jede weitere Aktion — Modell-Liste
+     (`GET /api/hawki/v1/ai-models`) und Chat-Anfrage (`POST /api/ai-req`; HAWKI registriert diese
+     Route ohne `/hawki/v1`-Präfix, am 2026-10-06 gegen die Live-Instanz bestätigt) — läuft
+     ausschließlich mit diesem Bearer-Token gegen HAWKIs eigene, zustandslose externe API; der
+     Chatverlauf besteht nur im Arbeitsspeicher der App, solange die Ansicht offen ist, und wird
+     nie an ein Campus-Köthen-Backend gesendet oder dort gespeichert. Kein Zugriff auf HAWKIs
+     interne SSE-Streaming-Route, kein E2EE-/Passkey-Schema dieses Diensts, keine Prompt- oder
+     Antwortinhalte in Logs. Das im Quellbaum liegende Modul
+     `apps/mobile/lib/features/hsa_ki/crypto/` (HAWKIs E2EE-Schema, mit Tests) ist von keinem
+     Produktionscode importiert und wird nicht angebunden, solange diese Regel gilt. HSA-GPT ist
+     derzeit in „Mehr“ vorübergehend deaktiviert, weil `ki.hs-anhalt.de` noch HAWKI 2.4.0 ohne die
+     benötigte Modell-API betreibt. HSA-GPT bekommt einen eigenen, expliziten Zustimmungsbildschirm
+     statt einer Checkbox im allgemeinen Ersteinrichtungs-Assistenten, da die Verbindung direkt vom Gerät
+     erfolgt und die Antworten HAWKIs eigene sind, nicht die von Campus Köthen.
 
    Für diese Ausnahmen gilt: **kein** Backend-Proxy, **keine** serverseitige Speicherung, **kein**
    Analytics-/Logging-Umweg. Zugangsdaten nur im Keychain/Keystore, sensible Inhalte nur
    verschlüsselt lokal. Dies ist **keine** allgemeine Erlaubnis für beliebige direkte
    Drittanbieterzugriffe — jede weitere Ausnahme muss hier ausdrücklich ergänzt werden.
+
+   Die optionale zentrale `UniversityIdentity` ist ausschließlich eine **lokale Eingabehilfe** für
+   Mail, Moodle, Noten und HSA-GPT — **keine** gemeinsame SSO-Sitzung und kein App-/Backend-Konto.
+   Nextcloud verwendet unabhängig davon ausschließlich den Browser-basierten Login Flow v2. Die
+   Identität enthält genau **eine Kennung** (Benutzername oder vollständige Mailadresse) und ein
+   Passwort, wird erst nach ausdrücklicher Bestätigung und erfolgreicher Prüfung durch mindestens
+   einen Dienst gespeichert und liegt nur im gerätegebundenen Keychain/Keystore. Ein reiner
+   Benutzername wird ausschließlich für Mail zu `<Kennung>@hs-anhalt.de` ergänzt; eine eingegebene
+   Mailadresse bleibt unverändert, Moodle, Noten und HSA-GPT erhalten die Kennung unverändert. Das
+   frühere Drei-Feld-Schema wird
+   beim Erkennen vollständig verworfen, nie still migriert. `+` erzeugt nach bewusster Nutzeraktion
+   ausschließlich die dienstbezogene Session beziehungsweise Credential-Kopie; `−` wischt nur
+   diesen Dienst und seinen
+   Cache, nicht die zentrale Identität. Ein Kontowechsel (andere Kennung) verbindet ausschließlich
+   den Dienst, mit dem das neue Konto geprüft wurde; jeder zuvor verknüpfte Dienst wird getrennt
+   und erst nach erneutem `+` des Nutzers mit dem neuen Konto verbunden, HSA-GPT nur über seinen
+   Zustimmungsbildschirm. Eine reine Passwortänderung derselben Kennung erhält die bestehenden
+   Verknüpfungen und verbindet sie mit dem neuen Passwort neu. „Hochschulzugang vollständig löschen“ trennt alle Dienste
+   über deren kanonische Wipes und löscht die zentrale Identität **zuletzt**; bei einem Teilfehler
+   bleibt sie für den sichtbaren, wiederholbaren Retry erhalten. Kein Wert daraus darf in
+   `SharedPreferences`, Hive, öffentlichen Riverpod-State, Campus API, Logs oder Telemetrie gelangen.
 
    **Öffentliche Google-Kalender** sind dagegen **öffentliche** Campusdaten und laufen bewusst über
    den **öffentlichen** Backend-Pfad: Der Campus-Worker liest die in Strapi gepflegte öffentliche
@@ -80,7 +186,8 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
    eigenständiges DTO-Feld; sie darf ausschließlich innerhalb serverseitig erzeugter
    `googleOpenUrl`- beziehungsweise `src`-Parameter an die App gelangen, weil die Links zum Öffnen
    in Google ohne sie nicht funktionieren. Die Zusammenführung mit dem Stundenplan (Campus API)
-   und den Moodle-Deadlines (direkt) geschieht weiterhin **ausschließlich lokal** in Flutter. Details:
+   den Moodle-Deadlines sowie optionalen Exchange-Terminen (direkt) geschieht weiterhin
+   **ausschließlich lokal** in Flutter. Details:
    [`docs/public-calendars.md`](docs/public-calendars.md).
 
    **Selbst erstellte, versionierte Assets** sind von dieser Regel nicht berührt: Kartengeometrie
@@ -97,7 +204,10 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
    Read-only-Token. Kein direkter Zugriff auf Strapi-Tabellen, keine gemeinsame Prisma-Verbindung.
 3. Redaktionelle Inhalte leben in Strapi. Importierte Mensadaten und Sync-Zustände leben in der
    operativen PostgreSQL-Datenbank. Getrennte Datenbanken, getrennte Rollen.
-4. Die Strapi-Adresse ist **nie** eine Quellcode-Konstante — ausschließlich `STRAPI_BASE_URL`.
+4. Die Strapi-Adresse kommt aus `STRAPI_BASE_URL`. Einzige Ausnahme im Quellcode: Fehlt die
+   Variable ganz, setzt das Env-Schema des Backends den lokalen Entwicklungswert
+   `http://127.0.0.1:1337`. Alle Compose-Umgebungen (lokal, Test, Produktion) setzen
+   `STRAPI_BASE_URL` beziehungsweise `BACKEND_STRAPI_BASE_URL` explizit.
 5. DEV und PROD unterscheiden sich **nur** durch Environment/Secrets, nie durch Quellcode.
 6. Strapi stellt **keine** unauthentifizierte Content-API bereit. Das Plugin `users-permissions`
    ist bewusst nicht installiert; dadurch existiert keine versehentlich freischaltbare Public
@@ -151,10 +261,13 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
 ## 7. Technische Standards
 
 - TypeScript **strict**. Kein `any` ohne begründeten, kommentierten Ausnahmefall.
-- Node.js 22.x. pnpm-Workspace mit Lockfile; `--frozen-lockfile` in CI.
+- Node.js 24.x, repositoryweit exakt über `.node-version` und `.nvmrc` gepinnt. pnpm-Workspace
+  mit Lockfile; `--frozen-lockfile` in CI.
 - Öffentliche DTOs leaken **keine** Strapi-Internas (`data`, `attributes`, `documentId`,
   `populate`-Metadaten) und keine internen Fremd-IDs wie WebUntis-IDs, `location_id` oder eine
-  Google-Kalender-ID als eigenständiges Feld.
+  Google-Kalender-ID als eigenständiges Feld. Bewusste, in `docs/api.md` dokumentierte Ausnahme:
+  Mensa-Gerichte tragen als `id` die Gericht-ID und als `counterId` die Ausgabestellen-ID von
+  meine-mensa. Die App behandelt `id` als undurchsichtige Zeichenkette und nutzt `counterId` nicht.
 - Query-Parameter werden validiert und begrenzt (insbesondere `pageSize` und Datumsbereiche).
 - Flutter: Riverpod, go_router, dio, `hive_ce` für den Inhaltscache.
   `SharedPreferences` **nur** für kleine skalare Einstellungen — kein JSON-Großspeicher.
@@ -184,4 +297,9 @@ Diese Platzhalter dürfen nicht durch erfundene Werte ersetzt werden. Die vollst
 aktuelle Liste aller organisatorischen, rechtlichen, datenquellenbezogenen und technischen
 Release-Gates steht in `README.md` und `docs/product/mvp.md`:
 
-- SMTP · Offsite-Backups · PROD-Domains
+- SMTP · Offsite-Backups
+
+Geklärt sind die PROD-Domains: Campus API `https://campus-koethen-api.sturahsa.de`, Strapi
+`https://koethen-cms.sturahsa.de`, Antragsportal (`REQUESTS_BASE_URL`) `https://antrag.sturahsa.de`.
+Sie bleiben Build- beziehungsweise Deployment-Environment und werden nicht als Konstanten in den
+Quellcode übernommen.

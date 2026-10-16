@@ -7,6 +7,29 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/fixtures.dart';
 
 void main() {
+  test('module catalogue validates, trims and deduplicates source values', () {
+    final List<TimetableModule> modules = TimetableModule.listFromJson(<Object>[
+      <String, Object?>{'subjectCode': ' MATH2 ', 'title': 'Mathematik II'},
+      <String, Object?>{'subjectCode': 'MATH2', 'title': 'Mathematik 2'},
+      <String, Object?>{'subjectCode': null, 'title': ' Robotik '},
+      <String, Object?>{'subjectCode': null, 'title': ' '},
+      'broken',
+    ]);
+
+    expect(modules, hasLength(2));
+    expect(modules.first.moduleKey, 'code:MATH2');
+    expect(modules.first.title, 'Mathematik II');
+    expect(modules.last.moduleKey, 'title:Robotik');
+    expect(
+      () => TimetableModule.listFromJson(<String, Object>{'data': 'broken'}),
+      throwsFormatException,
+    );
+    expect(
+      () => TimetableModule.listFromJson(<Object>['broken']),
+      throwsFormatException,
+    );
+  });
+
   test('lesson information choices preserve distinct source spellings', () {
     final TimetableLessonInfoOptions options =
         TimetableLessonInfoOptions.fromJson(<String, dynamic>{
@@ -68,6 +91,32 @@ void main() {
     );
   });
 
+  group('TimetableStatus', () {
+    test('parses the public availability state without upstream detail', () {
+      final TimetableStatus status = TimetableStatus.fromJson(<String, dynamic>{
+        'featureEnabled': true,
+        'groupCount': 503,
+        'coveredFrom': '2026-10-01',
+        'coveredTo': '2027-04-01',
+      });
+
+      expect(status.featureEnabled, isTrue);
+      expect(status.groupCount, 503);
+      expect(status.coveredFrom, '2026-10-01');
+      expect(status.coveredTo, '2027-04-01');
+    });
+
+    test('rejects malformed status payloads', () {
+      expect(
+        () => TimetableStatus.fromJson(<String, dynamic>{
+          'featureEnabled': 'yes',
+          'groupCount': 503,
+        }),
+        throwsFormatException,
+      );
+    });
+  });
+
   group('TimetableEntry', () {
     Timetable parseWeek() {
       final Timetable? timetable = Timetable.fromJson(
@@ -93,6 +142,7 @@ void main() {
       expect(first.teachers.single.displayName, 'Demo Demoperson01');
       expect(first.rooms.single.shortName, 'D-04/201');
       expect(first.groups.single.shortName, 'AIN2 - BT');
+      expect(first.moduleKey, 'code:Mathematik 2');
     });
 
     test('keeps lesson information distinct from a separate note', () {

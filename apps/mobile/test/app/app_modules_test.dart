@@ -40,6 +40,7 @@ void main() {
     test('the requested modules use their exact Tabler glyphs', () {
       expect(AppModule.moodle.icon, AppIcons.book_outlined);
       expect(AppModule.moodle.selectedIcon, AppIcons.book_outlined);
+      expect(AppModule.nextcloud.icon, AppIcons.cloud_outlined);
       expect(AppModule.grades.icon, AppIcons.grade_outlined);
       expect(AppModule.grades.selectedIcon, AppIcons.grade_outlined);
       expect(AppModule.requests.icon, AppIcons.file_pencil);
@@ -49,10 +50,15 @@ void main() {
     test('the categories hold what the product defines', () {
       expect(AppModule.inCategory(ModuleCategory.study), <AppModule>[
         AppModule.calendar,
+        AppModule.timetable,
         AppModule.mail,
         AppModule.moodle,
+        AppModule.nextcloud,
         AppModule.grades,
+        AppModule.studentService,
+        AppModule.documentWallet,
         AppModule.todos,
+        AppModule.hsaKi,
       ]);
       expect(AppModule.inCategory(ModuleCategory.campus), <AppModule>[
         AppModule.news,
@@ -60,6 +66,7 @@ void main() {
         AppModule.campusMap,
         AppModule.contacts,
         AppModule.requests,
+        AppModule.library,
       ]);
       expect(AppModule.inCategory(ModuleCategory.app), <AppModule>[
         AppModule.settings,
@@ -82,7 +89,7 @@ void main() {
       expect(AppModule.settings.pinnable, isFalse);
       expect(AppModule.about.pinnable, isFalse);
       expect(AppModule.pinnableModules, isNot(contains(AppModule.settings)));
-      expect(AppModule.pinnableModules, hasLength(10));
+      expect(AppModule.pinnableModules, hasLength(16));
     });
 
     test('the pinnable modules are the leading values of the enum', () {
@@ -116,14 +123,20 @@ void main() {
           NavigationConfig.defaults.moreEntries;
 
       expect(modulesUnder(entries, ModuleCategory.study), <AppModule>[
+        AppModule.timetable,
         AppModule.moodle,
+        AppModule.nextcloud,
         AppModule.grades,
+        AppModule.studentService,
+        AppModule.documentWallet,
         AppModule.todos,
+        AppModule.hsaKi,
       ]);
       expect(modulesUnder(entries, ModuleCategory.campus), <AppModule>[
         AppModule.campusMap,
         AppModule.contacts,
         AppModule.requests,
+        AppModule.library,
       ]);
       expect(modulesUnder(entries, ModuleCategory.app), <AppModule>[
         AppModule.settings,

@@ -1,6 +1,10 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:convert';
+
+import 'package:campus_koethen/core/documents/app_document.dart';
+import 'package:campus_koethen/core/documents/document_share_service.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/locale/formatters.dart';
 import 'package:campus_koethen/core/network/api_client.dart';
@@ -13,12 +17,17 @@ import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry_details.dart';
 import 'package:campus_koethen/features/calendar/presentation/calendar_entry_sheet.dart';
 import 'package:campus_koethen/features/calendar/presentation/calendar_screen.dart';
+import 'package:campus_koethen/features/calendar/presentation/public_calendar_list.dart';
 import 'package:campus_koethen/features/calendar/presentation/calendar_source_sheets.dart';
 import 'package:campus_koethen/features/calendar/presentation/week_grid_view.dart';
 import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
 import 'package:campus_koethen/core/widgets/time_rail.dart';
 import 'package:campus_koethen/features/calendar/presentation/week_strip.dart';
+import 'package:campus_koethen/features/notifications/application/notification_providers.dart';
+import 'package:campus_koethen/features/notifications/domain/notification_permission.dart';
+import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_week.dart';
+import 'package:campus_koethen/features/timetable/data/timetable_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,18 +36,57 @@ import 'package:flutter_test/flutter_test.dart';
 import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../support/fake_http_adapter.dart';
+import '../../support/fake_notification_gateway.dart';
+import '../../support/fake_timetable.dart';
 import '../../support/pump_app.dart';
 
 ApiClient _emptyApi() => fakeApiClient(
-  FakeHttpAdapter((RequestOptions _) => FakeHttpResponse(envelope(<Object>[]))),
+  FakeHttpAdapter((RequestOptions options) {
+    if (options.path.endsWith('/timetable/status')) {
+      // Enabled with a non-empty catalogue, matching this file's existing
+      // "course not yet chosen" tests; "distinguishes a disabled backend"
+      // overrides calendarDataProvider directly instead of going through
+      // this fake HTTP layer, so it is unaffected by this default.
+      return FakeHttpResponse(
+        envelope(<String, Object?>{'featureEnabled': true, 'groupCount': 1}),
+      );
+    }
+    final RegExpMatch? groupId = RegExp(
+      r'/timetable/groups/([^/]+)$',
+    ).firstMatch(options.path);
+    if (groupId != null) {
+      return FakeHttpResponse(
+        envelope(<String, Object?>{
+          'id': groupId.group(1),
+          'shortName': 'Fixture',
+        }),
+      );
+    }
+    return FakeHttpResponse(envelope(<Object>[]));
+  }),
 );
+
+/// Records what the export action hands off instead of opening the real OS
+/// share sheet.
+class _FakeShareService extends DocumentShareService {
+  _FakeShareService(this.shared);
+
+  final List<AppDocument> shared;
+
+  @override
+  Future<void> share(AppDocument document) async {
+    shared.add(document);
+  }
+}
 
 Future<ProviderContainer> pumpCalendar(
   WidgetTester tester, {
   KeyValueStore? store,
   Locale locale = AppLocales.german,
+  Size size = const Size(390, 1200),
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
-  tester.view.physicalSize = const Size(390, 1200);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(() {
     tester.view.resetPhysicalSize();
@@ -49,6 +97,7 @@ Future<ProviderContainer> pumpCalendar(
     tester,
     const CalendarScreen(),
     locale: locale,
+    textScaler: textScaler,
     keyValueStore: store,
     overrides: <Override>[apiClientProvider.overrideWithValue(_emptyApi())],
   );
@@ -57,6 +106,79 @@ Future<ProviderContainer> pumpCalendar(
 }
 
 void main() {
+  group('timetable source status', () {
+    Future<void> pumpStatus(
+      WidgetTester tester,
+      CalendarTimetableState state,
+    ) async {
+      await pumpScreen(
+        tester,
+        const CalendarScreen(),
+        overrides: <Override>[
+          apiClientProvider.overrideWithValue(_emptyApi()),
+          calendarDataProvider.overrideWith(
+            (Ref ref, DateTime day) => CalendarData(
+              entries: const <CalendarEntry>[],
+              enabledSources: state == CalendarTimetableState.hidden
+                  ? const <CalendarSource>{}
+                  : const <CalendarSource>{CalendarSource.timetable},
+              timetableState: state,
+            ),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('distinguishes a disabled backend', (
+      WidgetTester tester,
+    ) async {
+      await pumpStatus(tester, CalendarTimetableState.disabled);
+      expect(
+        find.text('Stundenplan noch nicht freigeschaltet'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('distinguishes a missing group', (WidgetTester tester) async {
+      await pumpStatus(tester, CalendarTimetableState.needsGroup);
+      expect(
+        find.text('Wähle im Stundenplan eine Gruppe, um Termine zu sehen.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('distinguishes a pending import', (WidgetTester tester) async {
+      await pumpStatus(tester, CalendarTimetableState.pending);
+      expect(find.text('Stundenplan wird vorbereitet'), findsOneWidget);
+    });
+
+    testWidgets('distinguishes a hidden source', (WidgetTester tester) async {
+      await pumpStatus(tester, CalendarTimetableState.hidden);
+      expect(
+        find.text('Stundenplan ist als Kalenderquelle ausgeblendet.'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('layout matrix keeps the calendar controls usable', (
+    WidgetTester tester,
+  ) async {
+    for (final (Size size, TextScaler scaler) in <(Size, TextScaler)>[
+      (const Size(320, 800), TextScaler.noScaling),
+      (const Size(360, 800), const TextScaler.linear(1.3)),
+      (const Size(800, 360), TextScaler.noScaling),
+      (const Size(320, 1200), const TextScaler.linear(2)),
+    ]) {
+      await pumpCalendar(tester, size: size, textScaler: scaler);
+
+      expect(find.text('Kalender'), findsOneWidget);
+      expect(find.byTooltip('Quellen'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '$size at $scaler');
+    }
+  });
+
   testWidgets('opens with the masthead and the three views, no app bar', (
     WidgetTester tester,
   ) async {
@@ -348,6 +470,55 @@ void main() {
       expect(find.text('Stunden nach Information filtern'), findsOneWidget);
     });
 
+    testWidgets('choosing a first course from the sources offers the '
+        'notification opt-in', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await pumpScreen(
+        tester,
+        const CalendarScreen(),
+        keyValueStore: InMemoryKeyValueStore(),
+        overrides: <Override>[
+          apiClientProvider.overrideWithValue(_emptyApi()),
+          notificationGatewayProvider.overrideWithValue(
+            FakeNotificationGateway(
+              permission: NotificationPermissionStatus.notDetermined,
+            ),
+          ),
+          timetableGroupSearchProvider('').overrideWith(
+            () => FixedTimetableGroupSearchController(
+              fixedTimetableGroupSearch(const <TimetableGroup>[
+                TimetableGroup(id: 'demo-group', shortName: 'DEMO1'),
+              ]),
+            ),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await openSources(tester);
+      await tester.tap(find.text('Stundenplan'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(OutlinedButton),
+          matching: find.text('Kurs wählen'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEMO1'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Lokale Benachrichtigungen aktivieren?'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('lists all three sources and spells out their state', (
       WidgetTester tester,
     ) async {
@@ -363,7 +534,7 @@ void main() {
       expect(find.text('Nicht verbunden'), findsOneWidget);
     });
 
-    testWidgets('ignores a legacy global public-calendar hide setting', (
+    testWidgets('respects the global public-calendar visibility setting', (
       WidgetTester tester,
     ) async {
       final InMemoryKeyValueStore store = InMemoryKeyValueStore();
@@ -374,14 +545,14 @@ void main() {
       await pumpCalendar(tester, store: store);
       await openSources(tester);
 
-      // Public calendars are now controlled individually, so a persisted
-      // all-calendars-off value must no longer hide them.
+      // The global source switch controls whether the individually selected
+      // public calendars contribute to every calendar view.
       Finder inSheet(IconData icon) => find.descendant(
         of: find.byType(ListTile),
         matching: find.byIcon(icon),
       );
 
-      expect(inSheet(AppIcons.visibility_off_outlined), findsNothing);
+      expect(inSheet(AppIcons.visibility_off_outlined), findsOneWidget);
       expect(inSheet(AppIcons.link_off), findsOneWidget);
       expect(
         inSheet(calendarSourceIcon(CalendarSource.timetable)),
@@ -389,8 +560,8 @@ void main() {
       );
       expect(
         inSheet(calendarSourceIcon(CalendarSource.publicCalendar)),
-        findsOneWidget,
-        reason: 'legacy global state cannot hide every public calendar',
+        findsNothing,
+        reason: 'the persisted global choice must remain effective',
       );
     });
 
@@ -407,6 +578,30 @@ void main() {
 
       expect(find.byIcon(AppIcons.tune), findsOneWidget);
       expect(find.byTooltip('Quellen'), findsOneWidget);
+    });
+
+    testWidgets('marks the sources action while a course is hidden', (
+      WidgetTester tester,
+    ) async {
+      IconButton sourcesButton() => tester.widget<IconButton>(
+        find.ancestor(
+          of: find.byIcon(AppIcons.tune),
+          matching: find.byType(IconButton),
+        ),
+      );
+      await pumpCalendar(tester);
+      expect(sourcesButton().isSelected, isFalse);
+
+      final InMemoryKeyValueStore store = InMemoryKeyValueStore(
+        <String, Object>{
+          PreferenceKeys.preferredTimetableGroup: 'demo-group',
+          PreferenceKeys.timetableHiddenCourses('demo-group'): <String>[
+            'Mathematik 2',
+          ],
+        },
+      );
+      await pumpCalendar(tester, store: store);
+      expect(sourcesButton().isSelected, isTrue);
     });
 
     testWidgets('leads into the timetable sheet', (WidgetTester tester) async {
@@ -447,6 +642,32 @@ void main() {
       );
     });
 
+    testWidgets('toggles every primary source directly in the overview', (
+      WidgetTester tester,
+    ) async {
+      final InMemoryKeyValueStore store = InMemoryKeyValueStore();
+      final ProviderContainer container = await pumpCalendar(
+        tester,
+        store: store,
+      );
+      await openSources(tester);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('calendar-source-public-calendar')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(calendarEnabledSourcesProvider),
+        isNot(contains(CalendarSource.publicCalendar)),
+      );
+      expect(find.text('Stundenplan'), findsOneWidget);
+      expect(
+        store.getStringList(PreferenceKeys.calendarDisabledSources),
+        <String>[CalendarSource.publicCalendar.storageValue],
+      );
+    });
+
     testWidgets('Moodle explains itself when not connected', (
       WidgetTester tester,
     ) async {
@@ -471,7 +692,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Öffentliche Kalender'), findsOneWidget);
-      expect(find.text('Ausgewählte in Google Kalender öffnen'), findsNothing);
+      // The combined Google action sits under the list (its behaviour is
+      // covered by the manage-calendars screen test).
+      expect(find.byType(PublicCalendarGoogleFooter), findsOneWidget);
     });
   });
 
@@ -671,6 +894,185 @@ void main() {
         scrollable: find.byType(Scrollable).last,
       );
       expect(find.text('Termin 6-0'), findsOneWidget);
+    });
+  });
+
+  group('canteen favourite meals', () {
+    testWidgets(
+      'a favourited dish on the merged calendar shows the canteen as its '
+      'source, both in the agenda and the detail sheet',
+      (WidgetTester tester) async {
+        final DateTime today = TimetableWeek.dayOf(DateTime.now());
+        final CalendarEntry dish = CalendarEntry(
+          id: 'canteenFavourite:mensa-koethen:$today:Bulgur-Pfanne',
+          source: CalendarSource.canteenFavourite,
+          title: 'Bulgur-Pfanne',
+          start: today,
+          allDay: true,
+          sourceLabel: 'Mensa Köthen',
+          details: const CanteenFavouriteMealCalendarDetails(
+            canteenName: 'Mensa Köthen',
+          ),
+        );
+
+        tester.view.physicalSize = const Size(390, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+        await pumpScreen(
+          tester,
+          const CalendarScreen(),
+          overrides: <Override>[
+            apiClientProvider.overrideWithValue(_emptyApi()),
+            calendarDataProvider.overrideWith(
+              (Ref ref, DateTime day) => CalendarData(
+                entries: <CalendarEntry>[dish],
+                enabledSources: const <CalendarSource>{},
+              ),
+            ),
+          ],
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Bulgur-Pfanne'), findsOneWidget);
+
+        await tester.tap(find.text('Bulgur-Pfanne'));
+        await tester.pumpAndSettle();
+
+        // Shown both on the agenda card behind the sheet (its subtitle) and
+        // as the sheet's own "Quelle" row — at least one is the sheet's.
+        expect(find.text('Mensa Köthen'), findsWidgets);
+      },
+    );
+  });
+
+  group('calendar export', () {
+    testWidgets(
+      'shares one .ics file built from the wide-horizon list source',
+      (WidgetTester tester) async {
+        final DateTime today = TimetableWeek.dayOf(DateTime.now());
+        final CalendarEntry lecture = CalendarEntry(
+          id: 'timetable:e1',
+          source: CalendarSource.timetable,
+          title: 'Mathematik 2',
+          start: today.add(const Duration(hours: 9)),
+          end: today.add(const Duration(hours: 10, minutes: 30)),
+        );
+        final List<AppDocument> shared = <AppDocument>[];
+
+        tester.view.physicalSize = const Size(390, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+        await pumpScreen(
+          tester,
+          CalendarScreen(exportShareService: _FakeShareService(shared)),
+          overrides: <Override>[
+            apiClientProvider.overrideWithValue(_emptyApi()),
+            calendarExportDataProvider.overrideWithValue(
+              CalendarData(
+                entries: <CalendarEntry>[lecture],
+                enabledSources: const <CalendarSource>{},
+              ),
+            ),
+          ],
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Kalender exportieren'));
+        await tester.pumpAndSettle();
+
+        expect(shared, hasLength(1));
+        expect(shared.single.filename, 'campus-koethen-kalender.ics');
+        expect(shared.single.mediaType, 'text/calendar');
+        final String ics = utf8.decode(shared.single.bytes);
+        expect(ics, contains('BEGIN:VCALENDAR'));
+        expect(ics, contains('SUMMARY:Mathematik 2'));
+      },
+    );
+
+    testWidgets('an empty calendar explains itself instead of sharing '
+        'nothing', (WidgetTester tester) async {
+      final List<AppDocument> shared = <AppDocument>[];
+
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await pumpScreen(
+        tester,
+        CalendarScreen(exportShareService: _FakeShareService(shared)),
+        overrides: <Override>[
+          apiClientProvider.overrideWithValue(_emptyApi()),
+          calendarExportDataProvider.overrideWithValue(
+            CalendarData(
+              entries: const <CalendarEntry>[],
+              enabledSources: const <CalendarSource>{},
+            ),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Kalender exportieren'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(shared, isEmpty);
+      expect(find.text('Es gibt noch nichts zu exportieren.'), findsOneWidget);
+    });
+
+    testWidgets('never exports an incomplete source set silently', (
+      WidgetTester tester,
+    ) async {
+      final DateTime today = TimetableWeek.dayOf(DateTime.now());
+      final List<AppDocument> shared = <AppDocument>[];
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await pumpScreen(
+        tester,
+        CalendarScreen(exportShareService: _FakeShareService(shared)),
+        overrides: <Override>[
+          apiClientProvider.overrideWithValue(_emptyApi()),
+          calendarExportDataProvider.overrideWithValue(
+            CalendarData(
+              entries: <CalendarEntry>[
+                CalendarEntry(
+                  id: 'partial',
+                  source: CalendarSource.publicCalendar,
+                  title: 'Bereits geladen',
+                  start: today,
+                ),
+              ],
+              enabledSources: const <CalendarSource>{
+                CalendarSource.publicCalendar,
+              },
+              hasPublicCalendarError: true,
+            ),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Kalender exportieren'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(shared, isEmpty);
+      expect(find.text('Kalender nicht vollständig geladen'), findsOneWidget);
+      await tester.tap(find.text('Teilweise exportieren'));
+      await tester.pumpAndSettle();
+      expect(shared, hasLength(1));
     });
   });
 }

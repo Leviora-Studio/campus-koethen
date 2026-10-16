@@ -184,12 +184,34 @@ void main() {
     });
   });
 
+  group('new mail', () {
+    test('opens the inbox for a validated IMAP UID', () {
+      final NotificationTapTarget? target = router.resolve('v1|mail.new|4711');
+
+      expect(target?.location, AppRoutes.mail);
+      expect(target?.resolved, isTrue);
+    });
+
+    test('a malformed UID falls back to the inbox and says so', () {
+      for (final String broken in <String>[
+        'v1|mail.new|abc',
+        'v1|mail.new|-1',
+        'v1|mail.new|1@host',
+        'v1|mail.new|123456789012345678901',
+      ]) {
+        final NotificationTapTarget? target = router.resolve(broken);
+        expect(target?.location, AppRoutes.mail, reason: broken);
+        expect(target?.resolved, isFalse, reason: broken);
+      }
+    });
+  });
+
   test('a payload this version cannot read navigates nowhere at all', () {
     for (final String? raw in <String?>[
       null,
       '',
       'v2|daily.summary|2026-09-03',
-      'v1|moodle.deadline|4711',
+      'v1|timetable.reminder|4711',
       '/more/moodle',
       'garbage',
     ]) {
@@ -198,15 +220,58 @@ void main() {
   });
 
   test('every destination is an existing app route', () {
-    const Set<String> known = <String>{AppRoutes.calendar, AppRoutes.canteen};
+    const Set<String> known = <String>{
+      AppRoutes.calendar,
+      AppRoutes.canteen,
+      AppRoutes.grades,
+      AppRoutes.mail,
+    };
     for (final String payload in <String>[
       'v1|event.reminder|savedEvent:1',
       'v1|daily.summary|2026-09-03',
       'v1|canteen.favourite|mensa-fasanerieallee:2026-09-03',
       'v1|canteen.favourite|broken',
+      'v1|moodle.deadline|deadline-a1b2',
+      'v1|grade.change|grades',
+      'v1|mail.new|4711',
     ]) {
       expect(known, contains(router.resolve(payload)!.location));
     }
+  });
+
+  group('a Moodle deadline reminder', () {
+    test('opens the calendar on the deadline day', () {
+      final NotificationTapRouter withDeadline = NotificationTapRouter(
+        findMoodleDeadlineDay: (String target) =>
+            target == 'deadline-a1b2' ? DateTime(2026, 10, 8) : null,
+      );
+
+      final NotificationTapTarget? target = withDeadline.resolve(
+        'v1|moodle.deadline|deadline-a1b2',
+      );
+
+      expect(target?.location, AppRoutes.calendar);
+      expect(target?.focusDay, DateTime(2026, 10, 8));
+      expect(target?.resolved, isTrue);
+    });
+
+    test('a deadline no longer known falls back to the calendar and says '
+        'so', () {
+      final NotificationTapTarget? target = router.resolve(
+        'v1|moodle.deadline|deadline-gone',
+      );
+
+      expect(target?.location, AppRoutes.calendar);
+      expect(target?.focusDay, isNull);
+      expect(target?.resolved, isFalse);
+    });
+  });
+
+  test('a grade change opens its privacy-safe overview route', () {
+    expect(
+      router.resolve('v1|grade.change|grades')?.location,
+      AppRoutes.grades,
+    );
   });
 
   test('a day key is written the way the router reads it', () {

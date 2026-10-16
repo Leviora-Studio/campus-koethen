@@ -4,6 +4,7 @@
 import '../../../core/content/content_block.dart';
 import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/network/json.dart';
+import '../../../core/time/all_day_post_start.dart';
 
 /// A channel as delivered by `GET /v1/posts/channels`.
 ///
@@ -266,6 +267,8 @@ class NewsArticle {
       return null;
     }
     final String? sourceUrl = asString(map['sourceUrl']);
+    final bool eventAllDay = asBool(map['eventAllDay']) ?? false;
+    final DateTime? eventStart = asDateTime(map['eventStart']);
     return NewsArticle(
       slug: slug,
       title: title,
@@ -280,9 +283,13 @@ class NewsArticle {
       sourceName: asString(map['sourceName']),
       sourceUrl: SafeLinkLauncher.isAllowed(sourceUrl) ? sourceUrl : null,
       content: ContentBlock.parse(map['content']),
-      eventStart: asDateTime(map['eventStart']),
+      // `eventEnd` is deliberately left alone: its UTC date already is the
+      // last day for both an end at 23:59 and one at the following midnight.
+      eventStart: eventAllDay && eventStart != null
+          ? allDayPostStart(eventStart)
+          : eventStart,
       eventEnd: asDateTime(map['eventEnd']),
-      eventAllDay: asBool(map['eventAllDay']) ?? false,
+      eventAllDay: eventAllDay,
     );
   }
 

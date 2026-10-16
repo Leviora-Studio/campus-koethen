@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'package:campus_koethen/core/cache/encrypted_box.dart';
 import 'package:campus_koethen/features/requests/data/encrypted_attachment_store.dart';
 import 'package:campus_koethen/features/requests/data/encrypted_request_store.dart';
+import 'package:campus_koethen/features/requests/domain/attachment_store.dart';
 import 'package:campus_koethen/features/requests/domain/request_drafts.dart';
 import 'package:campus_koethen/features/requests/domain/submitted_case.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,10 +25,16 @@ final DateTime _now = DateTime(2026, 8, 6, 12);
 /// is the *protocol* around it — read back before reporting success, migrate
 /// before clearing, never write plaintext anywhere else.
 class RecordingBox implements EncryptedBox {
-  RecordingBox({this.failWrites = false});
+  RecordingBox({this.failWrites = false, this.failOnWriteNumber});
 
   final Map<String, String> entries = <String, String>{};
   bool failWrites;
+  final int? failOnWriteNumber;
+  int _writes = 0;
+
+  /// Simulates a box that cannot be opened (keystore locked, I/O error):
+  /// plain reads fold that into "absent", checked reads report it.
+  bool unavailable = false;
 
   @override
   String get boxName => 'recording';
@@ -36,12 +43,33 @@ class RecordingBox implements EncryptedBox {
   String get keyStorageKey => 'recording-key';
 
   @override
-  Future<String?> read(String key) async => entries[key];
+  bool get discardUnreadable => false;
+
+  @override
+  Future<String?> read(String key) async => unavailable ? null : entries[key];
+
+  @override
+  Future<String?> readChecked(String key) async {
+    if (unavailable) throw const EncryptedBoxUnavailable();
+    return entries[key];
+  }
+
+  @override
+  Future<EncryptedBoxWipeResult> wipeAndSeal() => wipeChecked();
 
   @override
   Future<void> write(String key, String value) async {
-    if (failWrites) return; // silently drops, exactly like a full disk
+    _writes++;
+    if (failWrites || _writes == failOnWriteNumber) {
+      return; // silently drops, exactly like a full disk
+    }
     entries[key] = value;
+  }
+
+  @override
+  Future<bool> writeChecked(String key, String value) async {
+    await write(key, value);
+    return entries[key] == value;
   }
 
   @override
@@ -140,15 +168,144 @@ void main() {
       );
     });
 
-    test('degrades to empty rather than crashing on a corrupt box', () async {
+    test(
+      'rejects a failed write when an older value is still present',
+      () async {
+        final RecordingBox box = RecordingBox();
+        box.entries['cases'] = jsonEncode(<Map<String, dynamic>>[
+          _case('old-case').toJson(),
+        ]);
+        box.failWrites = true;
+        final EncryptedRequestStore store = EncryptedRequestStore(
+          box: box,
+          legacy: FakeLegacyBox(null),
+        );
+
+        expect(
+          () => store.writeCases(<SubmittedCase>[_case('new-case')]),
+          throwsA(isA<RequestStoreUnavailable>()),
+        );
+        expect(
+          (jsonDecode(box.entries['cases']!) as List<Object?>).single,
+          containsPair('id', 'old-case'),
+        );
+      },
+    );
+
+    // E-03: "could not read" used to come back as "nothing stored", and the
+    // next write replaced every status link on the device with a list of one.
+    test('reports an unreadable box instead of an empty list', () async {
       final RecordingBox box = RecordingBox();
-      box.entries['drafts'] = 'not json at all';
+      box.entries['cases'] = jsonEncode(<Map<String, dynamic>>[
+        _case('old-case').toJson(),
+      ]);
+      box.unavailable = true;
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(null),
+      );
+
+      await expectLater(
+        store.readCases(),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+      await expectLater(
+        store.readDrafts(),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+    });
+
+    test('never writes over a stored list it cannot decode', () async {
+      final RecordingBox box = RecordingBox();
+      box.entries['cases'] = 'not json at all';
+      box.entries['drafts'] = '{"not":"a list"}';
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(null),
+      );
+
+      await expectLater(
+        store.readCases(),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+      await expectLater(
+        store.writeCases(<SubmittedCase>[_case('new-case')]),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+      await expectLater(
+        store.writeDrafts(<RequestDraft>[_draft('d1')]),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+      // The raw bytes are left exactly as they were, for a later build or a
+      // deliberate wipe to deal with.
+      expect(box.entries['cases'], 'not json at all');
+      expect(box.entries['drafts'], '{"not":"a list"}');
+    });
+
+    test('refuses to write while the box cannot be read', () async {
+      final RecordingBox box = RecordingBox();
+      box.entries['cases'] = jsonEncode(<Map<String, dynamic>>[
+        _case('old-case').toJson(),
+      ]);
+      box.unavailable = true;
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(null),
+      );
+
+      await expectLater(
+        store.writeCases(<SubmittedCase>[_case('new-case')]),
+        throwsA(isA<RequestStoreUnavailable>()),
+      );
+      box.unavailable = false;
+      expect((await store.readCases()).single.id, 'old-case');
+    });
+
+    test('carries entries it cannot parse through every write', () async {
+      // An entry this build does not understand — a kind from a newer
+      // version, say — still holds a status link. Dropping it on the next
+      // write would lose that case for good.
+      final Map<String, dynamic> unknown = <String, dynamic>{
+        ..._case('future-case').toJson(),
+        'kind': 'kind-from-a-newer-build',
+      };
+      final RecordingBox box = RecordingBox();
+      box.entries['cases'] = jsonEncode(<Object?>[
+        _case('old-case').toJson(),
+        unknown,
+      ]);
+      final EncryptedRequestStore store = EncryptedRequestStore(
+        box: box,
+        legacy: FakeLegacyBox(null),
+      );
+
+      final List<SubmittedCase> visible = await store.readCases();
+      expect(visible.map((SubmittedCase c) => c.id), <String>['old-case']);
+      await store.writeCases(<SubmittedCase>[...visible, _case('new-case')]);
+
+      final List<Object?> raw = jsonDecode(box.entries['cases']!) as List;
+      expect(raw, hasLength(3));
+      expect(raw, contains(equals(unknown)));
+    });
+
+    test('a draft it cannot parse survives a write as well', () async {
+      final Map<String, dynamic> unknown = <String, dynamic>{
+        'id': 'draft-future',
+        'kind': 'kind-from-a-newer-build',
+      };
+      final RecordingBox box = RecordingBox();
+      box.entries['drafts'] = jsonEncode(<Object?>[unknown]);
       final EncryptedRequestStore store = EncryptedRequestStore(
         box: box,
         legacy: FakeLegacyBox(null),
       );
 
       expect(await store.readDrafts(), isEmpty);
+      await store.writeDrafts(<RequestDraft>[_draft('d1')]);
+
+      final List<Object?> raw = jsonDecode(box.entries['drafts']!) as List;
+      expect(raw, hasLength(2));
+      expect(raw, contains(equals(unknown)));
     });
   });
 
@@ -231,7 +388,26 @@ void main() {
       // The identifier is a store key, never a file-system path a crash could
       // leave behind in the clear.
       expect(stored.path, startsWith('attachment:'));
-      expect(box.entries.keys.single, stored.path);
+      expect(box.entries.keys, contains(stored.path));
+      expect(
+        box.entries.length,
+        2,
+        reason: 'metadata plus one encrypted chunk',
+      );
+    });
+
+    test('stores a large attachment in bounded encrypted chunks', () async {
+      final RecordingBox box = RecordingBox();
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(box: box);
+      final Uint8List bytes = Uint8List(
+        EncryptedAttachmentStore.chunkBytes * 2 + 17,
+      );
+
+      final RequestAttachment stored = (await store.put('large.pdf', bytes))!;
+
+      expect(box.entries.length, 4, reason: 'metadata plus three chunks');
+      expect(box.entries.containsKey(stored.path), isTrue);
+      expect(await store.read(stored), bytes);
     });
 
     test('reports a failed write rather than a dangling reference', () async {
@@ -245,6 +421,17 @@ void main() {
       );
     });
 
+    test('removes chunks when committing their metadata fails', () async {
+      final RecordingBox box = RecordingBox(failOnWriteNumber: 2);
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(box: box);
+
+      expect(
+        await store.put('ausweis.pdf', Uint8List.fromList(<int>[1, 2, 3])),
+        isNull,
+      );
+      expect(box.entries, isEmpty);
+    });
+
     test('a missing entry reads as null, not as a crash', () async {
       final EncryptedAttachmentStore store = EncryptedAttachmentStore(
         box: RecordingBox(),
@@ -256,6 +443,34 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('a box it cannot open is reported, not read as a gone file', () async {
+      // Read tolerantly, a locked keystore looked like a missing file — and
+      // the form then blamed the student-card slot for a storage fault.
+      final RecordingBox box = RecordingBox();
+      final EncryptedAttachmentStore store = EncryptedAttachmentStore(box: box);
+      final RequestAttachment stored = (await store.put(
+        'ausweis.pdf',
+        Uint8List.fromList(<int>[1, 2, 3]),
+      ))!;
+      box.unavailable = true;
+
+      await expectLater(
+        store.openRead(stored),
+        throwsA(isA<AttachmentStoreUnavailable>()),
+      );
+      await expectLater(
+        store.read(stored),
+        throwsA(isA<AttachmentStoreUnavailable>()),
+      );
+      expect(box.entries, isNotEmpty, reason: 'nothing is discarded');
+    });
+
+    test('its own box is never recreated empty when unreadable', () {
+      // The attachments include the copy of the student card. A box its valid
+      // key cannot open stays on disk for a retry or the deliberate wipe.
+      expect(EncryptedAttachmentStore.defaultBox().discardUnreadable, isFalse);
     });
 
     test('deleting removes the bytes', () async {

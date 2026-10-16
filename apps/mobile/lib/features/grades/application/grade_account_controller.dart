@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/security/session_guard.dart';
 import '../domain/clock.dart';
 import '../domain/grade.dart';
 import '../domain/grade_cache_store.dart';
@@ -49,6 +50,24 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
   GradePortalStore get _portalStore => ref.read(gradePortalStoreProvider);
   GradeCacheStore get _cache => ref.read(gradeCacheStoreProvider);
   Clock get _clock => ref.read(gradeClockProvider);
+  SessionGuard<({String username, GradePortal portal})> get _sessions =>
+      ref.read(gradeSessionGuardProvider);
+
+  Future<void> _wipeLinkedPersonalData() async {
+    Object? failure;
+    for (final GradeLinkedPersonalDataWiper wipe in ref.read(
+      gradeLinkedPersonalDataWipersProvider,
+    )) {
+      try {
+        await wipe();
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (failure != null) {
+      throw const GradeFailure(GradeFailureKind.cacheUnavailable);
+    }
+  }
 
   GradesGateway _gatewayFor(GradePortal portal) =>
       portal == GradePortal.hisInOne
@@ -58,12 +77,39 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
   @override
   Future<GradeAccountState> build() async {
     final GradeCredentials? stored = await _store.read();
-    if (stored == null) return const GradeAccountState();
-    // Accounts set up before the portal choice existed default to the legacy
-    // portal — the only one that existed then.
+    if (stored == null) {
+      await _sessions.invalidateAndWait();
+      // Best-effort catch-up for a `deleteEverything()` that was interrupted
+      // (app killed) after clearing grades' own store but before reaching
+      // this step — never lets a stumbling wipe turn an ordinary signed-out
+      // read into an error. Every screen that gates on THIS provider,
+      // including the HISinOne student-service screen, would otherwise show
+      // a failure for a problem that has nothing to do with it.
+      try {
+        await _wipeLinkedPersonalData();
+      } catch (_) {}
+      return const GradeAccountState();
+    }
     final GradePortal portal =
-        await _portalStore.read() ?? GradePortal.hisQisLegacy;
+        await _portalStore.read() ?? await _adoptStandardPortal();
+    _sessions.activate((username: stored.username, portal: portal));
     return GradeAccountState(username: stored.username, activePortal: portal);
+  }
+
+  /// HISinOne is the standard portal. An account without a confirmed stored
+  /// choice (set up before the portal choice existed) moves to it once.
+  ///
+  /// Like [switchPortal], the cached report of the previous portal is dropped
+  /// FIRST, so its grades never appear under HISinOne's name and the first
+  /// HISinOne sync has no foreign baseline to announce as new grades. A failed
+  /// clear is fatal, so the next start tries again; a failed write of the
+  /// choice only means the move repeats on the next start.
+  Future<GradePortal> _adoptStandardPortal() async {
+    await _cache.clear();
+    try {
+      await _portalStore.write(GradePortal.hisInOne);
+    } catch (_) {}
+    return GradePortal.hisInOne;
   }
 
   /// Reads the stored credentials for a portal call, or throws if signed out.
@@ -168,19 +214,47 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
     GradeCredentials credentials,
     GradeReport report,
   ) async {
-    await _store.write(credentials);
-    await _portalStore.write(portal);
-    final DateTime now = _clock.now();
-    await _cache.writeReport(report);
-    await _cache.writeLastSuccessfulSync(now);
-    await _cache.writeLastAttemptedSync(now);
+    final bool wasSignedIn = state.value?.isSignedIn ?? false;
+    try {
+      await _sessions.invalidateAndWait();
+      // Clear grades' own report before publishing or persisting the new
+      // account. Otherwise a failed write could leave account B paired with
+      // account A's last successful report on disk.
+      await _cache.clear();
+      await _wipeLinkedPersonalData();
+      await _store.write(credentials);
+      try {
+        await _portalStore.write(portal);
+      } catch (_) {
+        // Without a stored choice the next start would silently move these
+        // credentials to HISinOne, although setup reported a failure. Roll
+        // the just-written credentials back (the store's clear is verified)
+        // so a failed setup leaves no account behind.
+        await _store.clear();
+        rethrow;
+      }
+      final DateTime now = _clock.now();
+      await _cache.writeReport(report);
+      await _cache.writeLastSuccessfulSync(now);
+      await _cache.writeLastAttemptedSync(now);
 
-    // The grades controller watches this state, so publishing it rebuilds the
-    // overview onto the fresh cache — no manual invalidation needed.
-    state = AsyncData(
-      GradeAccountState(username: credentials.username, activePortal: portal),
-    );
-    return report;
+      _sessions.activate((username: credentials.username, portal: portal));
+
+      // The grades controller watches this state, so publishing it rebuilds the
+      // overview onto the fresh cache — no manual invalidation needed.
+      state = AsyncData(
+        GradeAccountState(username: credentials.username, activePortal: portal),
+      );
+      return report;
+    } catch (error, stackTrace) {
+      if (wasSignedIn) {
+        // Once local replacement begins, any failure can leave the former
+        // credential/cache pair incomplete. Never present that old account as
+        // a successful connection under the new central identity.
+        state = AsyncError<GradeAccountState>(error, stackTrace);
+      }
+      rethrow;
+    }
   }
 
   /// Replaces the stored password after a portal-side password change.
@@ -192,13 +266,20 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
   /// the portal the account is already on, rewrites only the credentials, and
   /// leaves the cached report, its key and every timestamp untouched.
   ///
+  /// The report fetched for that verification is deliberately discarded: the
+  /// caller follows up with `gradesControllerProvider.notifier.refresh()`,
+  /// whose empty-report guard and "new grade" diff against the persisted
+  /// cache are the only path that may replace the cached report. Writing it
+  /// here bypassed both — an empty answer could wipe the grades, and a grade
+  /// entered while the password was outdated was never announced.
+  ///
   /// The portal is NOT re-detected. A password change does not move an
   /// account between portals, and re-running detection here would spend a
   /// second login attempt on the wrong host.
   ///
   /// Throws [GradeFailure] and writes nothing when the portal rejects the new
   /// password.
-  Future<GradeReport> reauthenticate({required String password}) async {
+  Future<void> reauthenticate({required String password}) async {
     final GradeAccountState current = state.value ?? const GradeAccountState();
     final String? username = current.username;
     final GradePortal? portal = current.activePortal;
@@ -214,10 +295,21 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
     );
     // Verified before it is persisted, exactly as in setup: a password that
     // the portal rejects is never written to secure storage.
-    final GradeReport report = await _gatewayFor(
-      portal,
-    ).fetchGrades(credentials);
-    return _persist(portal, credentials, report);
+    await _gatewayFor(portal).fetchGrades(credentials);
+
+    // A sync still running with the outdated password must neither publish
+    // its failure over the fresh credentials nor keep the follow-up refresh
+    // from starting, so it is drained first.
+    await _sessions.invalidateAndWait();
+    try {
+      await _store.write(credentials);
+    } catch (error, stackTrace) {
+      // A failed secure-storage write can leave no usable credentials
+      // behind. Never keep presenting the account as connected over that.
+      state = AsyncError<GradeAccountState>(error, stackTrace);
+      rethrow;
+    }
+    _sessions.activate((username: username, portal: portal));
   }
 
   /// Switches to the other exam portal. Persists the new choice, discards the
@@ -227,16 +319,45 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
   Future<void> switchPortal(GradePortal target) async {
     final GradeAccountState current = state.value ?? const GradeAccountState();
     if (!current.isSignedIn) return;
+    final String username = current.username!;
+    final GradePortal? previous = current.activePortal;
+
+    await _sessions.invalidateAndWait();
 
     // The cache is cleared FIRST and its failure is fatal to the switch. The
     // old order wrote the new portal, swallowed a failed clear, and — if the
     // follow-up sync then failed too, which offline it will — showed the
     // previous portal's grades under the new portal's name. That is exactly
     // the confusion `docs/grades.md` rules out.
-    await _cache.clear();
-    await _portalStore.write(target);
+    try {
+      await _cache.clear();
+      await _wipeLinkedPersonalData();
+    } catch (_) {
+      // The switch is abandoned before the portal choice moved, so the
+      // account is still exactly what it was. Re-activate its session —
+      // otherwise every later refresh silently did nothing — and republish
+      // the unchanged state so linked features (student service, wallet)
+      // rebuild and re-activate the guards the wipe already invalidated.
+      if (previous != null) {
+        _sessions.activate((username: username, portal: previous));
+      }
+      state = AsyncData(
+        GradeAccountState(username: username, activePortal: previous),
+      );
+      rethrow;
+    }
+    try {
+      await _portalStore.write(target);
+    } catch (error, stackTrace) {
+      // A failed secure-storage write leaves the stored choice unknown.
+      // Neither portal may be presented as current; the account screen's
+      // retry re-reads the authoritative value from secure storage.
+      state = AsyncError<GradeAccountState>(error, stackTrace);
+      rethrow;
+    }
+    _sessions.activate((username: username, portal: target));
     state = AsyncData(
-      GradeAccountState(username: current.username, activePortal: target),
+      GradeAccountState(username: username, activePortal: target),
     );
   }
 
@@ -244,30 +365,49 @@ class GradeAccountController extends AsyncNotifier<GradeAccountState> {
   /// portal choice, the encrypted cache, its key and all sync timestamps, then
   /// resets the state.
   ///
-  /// Throws [GradeFailure] with [GradeFailureKind.cacheUnavailable] when
-  /// anything is left behind. It used to swallow both clears, so a failed wipe
-  /// still reported "signed out" while the encrypted grades and their key were
-  /// untouched on the device — the one outcome this path must never claim
-  /// falsely. The state is only reset once every step has actually succeeded.
+  /// Throws a typed secure-storage or cache failure when anything is left
+  /// behind. It used to swallow clears, so a failed wipe still reported
+  /// "signed out" while encrypted grades or their key remained on the device.
+  /// The state is only reset once every step has actually succeeded.
   Future<void> deleteEverything() async {
-    await _store.clear();
+    // Stop accepting work first and wait for every already-started sync. The
+    // verified wipe then necessarily happens after its final possible write.
+    await _sessions.invalidateAndWait();
 
-    // Both clears are attempted even if the first one throws: a partial wipe
-    // that removed more is strictly better than one that stopped at the first
-    // error. What is not allowed is reporting success afterwards.
-    Object? failure;
+    // Every store is attempted even if an earlier one fails: a partial wipe
+    // that removed more is strictly better than stopping at the first error.
+    // What is not allowed is reporting success afterwards.
+    GradeFailure? failure;
+    try {
+      await _store.clear();
+    } catch (error) {
+      failure ??= error is GradeFailure
+          ? error
+          : const GradeFailure(GradeFailureKind.secureStorageUnavailable);
+    }
     try {
       await _portalStore.clear();
     } catch (error) {
-      failure ??= error;
+      failure ??= error is GradeFailure
+          ? error
+          : const GradeFailure(GradeFailureKind.secureStorageUnavailable);
     }
     try {
       await _cache.clear();
     } catch (error) {
-      failure ??= error;
+      failure ??= error is GradeFailure
+          ? error
+          : const GradeFailure(GradeFailureKind.cacheUnavailable);
+    }
+    try {
+      await _wipeLinkedPersonalData();
+    } catch (error) {
+      failure ??= error is GradeFailure
+          ? error
+          : const GradeFailure(GradeFailureKind.cacheUnavailable);
     }
     if (failure != null) {
-      throw const GradeFailure(GradeFailureKind.cacheUnavailable);
+      throw failure;
     }
     state = const AsyncData(GradeAccountState());
   }
@@ -277,4 +417,8 @@ final AsyncNotifierProvider<GradeAccountController, GradeAccountState>
 gradeAccountControllerProvider =
     AsyncNotifierProvider<GradeAccountController, GradeAccountState>(
       GradeAccountController.new,
+      // No Riverpod auto-retry: a failed build() must surface immediately,
+      // not after several silent, exponentially-delayed background retries —
+      // the same convention every other controller in this app follows.
+      retry: (_, _) => null,
     );

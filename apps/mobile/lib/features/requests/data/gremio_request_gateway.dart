@@ -2,8 +2,6 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
@@ -76,23 +74,54 @@ class GremioRequestGateway implements RequestGateway {
       ..add(MapEntry<String, String>('title', draft.title.trim()))
       ..add(MapEntry<String, String>('applicant', draft.applicant.trim()));
 
+    int totalBytes = 0;
+    int fileCount = 0;
     for (final ApplicationFileSlot slot in ApplicationFileSlot.values) {
       final RequestAttachment? file = draft.fileFor(slot);
       if (file == null) continue;
-      // Read straight into memory: no decrypted copy is ever written to disk,
-      // so there is no temporary file for a crash to leave behind.
-      final Uint8List? bytes = await _attachments.read(file);
-      if (bytes == null) {
+      fileCount++;
+      final int? declaredSize = file.sizeBytes;
+      if (fileCount > ApplicationFileLimits.maxFiles ||
+          (declaredSize != null &&
+              !ApplicationFileLimits.acceptsFile(declaredSize))) {
         return SubmissionRejected(
           fieldErrors: <RequestField, String>{RequestField.forSlot(slot): ''},
         );
+      }
+
+      final StoredAttachmentStream? source;
+      try {
+        source = switch (_attachments) {
+          final StreamingAttachmentStore streaming => await streaming.openRead(
+            file,
+          ),
+          _ => await _wholeFileSource(file),
+        };
+      } on AttachmentStoreUnavailable {
+        // The store, not the file: nothing to correct in the form, and
+        // nothing has been sent.
+        return const SubmissionNotSent(
+          SubmissionNotSentReason.attachmentsUnavailable,
+        );
+      }
+      if (source == null ||
+          (declaredSize != null && source.length != declaredSize) ||
+          !ApplicationFileLimits.acceptsFile(source.length)) {
+        return SubmissionRejected(
+          fieldErrors: <RequestField, String>{RequestField.forSlot(slot): ''},
+        );
+      }
+      totalBytes += source.length;
+      if (!ApplicationFileLimits.acceptsTotal(totalBytes)) {
+        return const SubmissionTooLarge();
       }
       final String? contentType = slot.contentTypeFor(file.fileName);
       form.files.add(
         MapEntry<String, MultipartFile>(
           slot.field,
-          MultipartFile.fromBytes(
-            bytes,
+          MultipartFile.fromStream(
+            source.open,
+            source.length,
             filename: file.fileName,
             contentType: contentType == null
                 ? null
@@ -108,6 +137,17 @@ class GremioRequestGateway implements RequestGateway {
       idempotencyKey: draft.idempotencyKey,
       onProgress: onProgress,
       cancel: cancel,
+    );
+  }
+
+  Future<StoredAttachmentStream?> _wholeFileSource(
+    RequestAttachment attachment,
+  ) async {
+    final bytes = await _attachments.read(attachment);
+    if (bytes == null) return null;
+    return StoredAttachmentStream(
+      length: bytes.length,
+      open: () => Stream<List<int>>.value(bytes),
     );
   }
 
@@ -158,9 +198,11 @@ class GremioRequestGateway implements RequestGateway {
     final CancelToken? token = cancel == null ? null : CancelToken();
     if (cancel != null && token != null) {
       cancel.bind(() => token.cancel('cancelled by the user'));
-      // A token cancelled before the request went out must not still send.
+      // A token cancelled before the request went out must not still send —
+      // and since nothing went out, there is no case that could exist and
+      // nothing to freeze.
       if (cancel.isCancelled) {
-        return const SubmissionOutcomeUnknown('cancelled');
+        return const SubmissionNotSent(SubmissionNotSentReason.cancelled);
       }
     }
     try {
@@ -232,13 +274,20 @@ class GremioRequestGateway implements RequestGateway {
   ) {
     final Object? statusUrl = json['statusUrl'];
     final Object? receipt = json['receiptPdfUrl'];
-    // Without the link there is no way back to this case. Calling that a
-    // success would strand it.
+    // Without the link there is no way back to this case, so it cannot be
+    // recorded — and a foreign or plain-http link must never be handed the
+    // token. But the endpoint said 2xx: the case very likely exists. Calling
+    // that "failed" invited a fresh submission (with the student ID); as an
+    // unknown outcome the draft freezes and only an identical replay follows.
     if (statusUrl is! String || !_origin!.allows(statusUrl)) {
-      return const SubmissionFailed('accepted-without-usable-status-url');
+      return const SubmissionOutcomeUnknown.acceptedWithoutUsableLink(
+        'accepted-without-usable-status-url',
+      );
     }
     if (receipt is! String || !_origin.allows(receipt)) {
-      return const SubmissionFailed('accepted-without-usable-receipt-url');
+      return const SubmissionOutcomeUnknown.acceptedWithoutUsableLink(
+        'accepted-without-usable-receipt-url',
+      );
     }
     final Object? number = json['number'];
     return SubmissionAccepted(

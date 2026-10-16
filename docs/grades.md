@@ -140,6 +140,151 @@ Aktionen`) → `extras: Map<String,String>` mit dem **originalen Kopfzeilentext*
 - Die Spalte `Bonus` trägt Werte, die wie Credits aussehen — sie wird **nie** als ECTS
   umgedeutet oder umbenannt; Kopfzeilentext und Wert werden wörtlich übernommen.
 
+### Bescheinigungen auf der Notenübersichtsseite selbst (`ExamReportGateway`)
+
+Dieselbe Notenübersicht (Schritt 2 oben) bietet im Formular `id="examsReadonly"` zusätzlich einen
+eigenen Abschnitt mit bis zu drei festen Druck-Buttons (`class="submit_print_pdf"`, z. B.
+Leistungsübersicht bestandener Leistungen auf Deutsch und Englisch, Übersicht fehlender
+Leistungen). Anders als die Studienservice-Bescheinigung ist das **keine** AJAX-Auftrag/Polling-
+Kette, sondern eine normale **volle** Formularabgabe (`myfaces.oam.submitForm`): alle Hidden-Felder
+des Formulars plus der gedrückte Button plus `DISABLE_VALIDATION=true` werden an die Formular-
+`action` gepostet; die Antwort ist ein Redirect auf
+
+```
+https://sscportal.ssc.hs-anhalt.de/qisserver/rds?state=docdownload&docId=…
+```
+
+— danach folgt derselbe zweite Redirect-Sprung wie beim Studienservice-Download, auf die separate
+Origin `untrust-sscportal.ssc.hs-anhalt.de` (siehe unten), über eine eigene, separat benannte
+Prüfung (`HisInOneProfile.examReportDownloadRoute`, kein gemeinsamer Pool mit
+`StudentServiceProfile.documentDownloadRoute`). Diese Prüfung ist **geordnet** und wird pro
+Download frisch erzeugt: Bis zum Einstieg sind nur der Rücksprung auf die Notenübersicht selbst
+und `state=docdownload` auf dem Portal-Host erlaubt, danach ausschließlich `state=docdownload` auf
+dem `untrust-`-Host — nie umgekehrt und nie zurück. Die Angebote werden auch bei einem leeren
+Abschnitt „Leistungsdaten" gelesen, damit z. B. die „Übersicht fehlender Leistungen" erreichbar
+bleibt. Die Liste der angebotenen Buttons (`ExamReportOffer`, Button-Id +
+Beschriftung) wird bei jedem Notenabruf frisch mitgelesen (`HisInOneHtmlParser.findExamReports`)
+und zusammen mit dem Bericht zwischengespeichert (`GradeReport.examReports`); vor dem Absenden wird
+sie **erneut** von einer frisch geladenen Seite gelesen — ein Button, der dort nicht mehr auftaucht,
+wird abgelehnt, statt eine veralterte Id zu posten. Zugangsdaten, Session- und Download-Mechanik
+sind identisch zum übrigen Notenspiegel-Ablauf (Login → Seite → Form-POST → Download → Logout im
+`finally`); es entsteht **kein** zweiter Login und **kein** eigener `+`/`−`-Eintrag. Ausgeschlossen
+bleibt jede andere Formularaktion auf dieser Seite — insbesondere Prüfungsanmeldung.
+
+## Lesende HISinOne-Funktionen jenseits des Notenspiegels
+
+Dieselbe HISinOne-Verbindung (`sscportal.ssc.hs-anhalt.de`, **nicht** das HIS-QIS-Bestandsportal)
+wird um weitere, ausschließlich **lesende** Funktionen erweitert. Erreichbar über ein eigenes,
+anheftbares Modul „HISinOne" (`student_service`).
+
+### Reale Seitenstruktur (Stand 01.10.2026, gegen die echte, laufende Seite verifiziert)
+
+Anders als zunächst angenommen gibt es **keine** drei getrennten Seiten und **kein**
+„Accountdatenblatt". Alles liegt auf **einer** Seite:
+
+```
+GET/POST https://sscportal.ssc.hs-anhalt.de/qisserver/pages/cm/stu/studyService/start.xhtml
+         ?_flowId=studyservice-flow&_flowExecutionKey=e{N}s{N}
+```
+
+Fünf Tabs **in einem Formular** (`studyserviceForm`), Tab-Wechsel per **vollem Formular-POST**
+(kein AJAX) mit jeweils neuem `_flowExecutionKey`:
+
+| Tab-Button                       | Inhalt                                                          |
+| -------------------------------- | --------------------------------------------------------------- |
+| `…:stgStudent_TabBtn` (Standard) | Studiengangsübersicht                                           |
+| `…:newContactData_TabBtn`        | Kontaktdaten (Semester-/Heimatanschrift, E-Mail, Telefon)       |
+| `…:billsAndPayment_TabBtn`       | Zahlungen — einzige indirekte Quelle für einen Rückmeldehinweis |
+| `…:report_TabBtn`                | Bescheide / Bescheinigungen                                     |
+| `…:agreements_TabBtn`            | (nicht erschlossen)                                             |
+
+Jeder Tab zeigt oben zusätzlich den eingeklappten Block `…:fieldsetPersoenlicheData`
+(Personendaten: Matrikelnummer, **Hörerstatus**, Geburtsdatum/-ort/-land, Staatsangehörigkeit —
+Label/Wert-Paare über `.labelWithBG`/`.answer`, nie als Tabelle).
+
+**Es gibt kein eigenes Feld „Immatrikulationsstatus"** — der nächstliegende Wert ist der
+„Hörerstatus" in den Personendaten. **Es gibt kein eigenes Feld „Rückmeldestatus"** — ableitbar
+nur indirekt aus dem Zahlungen-Tab: eine leere offene-Zahlungen-Tabelle zeigt stattdessen den Text
+„Sie haben keine offenen Zahlungen!"; vorhandene Posten erscheinen in einer Tabelle mit den Spalten
+Zeitraum/Verwendungszweck/Soll/Ist. Diese beiden Werte werden deshalb als **Hinweise**, nicht als
+verlässliche, eigenständige Statusfelder dargestellt.
+
+**Bescheinigungen** sind kein direkter Download-Link, sondern ein mehrstufiger Ablauf: Button
+klicken (`…:job2`, AJAX, die Antwort rendert drei Komponenten: das Overlay, den Download-Slot
+`jobDownload` und die Meldungsbox) → sobald das Overlay den `<p:poll>`-Widget
+`…:jobDownloadPoll` enthält, pollt dieser mit seiner eigenen, festen `:poll`-Quelle und rendert
+sich selbst → sobald fertig, löst die Partial-Response per JavaScript einen `GET` aus:
+
+```
+https://sscportal.ssc.hs-anhalt.de/qisserver/rds?state=docdownload&docId=…
+```
+
+Diese Antwort ist selbst ein `307`-Redirect auf eine **separate** Origin,
+`https://untrust-sscportal.ssc.hs-anhalt.de`, mit demselben Pfad/Zustand, aber einem reicheren
+Parametersatz (`accountId`/`hash`/`timestamp`/`docId`/`docName`) — bestätigt am 2026-10-04 durch
+einen echten `Location`-Header eines tatsächlich abgeschlossenen Auftrags, zusätzlich durch den
+`Content-Security-Policy`-Header des Portals selbst belegt, der genau diesen Host unter
+`child-src` listet. Eine Zwischenfassung dieser Dokumentation hatte diesen zweiten Host fälschlich
+für erfunden erklärt: ein `503` bei einem händischen Testabruf der URL ohne die echten,
+einweg-gültigen `accountId`/`hash`/`timestamp`-Werte wurde als Beweis für eine nicht existierende
+URL missverstanden, obwohl er schlicht bedeutete, dass diese Werte fehlten. `docId` ist pro Vorgang
+neu und **nicht im Voraus konstruierbar** — er muss aus der Partial-Response gelesen werden. Der
+Ablauf ist anhand der realen Seitenstruktur und des JSF/MyFaces-Vertrags implementiert und durch
+deterministische Start-/Polling-/ViewState-/PDF-Tests abgesichert.
+
+Manche Aufträge starten nicht direkt: „Studienverlaufsbescheinigung" öffnet zuerst ein
+Konfigurations-Overlay (Semesterauswahl, vorausgewählt). Es wird als DOM gelesen; jede Auswahl wird
+an ihre **eigene** vorausgewählte Option gebunden. Mehrere Start-Buttons, ein anderes
+Einstellungselement als `<select>` oder eine Auswahl ohne genau eine vorausgewählte Option ergeben
+`UnrecognisedJobConfiguration` (klassifizierter Fehler `portalStructureChanged`), nie eine geratene
+Abgabe. Erst der Button „PDF erstellen" des Overlays startet den Auftrag per voller
+Formularabgabe. Endet deren Redirect-Kette auf dem `state=docdownload`-Einstieg des Portal-Hosts,
+folgt die Sitzung diesem Sprung **nicht** mit ihrer allgemeinen Host-Prüfung, sondern übergibt
+ihn an denselben Download-Pfad (`StudentServiceProfile.documentDownloadRoute`) wie einen per AJAX
+gelieferten Link; ein direkter Sprung auf den `untrust-`-Host wird abgelehnt.
+
+### Konsequenzen für die Umsetzung
+
+- **Kein zweiter Login.** Alle Tabs nutzen dieselben, bereits für den Notenspiegel hinterlegten
+  Zugangsdaten (`GradeCredentialStore`) weiter und sind nur verfügbar, wenn das aktive Portal
+  `GradePortal.hisInOne` ist — das Bestandsportal HIS-QIS bietet diese Seite nicht. Es gibt dafür
+  **keinen** eigenen `+`/`−`-Eintrag im Hochschulzugang-Widget; das Modul selbst verweist auf die
+  Noten-Einrichtung, solange keine HISinOne-Verbindung besteht.
+- **Ausdrücklich ausgeschlossen** ist jede zustandsändernde Interaktion: keine Prüfungsanmeldung,
+  keine Adressänderung und kein Antrag. Erlaubt sind nur die wiederverwendete Login-Mechanik,
+  Tab-Wechsel sowie Start und Polling der bewusst gewählten Bescheinigung. Dieser Bereich bleibt
+  fachlich reines Lesen.
+- Die Session-/Redirect-/Host-Validierung (positive `isAuthenticated`-Prüfung statt Prüfung auf
+  Abwesenheit von `sessionTimeoutLoginForm`) ist aus `HisInOneGradesGateway` in die geteilte
+  Komponente `HisInOneSession` extrahiert und wird identisch genutzt.
+- **Kapazitätserkennung statt Annahme:** Welcher Tab-Inhalt tatsächlich vorhanden ist, wird aus
+  der jeweils geladenen Seite abgeleitet, nie angenommen. Eine nicht erkannte Seitenstruktur
+  ergibt einen klassifizierten Fehler (`portalStructureChanged`) und überschreibt **nie** einen
+  vorhandenen Cache-Stand.
+- Heruntergeladene Bescheinigungen werden **nicht dauerhaft archiviert**: Die Bytes bleiben im
+  Arbeitsspeicher, begrenzt auf dieselbe Obergrenze wie bei anderen Dokument-Downloads
+  (`kMaxInMemoryPreviewBytes`), und werden ausschließlich über die sichere Teilen-/Öffnen-Aktion
+  des Betriebssystems weitergegeben. Die Übersichten (Bescheinigungsliste, Personendaten,
+  Kontaktdaten, Studiengangsübersicht) liegen verschlüsselt lokal, exakt wie der
+  Notenspiegel-Cache.
+- Logout/Wipe ist an dieselbe Session-Generation gekoppelt wie Noten und Moodle: ein nach dem
+  Trennen verspätet eintreffendes Ergebnis darf den lokalen Stand nie wiederbeleben.
+- Der Dokument-Download läuft über eine **eigene, explizite und pfadbegrenzte Allowlist** —
+  genau zwei Hosts (der Portal-Host für den ersten Sprung, `untrust-sscportal.ssc.hs-anhalt.de`
+  für den zweiten, siehe oben), aber eng auf ausschließlich HTTPS, Standardport, `/qisserver/rds`
+  und `state=docdownload` geprüft und als **geordnete** Route je Download erzwungen: Einstieg nur
+  auf dem Portal-Host, jeder folgende Redirect nur auf dem `untrust-`-Host, nie zurück (bei den
+  Druck-Buttons der Notenübersicht ist davor nur der Umweg über die Notenübersichtsseite selbst
+  erlaubt), getrennt von der allgemeinen Session-Allowlist gehalten
+  (AGENTS.md §2: „kein gemeinsamer Pool"). Der Download läuft im selben kurzlebigen Cookie-Jar wie
+  Job-Start und Polling. Andere Pfade, Statuswerte, Ports, User-Info oder Antwort-Hosts werden
+  abgewiesen; es gibt keine generische Freigabe für von der Antwort genannte Hosts.
+- **Die rotierende `javax.faces.ViewState` zwischen Polls hat eine eigene, dynamische
+  `<update>`-Id**, z. B. `j_id__v_7:javax.faces.ViewState:1`, nie die bloße Zeichenkette
+  `javax.faces.ViewState` — bestätigt 2026-10-04 aus einer echten Poll-Antwort. Eine Erkennung, die
+  exakt auf die bloße Zeichenkette anankert, trifft nie und sendet auf jedem weiteren Poll
+  unbemerkt den veralteten ersten ViewState erneut.
+
 ## Sicherheit (für beide Portale identisch)
 
 - **Nur HTTPS**, **nur** der jeweils angeheftete Host. Ein Redirect auf einen anderen Host oder
@@ -155,6 +300,9 @@ Aktionen`) → `extras: Map<String,String>` mit dem **originalen Kopfzeilentext*
   unsicheren Fallback. Das Passwort wird **erst unmittelbar vor** einem Portalaufruf gelesen und
   **nie** dauerhaft im State/Controller gehalten. Der öffentliche Account-State enthält höchstens
   Benutzername und aktives Portal, **nie** das Passwort.
+- Ein optionaler zentraler Hochschulzugang kann dasselbe Passwort getrennt im gerätegebundenen
+  Keychain/Keystore halten. Er ist nur eine lokale Eingabehilfe: `+` übergibt die Identität nach
+  Nutzeraktion an diese Portalwahl; es entsteht keine gemeinsame SSO-Sitzung.
 
 ## Portalwahl
 
@@ -179,9 +327,22 @@ Studierende wissen nicht, welches Portal ihr Studiengang nutzt.
   ohne jede Note zurück.
 - Das Ergebnis wird persistiert (`GradePortalStore`, **dieselbe** sichere Ablage wie die
   Zugangsdaten) — jede weitere Synchronisation spricht nur noch dieses eine Portal an.
+- **HISinOne ist das Standardportal.** Ein **bestätigt fehlender** Portalwert (Altkonto aus der
+  Zeit vor der Portalwahl) wird einmalig auf `hisInOne` umgestellt und gespeichert. Wie bei jedem
+  Portalwechsel wird dabei zuerst der lokale Notencache des bisherigen Portals verworfen: Dessen
+  Noten erscheinen nie unter HISinOne, und der erste HISinOne-Sync meldet keine fremden Noten als
+  „neu“. Scheitert das Verwerfen, bleibt der Fehler sichtbar und der nächste Start versucht es
+  erneut. Vor der ersten Anmeldung zeigen auch der Gateway-Rückfall und der Link „Notenportal im
+  Browser öffnen" der Einrichtung auf HISinOne. Der Umschalter
+  „Prüfungsportal wechseln“ bleibt für Konten, deren Leistungen noch in HIS-QIS liegen. Ein
+  Lesefehler des Keychain/Keystore oder ein unbekannter gespeicherter
+  Wert ergibt dagegen den klassifizierten Fehler `secureStorageUnavailable` mit „Erneut
+  versuchen“ — nie „abgemeldet“, nie einen stillen Portalwechsel und nie den Nachhol-Wipe von
+  Wallet und Studienservice-Cache, der nur bei bestätigt fehlenden Zugangsdaten läuft.
 - Im Notenbereich gibt es einen sichtbaren, faktischen Umschalter „Prüfungsportal wechseln" mit
   Anzeige des aktiven Hosts. Ein Wechsel verwirft den lokalen Cache und synchronisiert neu.
-- „Zugangsdaten und lokale Noten löschen" entfernt auch die Portalwahl in **einem** Schritt.
+- „Noten-Verbindung und lokale Noten löschen" entfernt auch die Portalwahl in **einem** Schritt,
+  behält aber einen optionalen zentralen Hochschulzugang für andere Dienste.
 
 ## Lokaler, verschlüsselter Notencache
 
@@ -196,9 +357,10 @@ Studierende wissen nicht, welches Portal ihr Studiengang nutzt.
     `v1`-Inhalten fehl; die App startet einfach mit einem leeren Cache und lädt neu, wie bei
     jedem anderen Cache-Fehltreffer auch.
 - **Keine** Noten in einer unverschlüsselten Box oder als JSON in SharedPreferences.
-- „Zugangsdaten und lokale Noten löschen" entfernt vollständig: Benutzername, Passwort, aktive
-  Portalwahl, Cacheinhalt, Cache-Schlüssel, Synchronisationszeitpunkte, Sitzungsspuren und den
-  State.
+- „Noten-Verbindung und lokale Noten löschen" entfernt vollständig aus dem **Notendienst**:
+  Benutzername, Passwort, aktive Portalwahl, Cacheinhalt, Cache-Schlüssel,
+  Synchronisationszeitpunkte, Sitzungsspuren und den State. Die separate Komplettlöschung in den
+  Einstellungen entfernt nach allen Dienst-Wipes auch die zentrale Identität.
 - Eine leere, ungültige oder fehlgeschlagene Portalantwort **überschreibt den letzten
   erfolgreichen Cache nie** — nur ein verifizierter Notenspiegel wird geschrieben. Ein
   Portalwechsel ist die einzige absichtliche Ausnahme: er verwirft den Cache explizit, weil ein
@@ -213,6 +375,24 @@ Unverändert für beide Portale: kein Hintergrund-Polling, kein Timer, kein Back
 Automatisch (lazy) beim Öffnen des Bereichs, getrennte Zeitstempel für letzten Versuch und
 letzten Erfolg, 24-Stunden-Sperre für automatische Versuche, manueller Refresh umgeht sie,
 Single-Flight bei parallelen Auslösern. Details unverändert gegenüber der bisherigen Fassung.
+
+Nach einem **erfolgreichen** Abruf vergleicht die App den neuen Bericht lokal mit dem vorherigen
+erfolgreichen Cache. Eine bisher leere oder neu hinzugekommene Blattzeile mit numerischer Note oder
+„unbenotet bestanden“ löst bei aktivierten lokalen Benachrichtigungen den neutralen Hinweis
+„Neue Note eingetragen“ aus. Der erste Bericht legt nur die Baseline an; geänderte vorhandene Noten
+und neu berechnete Aggregatzeilen werden nicht als neue Note gemeldet. Es gibt keinen
+Hintergrundabruf und keine Echtzeitgarantie. Details:
+[`academic-updates-and-document-wallet.md`](academic-updates-and-document-wallet.md).
+
+## Offline-Dokumenten-Wallet
+
+Eine im Dokumentbetrachter geöffnete Immatrikulationsbescheinigung oder Leistungsübersicht kann
+bewusst verschlüsselt offline gespeichert werden. Andere Bescheinigungsarten und Listen fehlender
+Leistungen werden nicht angeboten. Je Art ersetzt eine neue PDF die alte; beim Konto- oder
+Portalwechsel sowie bei „Noten-Verbindung und lokale Noten löschen“ wird die Wallet verifiziert
+mit entfernt. Die Dokumente werden nicht automatisch heruntergeladen und verlassen das Gerät
+nicht. Details und Limits stehen in
+[`academic-updates-and-document-wallet.md`](academic-updates-and-document-wallet.md).
 
 Zusätzlich: Ein **leerer** Bericht überschreibt einen **nicht leeren** Cache nie. Liefert das
 Portal plötzlich nichts, wo gestern noch Leistungen standen, heißt das nie „die Noten sind weg",
@@ -231,6 +411,8 @@ die Baumebenen), statt in der Oberfläche gegen Zeichenketten zu vergleichen.
 - **Credit-Sammelkonto / C-Sammelkonto → „Durchschnitt" / „Average".** Der Wert dieser Zeile
   **ist** der Durchschnitt. Die App übernimmt ihn unverändert und **berechnet keinen eigenen**.
   Angezeigt als eigene Zeile über der Liste, nicht als Prüfung.
+- **Notenwerte** (auch der Durchschnitt) erscheinen mit allen Nachkommastellen des Portals und
+  mindestens einer (`2,37` bleibt `2,37`, `1` wird `1,0`) — nie auf eine Stelle gerundet.
 - **Zulassung zur Abschlussarbeit** (nur HIS-QIS) wird nicht angezeigt.
 - **Alles andere bleibt stehen**, auch unbekannte Zeilentypen/Statuscodes.
 - **HISinOne-spezifisch:** Die Liste zeigt nur die Blattzeilen (echte Prüfungsergebnisse,
@@ -281,13 +463,15 @@ gesichertes Fenster setzt und iOS keinen Capture- oder App-Switcher-Überleger r
 ```
 features/grades/
   domain/         GradePortal, GradePortalProfile (Interface, je EIN Host pro Portal),
-                  LegacyQisProfile, HisInOneProfile, GradeCredentials, Grade/GradeEntry/
-                  ExamStatus (typsicher, inkl. path/module/extras), GradeReport, GradeFailure,
-                  Clock, decimal_parsing, Ports (Gateway, CredentialStore, PortalStore,
-                  CacheStore)
+                  LegacyQisProfile, HisInOneProfile (inkl. examReportDownloadRoute),
+                  GradeCredentials, Grade/GradeEntry/ExamStatus (typsicher, inkl.
+                  path/module/extras), GradeReport (inkl. examReports), ExamReportOffer/
+                  ExamReportDownloadResult, ExamReportGateway, GradeFailure, Clock,
+                  decimal_parsing, Ports (Gateway, CredentialStore, PortalStore, CacheStore)
   data/           QisHtmlParser / LegacyQisGradesGateway (HIS-QIS), HisInOneHtmlParser /
-                  HisInOneGradesGateway (HISinOne, Baum), SecureGradeCredentialStore,
-                  SecureGradePortalStore, EncryptedGradeCache (+ Codec, v2)
+                  HisInOneGradesGateway (HISinOne, Baum + ExamReportGateway-Implementierung),
+                  SecureGradeCredentialStore, SecureGradePortalStore,
+                  EncryptedGradeCache (+ Codec, v2, inkl. examReports)
   application/    Provider (inkl. Per-Portal-Gateways + aufgelöstes gradesGatewayProvider),
                   GradeAccountController (Portalwahl, Wechsel, Löschen), GradesController
                   (24h-Policy, Single-Flight)
@@ -333,8 +517,10 @@ flutter test test/features/grades/
   auch mit korrekten Zugangsdaten, scheitern ließ.
 - `grade_portal_selection_test.dart` — Reihenfolge `hisInOne` → `hisQisLegacy`, „Login ok aber
   leer" → zweites Portal, maximal zwei Loginversuche, Persistenz, Wechsel verwirft Cache,
-  Löschen entfernt auch die Portalwahl, Altkonten ohne gespeicherte Portalwahl fallen auf
-  `hisQisLegacy` zurück; `portalStructureChanged`/`portalUnavailable` auf Portal 1 lassen
+  Löschen entfernt auch die Portalwahl, Altkonten ohne gespeicherte Portalwahl wechseln einmalig
+  auf `hisInOne` (der Cache des bisherigen Portals wird zuerst verworfen), ein bereits gewähltes
+  Portal wird nie verschoben; scheitert das Speichern der Portalwahl, werden die eben
+  gespeicherten Zugangsdaten verifiziert zurückgerollt; `portalStructureChanged`/`portalUnavailable` auf Portal 1 lassen
   Portal 2 probieren, beide strukturell defekt → Fehler wird gemeldet und **nichts**
   persistiert, `tlsOrHostRejected` bricht weiterhin sofort ab.
 - `grade_cache_migration_test.dart` — `v1`-Boxinhalte werden nie gelesen; das Öffnen der
@@ -345,4 +531,19 @@ flutter test test/features/grades/
   einen nicht leeren Cache nie (Cache und `lastSuccessfulSync` bleiben stehen), ohne
   vorhandenen Cache wird ein leerer Bericht normal übernommen.
 - `grade_ui_test.dart` — „Noten" unter Mehr, Setup/Consent-Validierung, Anmeldung enthüllt
-  Overview, Cache ohne Auto-Sync, Löschbestätigung.
+  Overview, Cache ohne Auto-Sync, Löschbestätigung; Bescheinigungen-Abschnitt erzeugt und öffnet
+  ein PDF auf HISinOne, ein abgelehntes Dokument zeigt den Diagnosecode.
+- `his_in_one_html_parser_test.dart` (zusätzlich) — `findExamReports` liest die
+  `submit_print_pdf`-Buttons (Id + Beschriftung), `buildExamReportPostRequest` baut den vollen
+  Formular-POST inkl. Hidden-Feldern und `DISABLE_VALIDATION=true`.
+- `his_in_one_grades_gateway_test.dart` (zusätzlich) — ein Abruf füllt `entries` **und**
+  `examReports` aus derselben Seite; `downloadExamReport` postet, folgt BEIDEN Redirect-Sprüngen
+  (Portal-Host → `untrust-sscportal`-Host) und prüft die PDF-Magicbytes; ein Button, der auf
+  einer frisch gelesenen Seite nicht mehr auftaucht, wird vor jedem POST abgelehnt.
+- `his_in_one_profile_test.dart` — `examReportDownloadRoute` lässt genau die reale, geordnete
+  Kette zu (optionaler Rücksprung auf die Notenübersicht, `state=docdownload` auf dem Portal-Host,
+  danach nur `state=docdownload` auf dem `untrust-sscportal`-Host), erreicht den `untrust-`-Host
+  nie vor dem Einstieg und lehnt abweichenden Pfad, Zustand, Host, Port oder User-Info ab.
+- `grade_cache_migration_test.dart` (zusätzlich) — `examReports` übersteht einen Schreib-/
+  Lesedurchlauf; ein vor dieser Änderung zwischengespeicherter Bericht (reines Array statt
+  Wrapper-Objekt) liefert beim Lesen eine leere `examReports`-Liste statt eines Fehlers.

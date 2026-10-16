@@ -47,11 +47,19 @@ enum AppModule {
     icon: AppIcons.calendar_month_outlined,
     selectedIcon: AppIcons.calendar_month,
   ),
+  timetable(
+    storageValue: 'timetable',
+    route: AppRoutes.timetable,
+    category: ModuleCategory.study,
+    sortOrder: 2,
+    icon: AppIcons.schedule_outlined,
+    selectedIcon: AppIcons.schedule_outlined,
+  ),
   mail(
     storageValue: 'mail',
     route: AppRoutes.mail,
     category: ModuleCategory.study,
-    sortOrder: 2,
+    sortOrder: 3,
     icon: AppIcons.mail_outline,
     selectedIcon: AppIcons.mail,
   ),
@@ -59,25 +67,57 @@ enum AppModule {
     storageValue: 'moodle',
     route: AppRoutes.moodle,
     category: ModuleCategory.study,
-    sortOrder: 3,
+    sortOrder: 4,
     icon: AppIcons.book_outlined,
     selectedIcon: AppIcons.book_outlined,
+  ),
+  nextcloud(
+    storageValue: 'nextcloud',
+    route: AppRoutes.nextcloud,
+    category: ModuleCategory.study,
+    sortOrder: 5,
+    icon: AppIcons.cloud_outlined,
+    selectedIcon: AppIcons.cloud_outlined,
   ),
   grades(
     storageValue: 'grades',
     route: AppRoutes.grades,
     category: ModuleCategory.study,
-    sortOrder: 4,
+    sortOrder: 6,
     icon: AppIcons.grade_outlined,
     selectedIcon: AppIcons.grade_outlined,
+  ),
+  studentService(
+    storageValue: 'studentService',
+    route: AppRoutes.studentService,
+    category: ModuleCategory.study,
+    sortOrder: 7,
+    icon: AppIcons.badge_outlined,
+    selectedIcon: AppIcons.badge_outlined,
+  ),
+  documentWallet(
+    storageValue: 'documentWallet',
+    route: AppRoutes.documentWallet,
+    category: ModuleCategory.study,
+    sortOrder: 8,
+    icon: AppIcons.folder_outlined,
+    selectedIcon: AppIcons.folder_outlined,
   ),
   todos(
     storageValue: 'todos',
     route: AppRoutes.todos,
     category: ModuleCategory.study,
-    sortOrder: 5,
+    sortOrder: 9,
     icon: AppIcons.checklist_outlined,
     selectedIcon: AppIcons.checklist,
+  ),
+  hsaKi(
+    storageValue: 'hsaKi',
+    route: AppRoutes.hsaKi,
+    category: ModuleCategory.study,
+    sortOrder: 10,
+    icon: AppIcons.message_2,
+    selectedIcon: AppIcons.message_2,
   ),
 
   // --- Campus --------------------------------------------------------------
@@ -120,6 +160,14 @@ enum AppModule {
     sortOrder: 5,
     icon: AppIcons.file_pencil,
     selectedIcon: AppIcons.file_pencil,
+  ),
+  library(
+    storageValue: 'library',
+    route: AppRoutes.library,
+    category: ModuleCategory.campus,
+    sortOrder: 6,
+    icon: AppIcons.library_outlined,
+    selectedIcon: AppIcons.library_outlined,
   ),
 
   // --- App -----------------------------------------------------------------
@@ -172,15 +220,21 @@ enum AppModule {
   /// The module's full name, as used on its own screen and in lists.
   String title(AppLocalizations l10n) => switch (this) {
     AppModule.calendar => l10n.navCalendar,
+    AppModule.timetable => l10n.timetableTitle,
     AppModule.mail => l10n.mailTitle,
     AppModule.moodle => l10n.moodleTitle,
+    AppModule.nextcloud => l10n.nextcloudTitle,
     AppModule.grades => l10n.gradesTitle,
+    AppModule.studentService => l10n.studentServiceTitle,
+    AppModule.documentWallet => l10n.documentWalletTitle,
     AppModule.todos => l10n.todosTitle,
+    AppModule.hsaKi => l10n.hsaKiTitle,
     AppModule.news => l10n.navNews,
     AppModule.canteen => l10n.navCanteen,
     AppModule.campusMap => l10n.moduleCampusMapTitle,
     AppModule.contacts => l10n.moduleContactsTitle,
     AppModule.requests => l10n.requestsTitle,
+    AppModule.library => l10n.libraryTitle,
     AppModule.settings => l10n.moreSettings,
     AppModule.about => l10n.aboutTitle,
   };
@@ -198,13 +252,19 @@ enum AppModule {
 
   /// One line explaining the module, or `null` where the name says it all.
   String? subtitle(AppLocalizations l10n) => switch (this) {
+    AppModule.timetable => l10n.moreTimetableSubtitle,
     AppModule.mail => l10n.moreMailSubtitle,
     AppModule.grades => l10n.moreGradesSubtitle,
+    AppModule.studentService => l10n.moreStudentServiceSubtitle,
+    AppModule.documentWallet => l10n.documentWalletSubtitle,
     AppModule.moodle => l10n.moreMoodleSubtitle,
+    AppModule.nextcloud => l10n.nextcloudSubtitle,
     AppModule.todos => l10n.moreTodosSubtitle,
+    AppModule.hsaKi => l10n.hsaKiSubtitle,
     AppModule.campusMap => l10n.moreCampusMapSubtitle,
     AppModule.contacts => l10n.moreContactsSubtitle,
     AppModule.requests => l10n.requestsSubtitle,
+    AppModule.library => l10n.librarySubtitle,
     _ => null,
   };
 
@@ -212,9 +272,25 @@ enum AppModule {
   ///
   /// A property of the module itself, so no caller has to remember the list.
   bool get isPersonalService => switch (this) {
-    AppModule.mail || AppModule.grades || AppModule.moodle => true,
+    AppModule.mail ||
+    AppModule.grades ||
+    AppModule.studentService ||
+    AppModule.moodle => true,
+    AppModule.nextcloud => true,
+    AppModule.hsaKi => true,
     _ => false,
   };
+
+  /// Greyed out and not navigable in the "More" hub, with the reason shown
+  /// instead of the usual subtitle.
+  ///
+  /// HSA-GPT specifically: confirmed 2026-10-07 that `ki.hs-anhalt.de` runs
+  /// HAWKI 2.4.0, which predates the JSON:API/keychain layer this app's chat
+  /// feature depends on for model selection — every model list request 404s,
+  /// so no message can currently be sent at all. Reported to HSA IT; remove
+  /// this once their deployment is updated (confirm `/api/hawki/v1/ai-models`
+  /// responds before re-enabling).
+  bool get isTemporarilyUnavailable => this == AppModule.hsaKi;
 
   static AppModule? fromStorage(String? value) {
     for (final AppModule module in AppModule.values) {

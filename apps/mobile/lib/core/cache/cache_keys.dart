@@ -6,6 +6,42 @@
 /// Keys carry the locale where the cached document is locale dependent, so a
 /// language switch never shows the previous language's content.
 abstract final class CacheKeys {
+  static const String timetableRangeNamespace = 'timetable.entries';
+  static const String publicCalendarRangeNamespace = 'calendars.public.events';
+  static const String postEventRangeNamespace = 'posts.events';
+
+  static String namespaceOf(String key) {
+    for (final String namespace in <String>[
+      timetableRangeNamespace,
+      publicCalendarRangeNamespace,
+      postEventRangeNamespace,
+    ]) {
+      if (key == namespace || key.startsWith('$namespace.')) return namespace;
+    }
+    final List<String> parts = key.split('.');
+    return parts.take(parts.length < 2 ? parts.length : 2).join('.');
+  }
+
+  static bool isRangeNamespace(String namespace) =>
+      namespace == timetableRangeNamespace ||
+      namespace == publicCalendarRangeNamespace ||
+      namespace == postEventRangeNamespace;
+
+  /// Range keys always end in `from.to`; removing those bounds yields the
+  /// stable locale/group/selection scope whose newest successful window must
+  /// survive retention cleanup.
+  static String rangeScopeOf(String key) {
+    final String namespace = namespaceOf(key);
+    final int bounds = namespace == postEventRangeNamespace ? 3 : 2;
+    String scope = key;
+    for (int index = 0; index < bounds; index++) {
+      final int dot = scope.lastIndexOf('.');
+      if (dot < 0) return key;
+      scope = scope.substring(0, dot);
+    }
+    return scope;
+  }
+
   /// Public deployment flags, including the mandatory user-test disclosure.
   static const String appEnvironment = 'environment.public.v1';
 
@@ -69,8 +105,22 @@ abstract final class CacheKeys {
   static String canteenMenu(String locale, String slug) =>
       'canteen.menu.$locale.$slug';
 
-  /// Full study group list of the timetable.
+  /// Cached first page of the timetable group picker.
   static String timetableGroups(String locale) => 'timetable.groups.$locale';
+
+  /// One selected timetable group, independently available offline.
+  static String timetableGroup(String locale, String groupId) =>
+      'timetable.group.$locale.$groupId';
+
+  /// Small public timetable availability response.
+  static String timetableStatus(String locale) => 'timetable.status.$locale';
+
+  /// Semester catalogues and their Campus group ids.
+  static String timetablePeriods(String locale) => 'timetable.periods.$locale';
+
+  /// Modules observed for one Campus study group.
+  static String timetableModules(String locale, String groupId) =>
+      'timetable.modules.$locale.$groupId';
 
   /// Exact lesson information choices of one Campus study group.
   static String timetableLessonInfo(String locale, String groupId) =>

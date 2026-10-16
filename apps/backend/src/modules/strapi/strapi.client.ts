@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { z } from 'zod';
 import { BodyTooLargeError, readBoundedText } from '../../common/http/bounded-body';
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
@@ -14,7 +15,15 @@ import { Env } from '../../config/env.schema';
  * switching DEV/PROD is purely an environment change.
  */
 
-export type StrapiErrorKind = 'timeout' | 'unauthorized' | 'unavailable' | 'malformed';
+/**
+ * - `timeout` / `unavailable`: transient — no answer in time, a broken
+ *   connection, a 5xx or a 429. The only kinds that are retried.
+ * - `unauthorized`: 401/403, the read-only token is missing or under-scoped.
+ * - `rejected`: any other deterministic refusal — a 4xx or a redirect this
+ *   client never follows. Asking again would get the same answer.
+ * - `malformed`: an answer arrived but cannot be used.
+ */
+export type StrapiErrorKind = 'timeout' | 'unauthorized' | 'rejected' | 'unavailable' | 'malformed';
 
 export class StrapiRequestError extends Error {
   constructor(
@@ -33,6 +42,41 @@ export interface StrapiListResponse<T> {
   meta?: {
     pagination?: { page: number; pageSize: number; pageCount: number; total: number };
   };
+}
+
+/**
+ * The envelope of a Strapi list answer. Entries stay open records: each
+ * module validates its own fields when it maps them.
+ */
+const strapiListSchema = z.object({
+  data: z.array(z.record(z.string(), z.unknown())),
+  meta: z
+    .object({
+      pagination: z
+        .object({
+          page: z.number(),
+          pageSize: z.number(),
+          pageCount: z.number(),
+          total: z.number(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+/**
+ * Validates a Strapi list answer before anything reads it (AGENTS.md §4).
+ *
+ * A 200 without a `data` list is not an empty result: read as one, it would be
+ * cached and served as "no posts" or "no rooms". It is reported as a
+ * `malformed` answer instead, which every caller maps to UPSTREAM_UNAVAILABLE.
+ */
+export function parseStrapiList(body: unknown): StrapiListResponse<Record<string, unknown>> {
+  const parsed = strapiListSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new StrapiRequestError('malformed', 'Strapi returned an unexpected list envelope');
+  }
+  return parsed.data;
 }
 
 /**
@@ -126,8 +170,9 @@ export class StrapiClient {
   /**
    * Performs a GET with a hard timeout and bounded retries.
    *
-   * Only transport failures and 5xx responses are retried; a 4xx is a
-   * deterministic answer and retrying it would just add load.
+   * Only timeouts, transport failures, 5xx and 429 responses are retried; a
+   * 4xx or a refused redirect is a deterministic answer and retrying it would
+   * just add load and latency.
    */
   async get<T>(path: string, query?: StrapiQuery): Promise<T> {
     const url = this.buildUrl(path, query);
@@ -137,8 +182,10 @@ export class StrapiClient {
       'unavailable',
       'Strapi request was never attempted',
     );
+    let attemptsMade = 0;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      attemptsMade = attempt;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.env.STRAPI_TIMEOUT_MS);
 
@@ -167,8 +214,11 @@ export class StrapiClient {
         }
 
         if (!response.ok) {
+          // A 5xx or a 429 is the CMS saying "not now"; every other status is
+          // the same answer on the next attempt.
+          const transient = response.status >= 500 || response.status === 429;
           throw new StrapiRequestError(
-            'unavailable',
+            transient ? 'unavailable' : 'rejected',
             `Strapi responded with status ${response.status}`,
             response.status,
           );
@@ -209,7 +259,7 @@ export class StrapiClient {
 
     // The URL is logged without query values and never with the token.
     this.logger.warn(
-      `Strapi request failed after ${attempts} attempt(s): ${lastError.kind} (${path})`,
+      `Strapi request failed after ${attemptsMade} attempt(s): ${lastError.kind} (${path})`,
     );
     throw lastError;
   }
@@ -221,7 +271,30 @@ export class StrapiClient {
     if (error instanceof Error && error.name === 'AbortError') {
       return new StrapiRequestError('timeout', 'Strapi request timed out');
     }
+    if (StrapiClient.isRefusedRedirect(error)) {
+      return new StrapiRequestError('rejected', 'Strapi answered with a redirect');
+    }
     return new StrapiRequestError('unavailable', 'Strapi is unreachable');
+  }
+
+  /**
+   * `redirect: 'error'` makes Node's fetch reject with a generic
+   * `TypeError('fetch failed')` whose `cause` names the redirect — the same
+   * error type a refused connection produces, so only the cause tells them
+   * apart. Checked structurally rather than with `instanceof`, because the
+   * error is created in the runtime's own realm.
+   */
+  private static isRefusedRedirect(error: unknown): boolean {
+    const isRedirectMessage = (value: unknown): boolean =>
+      typeof value === 'object' &&
+      value !== null &&
+      (value as { message?: unknown }).message === 'unexpected redirect';
+    return (
+      isRedirectMessage(error) ||
+      (typeof error === 'object' &&
+        error !== null &&
+        isRedirectMessage((error as { cause?: unknown }).cause))
+    );
   }
 
   /** Bounded connectivity probe used by /health/ready. */

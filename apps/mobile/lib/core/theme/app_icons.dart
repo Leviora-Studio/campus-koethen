@@ -48,7 +48,9 @@ abstract final class AppIcons {
   static const IconData circle_outlined = TablerIcons.circle;
   static const IconData clear = TablerIcons.x;
   static const IconData close = TablerIcons.x;
+  static const IconData cloud_upload_outlined = TablerIcons.cloud_upload;
   static const IconData cloud_off_outlined = TablerIcons.cloud_off;
+  static const IconData cloud_outlined = TablerIcons.cloud;
   static const IconData construction_outlined = TablerIcons.tools;
   static const IconData contact_support = TablerIcons.help_circle_filled;
   static const IconData contact_support_outlined = TablerIcons.help_circle;
@@ -100,6 +102,7 @@ abstract final class AppIcons {
   static const IconData language_outlined = TablerIcons.language;
   static const IconData layers_clear_outlined = TablerIcons.layers_off;
   static const IconData layers_outlined = TablerIcons.layers_intersect;
+  static const IconData library_outlined = TablerIcons.books;
   static const IconData link = TablerIcons.link;
   static const IconData link_off = TablerIcons.link_off;
   static const IconData link_outlined = TablerIcons.link;
@@ -116,6 +119,9 @@ abstract final class AppIcons {
   static const IconData message_2 = TablerIcons.message_2;
   static const IconData more_horiz = TablerIcons.dots;
   static const IconData motion_photos_off_outlined = TablerIcons.circle_off;
+  static const IconData nfc = TablerIcons.nfc;
+  static const IconData nfc_off = TablerIcons.nfc_off;
+  static const IconData currency_euro = TablerIcons.currency_euro;
   static const IconData no_meals_outlined = TablerIcons.tools_kitchen_2_off;
   static const IconData notifications_active_outlined = TablerIcons.bell_check;
   static const IconData notifications_off_outlined = TablerIcons.bell_off;
@@ -168,6 +174,7 @@ abstract final class AppIcons {
   static const IconData star = TablerIcons.star_filled;
   static const IconData star_border = TablerIcons.star;
   static const IconData star_outline = TablerIcons.star;
+  static const IconData sort_ascending = TablerIcons.sort_ascending;
   static const IconData support_agent_outlined = TablerIcons.headset;
   static const IconData swap_horiz = TablerIcons.arrows_exchange;
   static const IconData sync = TablerIcons.refresh;

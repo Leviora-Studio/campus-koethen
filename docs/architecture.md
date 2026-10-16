@@ -47,18 +47,19 @@ Sensibilität der Daten.
 
 ```text
 ┌────────────────┐
-│ Flutter        │──HTTPS/IMAPS/SMTP──► mail.hs-anhalt.de           E-Mail (IMAP 993, SMTP 587)
+│ Flutter        │──HTTPS/IMAPS/SMTP──► mail.hs-anhalt.de           E-Mail + EWS-Kalender (opt-in, lesend)
 │ apps/mobile    │──HTTPS─────────────► service.ssc.hs-anhalt.de    HIS-QIS-Notenspiegel
 │                │──HTTPS─────────────► sscportal.ssc.hs-anhalt.de  HISinOne-Notenspiegel
 │                │──HTTPS─────────────► moodle.hs-anhalt.de         Moodle-Webservice (lesend)
+│                │──HTTPS─────────────► cloud.hs-anhalt.de          Nextcloud Login Flow / WebDAV (lesend)
 │                │──HTTPS─────────────► REQUESTS_BASE_URL           Gremiensystem (Anträge/Feedback)
 └────────────────┘
         │
         └── Zugangsdaten/Token: Keychain / Keystore · Inhalte: verschlüsselter lokaler Cache
 ```
 
-Diese vier Dienste laufen **bewusst am Backend vorbei**, damit weder Campus API noch Strapi noch
-Worker jemals Zugangsdaten oder persönliche Inhalte erhalten. Es sind **genau vier** ausdrücklich
+Diese fünf Dienste laufen **bewusst am Backend vorbei**, damit weder Campus API noch Strapi noch
+Worker jemals Zugangsdaten oder persönliche Inhalte erhalten. Es sind **genau fünf** ausdrücklich
 beschlossene Ausnahmen — jede weitere muss in [`../AGENTS.md`](../AGENTS.md) §2 ergänzt werden.
 
 Zwei Besonderheiten, die aus dem Diagramm allein nicht hervorgehen:
@@ -67,14 +68,37 @@ Zwei Besonderheiten, die aus dem Diagramm allein nicht hervorgehen:
   Jedes hat seine **eigene, getrennte** Host-Allowlist — es gibt keinen gemeinsamen Pool. Welches
   Portal ein Konto nutzt, wird bei der Einrichtung einmalig ermittelt und lokal gespeichert
   ([grades.md](grades.md), „Portalwahl").
-- Die **Antragstellung** ist als einzige der vier **nicht nutzerauthentifiziert**. Ausschlaggebend
+- Die **Antragstellung** ist als einzige der fünf **nicht nutzerauthentifiziert**. Ausschlaggebend
   ist hier der Inhalt statt der Anmeldung: eine Einreichung trägt den Namen der antragstellenden
   Person und eine **Kopie des Studierendenausweises**. Der zurückgegebene **Statuslink ist ein
   Geheimnis** und der einzige Zugang zum Vorgang ([requests.md](requests.md)).
+- **Nextcloud** übernimmt das zentrale Hochschulpasswort nicht. Die App startet Login Flow v2 im
+  Systembrowser und speichert nur das danach ausgegebene, widerrufbare App-Passwort im
+  Keychain/Keystore. Dateien und Verzeichnislisten bleiben ohne Offline-Cache im Arbeitsspeicher
+  ([nextcloud.md](nextcloud.md)).
 
-Die Zusammenführung von Stundenplan (Pfad 1), öffentlichen Kalendern (Pfad 1) und Moodle-Deadlines
-(Pfad 2) im Kalender-Tab geschieht **ausschließlich lokal auf dem Gerät**. Kein Server sieht die
-kombinierte Ansicht.
+Die optionale `UniversityIdentity` verbindet diese Netze **nicht** zu einer technischen SSO-
+Sitzung. Sie ist eine lokale Eingabehilfe mit genau **einer** Kennung (Hochschul-Benutzername
+oder -Mailadresse, je nachdem was eingegeben wurde) und einem Passwort — das spiegelt, dass die
+Hochschule dieselbe Kennung und dasselbe Passwort für Mail, Moodle und Noten akzeptiert. Nextcloud
+ist davon getrennt und verwendet ausschließlich den Browserflow. Der öffentliche
+Controller-State enthält nur diese Kennung; das Passwort wird für
+eine ausdrücklich ausgelöste `+`-Aktion just in time aus dem gerätegebundenen Keychain/Keystore
+gelesen. Moodle und Noten erhalten sie unverändert im Benutzername-Feld. Der Mail-Adapter ergänzt
+nur eine Kennung ohne `@` zu `<Kennung>@hs-anhalt.de`; eine bereits vollständige Mailadresse bleibt
+unverändert. Das frühere Drei-Feld-Schema wird vollständig gelöscht und nicht geraten migriert.
+Danach erzeugt
+der jeweilige Adapter ausschließlich seinen eigenen Zustand: Mail-Credentials, Moodle-Token oder
+Noten-Credentials samt Portalwahl. Es gibt weder ein Campus-Köthen-Konto noch einen
+Identity-Endpunkt im Backend.
+
+Die Zusammenführung von Stundenplan (Pfad 1), öffentlichen Kalendern (Pfad 1), Moodle-Deadlines
+und optionalen persönlichen Exchange-Terminen (Pfad 2) im Kalender-Tab geschieht
+**ausschließlich lokal auf dem Gerät**. Kein Server sieht die kombinierte Ansicht. EWS wird nur
+nach ausdrücklichem Opt-in angesprochen; die Termine bleiben im Arbeitsspeicher und gelangen in
+keinen Inhaltscache. Weil Homescreen-Widgets und geplante Betriebssystem-Benachrichtigungen ihre
+Payloads persistieren, erhalten sie keine Exchange-Inhalte. Nur ein bewusst ausgelöster ICS-Export
+darf aktuell geladene Termine an das vom Nutzer gewählte Ziel übergeben.
 
 ## 2. Harte Systemgrenzen
 
@@ -91,7 +115,7 @@ Verstöße gegen diese Regeln sind Blocker, keine Stilfragen.
 | G7  | Umgebungsunterschiede entstehen **nur** durch Environment/Secrets, nie durch Quellcode oder Branches.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | G8  | Öffentliche DTOs leaken keine Strapi-Internas (`data`, `attributes`, `documentId`, `meta.pagination` der Quelle) und keine Fremd-IDs (WebUntis-IDs, `location_id`, Google-Kalender-ID).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | G9  | PostgreSQL wird nie öffentlich gebunden.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| G10 | Persönliche Dienste laufen **direkt** vom Gerät zum offiziellen Anbieter: Mail, Notenspiegel (HIS-QIS **und** HISinOne), Moodle, Anträge/Feedback. **Kein** Backend-Proxy, **keine** serverseitige Speicherung, **kein** Logging-Umweg.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| G10 | Persönliche Dienste laufen **direkt** vom Gerät zum offiziellen Anbieter: Mail, Notenspiegel (HIS-QIS **und** HISinOne), Moodle, Nextcloud, Anträge/Feedback. **Kein** Backend-Proxy, **keine** serverseitige Speicherung, **kein** Logging-Umweg.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | G11 | Für die Direktdienste gilt: nur HTTPS bzw. implizites TLS, feste Host-Allowlist **je Dienst und je Prüfungsportal** (kein gemeinsamer Pool), Redirects auf fremde Hosts werden abgelehnt, Zertifikatsprüfung nie deaktiviert, kein Certificate-Pinning. Die Origin-Prüfung umfasst Schema, Host, Port und schließt `userInfo` aus.                                                                                                                                                                                                                                                                                                                                                                                      |
 | G12 | Zugangsdaten, Token und der Statuslink der Anträge liegen **ausschließlich** im Keychain/Keystore beziehungsweise verschlüsselt lokal; persönliche Inhalte einschließlich hochgeladener Nachweise nur **verschlüsselt** lokal. Nie in `SharedPreferences` oder einer unverschlüsselten Box.                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | G13 | Quellenübergreifende Zusammenführung im Kalender geschieht **ausschließlich lokal** in Flutter. Kein Server sieht die kombinierte Ansicht.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -211,7 +235,10 @@ werden ausschließlich die vier stabilen Modul-IDs in ihrer Reihenfolge; unbekan
 oder eine falsche Anzahl werden beim Lesen repariert, sodass keine Konfiguration ein Modul
 unerreichbar machen kann.
 
-`API_BASE_URL` wird über `--dart-define` gesetzt. Die Strapi-URL gelangt **nie** in die App.
+`API_BASE_URL` wird über `--dart-define` als exakte HTTPS-Origin ohne Pfad, Query oder Fragment
+gesetzt. Jede Loopback-Adresse, einschließlich lokalem HTTP, erfordert zusätzlich das
+ausdrückliche `ALLOW_LOCAL_API=true`; Release- und Profile-Builds verweigern sie immer. Die Strapi-URL gelangt
+**nie** in die App.
 
 Die Direktdienste sind jeweils hinter einem Port gekapselt (`MailGateway`, `GradesGateway`,
 `MoodleRepository`). UI und Riverpod-Controller kennen **keine** `enough_mail`-, Dio-, Cookie-
@@ -256,21 +283,31 @@ zwischen Backend und Flutter und wird in CI gegen den Code geprüft.
 
 ### 3.6 Direktintegrationen (Pfad 2)
 
-Vier geräteseitige Integrationen ohne jede Backend-Beteiligung. Jede hat ein eigenes Dokument mit
+Fünf geräteseitige Integrationen ohne jede Backend-Beteiligung. Jede hat ein eigenes Dokument mit
 Bedrohungsmodell, Sicherheitszusagen und manueller Testcheckliste.
 
-| Dienst           | Ziel                                                                                               | Transport                                     | Umfang                                                                                                                                   | Doku                               |
-| ---------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Studenten-Mail   | `mail.hs-anhalt.de`                                                                                | IMAPS 993, SMTP 587 mit Pflicht-STARTTLS      | lesen, suchen, antworten, senden; Ordner wechseln; Anhänge anzeigen                                                                      | [student-mail.md](student-mail.md) |
-| Notenspiegel     | `service.ssc.hs-anhalt.de` **oder** `sscportal.ssc.hs-anhalt.de` — nie beide, getrennte Allowlists | HTTPS, HTML-Parsing (keine offizielle API)    | Notenspiegel lesen; 24-Stunden-Regel; Portalwahl bei der Einrichtung                                                                     | [grades.md](grades.md)             |
-| Moodle           | `moodle.hs-anhalt.de`                                                                              | HTTPS, Moodle-Webservice (REST)               | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines — **nur lesend**                                                                  | [moodle.md](moodle.md)             |
-| Anträge/Feedback | `REQUESTS_BASE_URL` (Build-Environment, **nie** Quellcode-Konstante, **muss** HTTPS sein)          | HTTPS, öffentliche JSON-API, Multipart-Upload | Finanzanträge und Rückmeldungen einreichen; Vorgangsstatus per `POST` abfragen; Entwürfe, Nachweise und Statuslink bleiben auf dem Gerät | [requests.md](requests.md)         |
+| Dienst           | Ziel                                                                                                                                                                                                                                                                                                                                                                                                            | Transport                                           | Umfang                                                                                                                                                                                                                                                                                                                                                                                                                      | Doku                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Studenten-Mail   | `mail.hs-anhalt.de`                                                                                                                                                                                                                                                                                                                                                                                             | IMAPS 993, SMTP 587 mit Pflicht-STARTTLS; EWS HTTPS | Mail lesen, suchen, antworten, senden; Ordner/Anhänge; nach Opt-in persönlichen Standardkalender ausschließlich lesen                                                                                                                                                                                                                                                                                                       | [student-mail.md](student-mail.md) |
+| Notenspiegel     | `service.ssc.hs-anhalt.de` **oder** `sscportal.ssc.hs-anhalt.de` — nie beide, getrennte Allowlists; für einen erzeugten HISinOne-Nachweis zusätzlich nur `sscportal.ssc.hs-anhalt.de/qisserver/rds?state=docdownload`, das per Redirect zweistufig auf die separate Origin `untrust-sscportal.ssc.hs-anhalt.de` desselben Pfads/Zustands weiterleitet (enge Pfad-/Parameter-Prüfung auf genau diese zwei Hosts) | HTTPS, HTML-/JSF-Parsing (keine offizielle API)     | Notenspiegel lesen; 24-Stunden-Regel; Portalwahl bei der Einrichtung. Auf HISinOne zusätzlich **nur lesend**: die drei festen Bescheinigungs-Druck-Buttons direkt auf der Notenübersichtsseite (volle Formularabgabe, kein AJAX) sowie eine eigene Seite „Studienservice" mit mehreren Tabs: Bescheinigungsübersicht/-abruf, Personendaten/Kontaktdaten, Studiengangsübersicht — dieselben Zugangsdaten, kein zweiter Login | [grades.md](grades.md)             |
+| Moodle           | `moodle.hs-anhalt.de`                                                                                                                                                                                                                                                                                                                                                                                           | HTTPS, Moodle-Webservice (REST)                     | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines — **nur lesend**                                                                                                                                                                                                                                                                                                                                                     | [moodle.md](moodle.md)             |
+| Nextcloud        | `cloud.hs-anhalt.de`                                                                                                                                                                                                                                                                                                                                                                                            | HTTPS, Login Flow v2, OCS und WebDAV                | Browser-Anmeldung mit widerrufbarem App-Passwort; Ordner/Download, gestreamter Upload ohne Überschreiben, bestätigtes Löschen und bestätigte nur lesbare öffentliche Links; kein persistenter Dateicache                                                                                                                                                                                                                    | [nextcloud.md](nextcloud.md)       |
+| Anträge/Feedback | `REQUESTS_BASE_URL` (Build-Environment, **nie** Quellcode-Konstante, **muss** HTTPS sein)                                                                                                                                                                                                                                                                                                                       | HTTPS, öffentliche JSON-API, Multipart-Upload       | Finanzanträge und Rückmeldungen einreichen; Vorgangsstatus per `POST` abfragen; Entwürfe, Nachweise und Statuslink bleiben auf dem Gerät                                                                                                                                                                                                                                                                                    | [requests.md](requests.md)         |
 
 Der Antragsdienst ist **nicht nutzerauthentifiziert**. Er steht hier trotzdem, weil die Begründung
-dieselbe ist wie bei den übrigen drei: die Einreichung trägt den Namen der antragstellenden Person
+dieselbe ist wie bei den übrigen Direktdiensten: die Einreichung trägt den Namen der antragstellenden Person
 und eine Kopie des Studierendenausweises, und genau solche Daten sollen kein Campus-Köthen-Backend
 erreichen. Es gibt hier keine Sitzung zum Beenden — der entsprechende Weg heißt daher „lokale Daten
 löschen" und nicht „abmelden".
+
+Der **Mensa-€-Check per NFC** ist keine fünfte Netzwerkintegration: Der Lesevorgang bleibt vollständig
+zwischen Gerät und vorgehaltener Mensakarte. Ein schmales natives Bridge-Modul stellt Android
+`IsoDep` und iOS Core NFC bereit; die gemeinsame Dart-Schicht sendet ausschließlich die zwei
+festgelegten Read-Kommandos, validiert Statuswort, Länge und Wertebereich und hält das Ergebnis nur
+flüchtig im Widget-State. Die App wertet keine Kartenkennung aus und speichert, protokolliert oder
+überträgt weder Kartenkennung, Rohantwort noch Saldo. Es gibt keinen Hintergrundscan. Android darf
+einen bereits per `TECH_DISCOVERED` erkannten Tag nach der systemseitigen Öffnen-Aktion unmittelbar
+verarbeiten; iOS startet ausschließlich eine manuelle In-App-Session.
 
 Gemeinsame, nicht verhandelbare Zusagen (G10–G12):
 
@@ -285,11 +322,18 @@ Gemeinsame, nicht verhandelbare Zusagen (G10–G12):
   bei jedem Vordergrundwechsel, Kalender frühestens 10 Minuten nach dem letzten Versuch. Noten
   folgen weiterhin einer 24-Stunden-Regel. Moodle und Noten behalten Single-Flight und manuelle
   Übersteuerung.
-- „Account entfernen“ bzw. „Verbindung und lokale Daten löschen“ entfernt Zugangsdaten, Token,
-  Cache, Cache-Schlüssel, Zeitstempel und den zugehörigen State logisch. Beim Mailkonto wird
+- Das dienstbezogene `−` beziehungsweise „Verbindung und lokale Daten löschen“ entfernt die
+  Credential-Kopie beziehungsweise den Token dieses Diensts, Cache, Cache-Schlüssel, Zeitstempel
+  und den zugehörigen State logisch. Ein optionaler zentraler Hochschulzugang bleibt erhalten. Beim Mailkonto wird
   Erfolg erst nach bestätigter Abwesenheit der persistenten Artefakte gemeldet. Ein Teilfehler
   hält die Sitzung gesperrt und wird beim Retry oder nächsten Start fortgesetzt.
-- Für die drei nutzerauthentifizierten Dienste fasst „Überall abmelden“ diese Wege zusammen. Die
+- „Hochschulzugang vollständig löschen“ ruft für alle verbundenen Dienste genau diese kanonischen
+  Wipes auf. Erst wenn jeder erfolgreich war, wird die zentrale Identität zuletzt verifiziert
+  gelöscht. Bei Teilfehlern bleiben erfolgreiche Dienst-Wipes bestehen, fehlgeschlagene Dienste
+  werden benannt, und die zentrale Identität bleibt für den Retry erhalten. Bei einem
+  Passwortwechsel wird die Identität über „Zugangsdaten aktualisieren“ erneut an einem bewusst
+  gewählten Dienst geprüft; erst danach ersetzt sie den bisherigen sicheren Wert.
+- Die
   Anträge haben stattdessen ihre eigene Aktion **„Lokale Antragsdaten und Nachweise löschen“**
   (Einstellungen → Daten): sie entfernt Entwürfe, eingereichte Vorgänge, Anhänge und beide
   Verschlüsselungsschlüssel und meldet einen unvollständigen Lauf als solchen. Mit dem Statuslink
@@ -377,19 +421,21 @@ Durchgehende Regeln:
 
 ### 4.3 Gerätelokale Speicher (Pfad 2 und lokale Funktionen)
 
-| Daten                                                            | Speicher                                                                                             |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Zugangsdaten Mail, Notenspiegel · Moodle-Token                   | `flutter_secure_storage` (Keychain/Keystore)                                                         |
-| Gewähltes Prüfungsportal des Notenkontos                         | `flutter_secure_storage`                                                                             |
-| Schlüssel der verschlüsselten Boxen (256 Bit, CSPRNG)            | `flutter_secure_storage`                                                                             |
-| Noten, Moodle-Inhalte                                            | verschlüsselte `hive_ce`-Box                                                                         |
-| E-Mail-Kopfzeilen, -Inhalte, Adressindex, optional Anhänge       | verschlüsselte `hive_ce`-Box                                                                         |
-| Antragsentwürfe, eingereichte Vorgänge, **Statuslinks**          | verschlüsselte `hive_ce`-Box `campus_requests_secure_v1` (Schlüssel `campus_requests_secure_key_v1`) |
-| Hochgeladene Nachweise inkl. **Kopie des Studierendenausweises** | verschlüsselte `hive_ce`-Box `campus_request_files_v1` (Schlüssel `campus_request_files_key_v1`)     |
-| Aufgabenliste                                                    | `hive_ce`, rein lokal, ohne Netz                                                                     |
-| News, Kanäle, Kontakte, Mensadaten                               | `hive_ce` (Inhaltscache)                                                                             |
-| Kanal-Abos, Kalenderauswahl, Sprache, Theme, Mensa               | `SharedPreferences` (kleine Skalare)                                                                 |
-| Benachrichtigungs-Opt-in und Kategorieschalter                   | `SharedPreferences` (vier kleine Skalare)                                                            |
+| Daten                                                                             | Speicher                                                                                             |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Zugangsdaten Mail, Notenspiegel · Moodle-Token · Nextcloud-App-Passwort           | `flutter_secure_storage` (Keychain/Keystore)                                                         |
+| Gewähltes Prüfungsportal des Notenkontos                                          | `flutter_secure_storage`                                                                             |
+| Schlüssel der verschlüsselten Boxen (256 Bit, CSPRNG)                             | `flutter_secure_storage`                                                                             |
+| Noten, Moodle-Inhalte                                                             | verschlüsselte `hive_ce`-Box                                                                         |
+| Nextcloud-Verzeichnislisten und bewusst geladene Dateien                          | nur flüchtig im Arbeitsspeicher; kein persistenter Cache                                             |
+| E-Mail-Kopfzeilen, begrenzte Inhalte, Adress-/Suchindex, optionale Anhänge        | verschlüsselte `hive_ce`-Box (Retention: 500 Header, 200 Bodies, 100 MiB)                            |
+| Antragsentwürfe, eingereichte Vorgänge, **Statuslinks**                           | verschlüsselte `hive_ce`-Box `campus_requests_secure_v1` (Schlüssel `campus_requests_secure_key_v1`) |
+| Hochgeladene Nachweise inkl. **Kopie des Studierendenausweises**                  | verschlüsselte `hive_ce`-Box `campus_request_files_v1` (Schlüssel `campus_request_files_key_v1`)     |
+| Aufgabenliste                                                                     | `hive_ce`, rein lokal, ohne Netz                                                                     |
+| News, Kanäle, Kontakte, Mensadaten, Kalender-/Stundenplanfenster                  | `hive_ce` (Inhaltscache; 128 Einträge/20 MiB, Namespace-LRU, 90-Tage-Fenster-Retention)              |
+| Kanal-Abos, Kalenderquellen einschließlich Exchange-Opt-in, Sprache, Theme, Mensa | `SharedPreferences` (kleine Skalare)                                                                 |
+| Benachrichtigungs-Opt-in und Kategorieschalter                                    | `SharedPreferences` (vier kleine Skalare)                                                            |
+| NFC-Mensaguthaben und Kartenantwort                                               | **keine Persistenz**; nur flüchtig im Arbeitsspeicher der geöffneten Anzeige                         |
 
 Alle Einträge — Zugangsdaten wie Box-Schlüssel — werden mit derselben, an genau einer
 Stelle definierten Konfiguration abgelegt (`apps/mobile/lib/core/security/app_secure_storage.dart`).
@@ -403,6 +449,13 @@ Der Mailcache nutzt `campus_mail_cache_secure_v2`; sein gerätegebundener Schlü
 Testcache `campus_mail_cache_v1` ungeöffnet und idempotent entfernt, nicht inhaltlich migriert.
 Kann der Altcache nicht sicher entfernt oder der sichere Speicher nicht genutzt werden, degradiert
 Mail auf Memory-only und erzeugt niemals eine unverschlüsselte Persistenz.
+
+Der allgemeine Inhaltscache führt pro Dokument Namespace, Erstell- und Zugriffszeit. Beim Öffnen
+der Box und nach erfolgreichen Schreibvorgängen werden ungültige Einträge, alte Bereichsfenster
+und anschließend die am längsten nicht verwendeten Dokumente entfernt. Je
+Stundenplan-/Kalender-Scope bleibt das jüngste erfolgreiche Fenster bei der Altersbereinigung
+erhalten; eine einzelne Antwort, die das gesamte Bytebudget überschreitet, ersetzt keinen zuvor
+nutzbaren Cacheeintrag.
 
 Ein gewöhnlicher Cachefehler darf **nie** zum Absturz führen — er degradiert auf Memory-only oder
 einen Netzabruf. Umgekehrt **löscht** eine leere, ungültige oder fehlgeschlagene Antwort **nie** den
@@ -463,12 +516,21 @@ Worker-Tick (CANTEEN_SYNC_CRON, Standard "0 */2 * * *")
 `lastSuccessfulSyncAt` ist der jüngste `SyncRun` mit `status = success`. `dataStale` ist `true`,
 wenn dieser Zeitpunkt älter als `CANTEEN_STALE_AFTER_MINUTES` ist.
 
+Davon getrennt läuft die optionale lokale NFC-Guthabenprüfung ohne Campus API und ohne Worker. Nach
+der Auswahl von DESFire-Anwendung `5F8415` wird nur bei erfolgreichem Statuswort der Wert gelesen;
+vier Nutzdatenbytes werden als vorzeichenbehafteter 32-Bit-Wert in Little Endian interpretiert und
+in Tausendstel Euro dargestellt. Ein Protokoll-, Längen- oder Plausibilitätsfehler beendet den
+Vorgang mit einem Fehlerzustand und erzeugt keinen scheinbaren Nullsaldo.
+
 ### 6.2 Stundenplan
 
 Zwei getrennte Jobs, beide über `WEBUNTIS_ENABLED` schaltbar (Default `false`):
 
 - **Gruppenkatalog** (`WEBUNTIS_GROUP_SYNC_CRON`, Default `0 2 * * *`) — eine Gruppe wird erst
   nach einem **vollständig** erfolgreichen Katalogimport deaktiviert, nie aufgrund eines Teillaufs.
+  Derselbe Lauf pflegt transaktional die Semester↔Gruppen-Zuordnung für
+  `GET /v1/timetable/periods`; eine verdächtig leere Semesterantwort lässt den letzten guten Stand
+  vollständig unangetastet.
 - **Einträge** (`WEBUNTIS_ENTRY_SYNC_CRON`, Default `15 2 * * *`) — die öffentliche Ansicht
   verlangt inzwischen genau eine Klasse pro Request. Der Worker lädt die Klassen aller Schuljahre,
   die das Zeitfenster schneiden, und übernimmt die Ergebnisse erst nach einem vollständigen Lauf.
@@ -480,6 +542,15 @@ Wandzeit und werden beim Import nach UTC gerechnet — würde man sie roh speich
 jede Stunde. Unbekannte Vokabeln in `type`/`status` werden auf `unknown` abgebildet und brechen den
 Import **nicht**.
 
+Die App kann neben dem bewusst gewählten Hauptkurs bis zu zwölf weitere Studiengruppen oder
+Gruppen mit einzeln gewählten Modulen abonnieren. Der Modulkatalog kommt aus bereits importierten
+Campus-Zeilen über `GET /v1/timetable/modules`; die Auswahl bleibt lokal. Die App lädt die
+Campus-UUID-Endpunkte der beteiligten Gruppen parallel, filtert Modul-Abos lokal, führt gemeinsame
+Termine anhand der stabilen Eintrags-ID genau einmal zusammen und aggregiert alles ausschließlich
+auf dem Gerät. Scheitert eine Zusatzgruppe, bleibt der Hauptstundenplan nutzbar; scheitert der
+Hauptkurs, wird kein Zusatzplan irreführend als Hauptplan beschriftet. Die gemeinsame Obergrenze
+von zwölf zusätzlichen Gruppen hält Netzwerk- und Cache-Aufwand auch bei Modul-Abos begrenzt.
+
 ### 6.3 Öffentliche Kalender
 
 Zwei getrennte Jobs, beide über `PUBLIC_CALENDAR_ENABLED` schaltbar (Default `false`):
@@ -488,6 +559,8 @@ Zwei getrennte Jobs, beide über `PUBLIC_CALENDAR_ENABLED` schaltbar (Default `f
   oder unvollständige Strapi-Antwort löscht den letzten gültigen Katalog nie.
 - **Events** — pro Kalender: ICS laden (bytebegrenzt) → validieren → parsen → im Zielfenster
   expandieren → **eine Transaktion** aus Upsert und Löschen ausschließlich im bestätigten Fenster.
+  Der Job nutzt einen Worker-Pool mit höchstens vier parallelen Feeds, behält die deterministische
+  Katalogreihenfolge bei und isoliert auch unerwartete Einzelfehler.
 
 Bemerkenswerte Zustände:
 
@@ -503,6 +576,10 @@ Der ICS-Client folgt **keinen** Redirects (3xx wird abgelehnt), konstruiert Sche
 selbst und nimmt **keine** Basis-URL aus Strapi oder dem Environment entgegen. Wiederholungsregeln
 werden nur im Zielfenster expandiert, mit harten Obergrenzen pro Event und pro Lauf gegen
 „recurrence bombs“. Details: [public-calendars.md](public-calendars.md).
+
+Für jeden Feed entstehen strukturierte Betriebsmetriken zu Status, Gesamtlaufzeit, tatsächlich
+empfangenen UTF-8-Bytes, Fehlerklasse und Datensatzanzahlen. Sie enthalten weder URL noch
+Google-Kalender-ID, Slug oder Termininhalte; die interne Feed-Zuordnung verbleibt im Sync-Run.
 
 ## 7. Betrieb
 
@@ -574,19 +651,19 @@ bewusst auf dem VPS installiert, geprüft und neu geladen.
 
 ## 8. Bewusste Nicht-Entscheidungen
 
-| Thema                                           | Status                                                                                                                                                                                                                                                               |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Redis                                           | nicht im MVP — Datenmengen sind klein; nur öffentliche redaktionelle Bilder werden an der Nginx-Kante gecacht                                                                                                                                                        |
-| SMTP                                            | später — Strapi-Admins werden zunächst manuell angelegt                                                                                                                                                                                                              |
-| Sentry / Analytics                              | dauerhaft ausgeschlossen im MVP                                                                                                                                                                                                                                      |
-| Automatisches Deployment                        | ausgeschlossen — Images werden gebaut, Deployment bleibt manuell                                                                                                                                                                                                     |
-| Offsite-Backups                                 | offenes Release-Gate, **nicht** eingerichtet                                                                                                                                                                                                                         |
-| WebUntis-Stundenplan                            | vollständig umgesetzt, aber `WEBUNTIS_ENABLED=false` bis zur organisatorischen Freigabe                                                                                                                                                                              |
-| Öffentliche Kalender                            | vollständig umgesetzt, aber `PUBLIC_CALENDAR_ENABLED=false` bis Kalender in Strapi gepflegt sind                                                                                                                                                                     |
-| Google API Key / OAuth / SDK                    | dauerhaft ausgeschlossen — der Worker liest ausschließlich den öffentlichen ICS-Feed                                                                                                                                                                                 |
-| Backend-Proxy für Mail, Noten, Moodle           | dauerhaft ausgeschlossen — genau deshalb laufen diese Dienste direkt vom Gerät                                                                                                                                                                                       |
-| Hintergrund-Sync bei geschlossener App          | ausgeschlossen — bräuchte WorkManager/BGTaskScheduler; Sync läuft, solange die App läuft, plus beim Start. Die lokale Benachrichtigungsplanung berührt das **nicht**: Sie meldet die Termine im Voraus beim Betriebssystem an, es läuft kein App-Code im Hintergrund |
-| Push über einen externen Dienst (FCM/APNs)      | ausgeschlossen — Benachrichtigungen werden lokal aus vorhandenen Gerätedaten geplant, siehe [adr/0001](adr/0001-push-benachrichtigungen.md). Die Grundlage (Planer, Scheduler, Berechtigung, Einstellungen) ist umgesetzt; die fachlichen Kategorien folgen getrennt |
-| Schreibzugriffe auf Moodle                      | ausgeschlossen — nur eine feste, rein lesende Whitelist von `wsfunction`s                                                                                                                                                                                            |
-| Persönlicher WebUntis-Login                     | außerhalb des MVP; genutzt wird ausschließlich die öffentliche Gruppenansicht                                                                                                                                                                                        |
-| Raumpläne, Raumverfügbarkeit, Indoor-Navigation | außerhalb des MVP; Architektur bleibt erweiterbar                                                                                                                                                                                                                    |
+| Thema                                            | Status                                                                                                                                                                                                                                                               |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Redis                                            | nicht im MVP — Datenmengen sind klein; nur öffentliche redaktionelle Bilder werden an der Nginx-Kante gecacht                                                                                                                                                        |
+| SMTP                                             | später — Strapi-Admins werden zunächst manuell angelegt                                                                                                                                                                                                              |
+| Sentry / Analytics                               | dauerhaft ausgeschlossen im MVP                                                                                                                                                                                                                                      |
+| Automatisches Deployment                         | ausgeschlossen — Images werden gebaut, Deployment bleibt manuell                                                                                                                                                                                                     |
+| Offsite-Backups                                  | offenes Release-Gate, **nicht** eingerichtet                                                                                                                                                                                                                         |
+| WebUntis-Stundenplan                             | vollständig umgesetzt, aber `WEBUNTIS_ENABLED=false` bis zur organisatorischen Freigabe                                                                                                                                                                              |
+| Öffentliche Kalender                             | vollständig umgesetzt, aber `PUBLIC_CALENDAR_ENABLED=false` bis Kalender in Strapi gepflegt sind                                                                                                                                                                     |
+| Google API Key / OAuth / SDK                     | dauerhaft ausgeschlossen — der Worker liest ausschließlich den öffentlichen ICS-Feed                                                                                                                                                                                 |
+| Backend-Proxy für Mail, Noten, Moodle, Nextcloud | dauerhaft ausgeschlossen — genau deshalb laufen diese Dienste direkt vom Gerät                                                                                                                                                                                       |
+| Hintergrund-Sync bei geschlossener App           | ausgeschlossen — bräuchte WorkManager/BGTaskScheduler; Sync läuft, solange die App läuft, plus beim Start. Die lokale Benachrichtigungsplanung berührt das **nicht**: Sie meldet die Termine im Voraus beim Betriebssystem an, es läuft kein App-Code im Hintergrund |
+| Push über einen externen Dienst (FCM/APNs)       | ausgeschlossen — Benachrichtigungen werden lokal aus vorhandenen Gerätedaten geplant, siehe [adr/0001](adr/0001-push-benachrichtigungen.md). Die Grundlage (Planer, Scheduler, Berechtigung, Einstellungen) ist umgesetzt; die fachlichen Kategorien folgen getrennt |
+| Schreibzugriffe auf Moodle                       | ausgeschlossen — nur eine feste, rein lesende Whitelist von `wsfunction`s                                                                                                                                                                                            |
+| Persönlicher WebUntis-Login                      | außerhalb des MVP; genutzt wird ausschließlich die öffentliche Gruppenansicht                                                                                                                                                                                        |
+| Raumpläne, Raumverfügbarkeit, Indoor-Navigation  | außerhalb des MVP; Architektur bleibt erweiterbar                                                                                                                                                                                                                    |

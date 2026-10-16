@@ -3,9 +3,14 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../document_wallet/application/document_wallet_controller.dart';
 import '../../grades/application/grade_account_controller.dart';
+import '../../hsa_ki/application/hsa_ki_account_controller.dart';
 import '../../mail/application/mail_account_controller.dart';
 import '../../moodle/application/moodle_account_controller.dart';
+import '../../nextcloud/application/nextcloud_account_controller.dart';
+import '../../university_account/application/university_account_controller.dart';
+import '../../university_account/application/university_service_connector.dart';
 import '../domain/direct_service.dart';
 
 /// The direct services that are currently signed in, in a fixed display order.
@@ -25,54 +30,95 @@ final Provider<List<DirectService>> connectedDirectServicesProvider =
           false) {
         connected.add(DirectService.grades);
       }
+      if (ref.watch(nextcloudAccountControllerProvider).value != null) {
+        connected.add(DirectService.nextcloud);
+      }
+      if (ref.watch(hsaKiAccountControllerProvider).value != null) {
+        connected.add(DirectService.hsaKi);
+      }
       return connected;
     });
 
-/// Signs out of every currently connected direct service through that
-/// service's own canonical logout/credential-removal path — never a shortcut
-/// that touches its secure storage or cache directly.
+/// Signs out of every direct service through that service's own canonical
+/// logout/credential-removal path — never a shortcut that touches its secure
+/// storage or cache directly.
 ///
-/// A failure signing out of one service never rolls back or blocks another:
-/// each is attempted independently and reported on its own, so a partial
-/// result never reads as a full success.
+/// The connection snapshot is display-only and deliberately not trusted here:
+/// a controller can be loading or in error while credentials still exist. A
+/// failure signing out of one service never blocks another, and every outcome
+/// is reported so a partial result never reads as a full success.
 class SignOutEverywhereService {
   SignOutEverywhereService(this._ref);
 
   final Ref _ref;
 
   Future<SignOutEverywhereResult> signOutAll() async {
+    // A Login Flow may otherwise keep the gate active for up to 20 minutes.
+    // Cancel it before waiting, and let its generation guard reject any late
+    // poll callback before the credential store can be written.
+    _ref.read(nextcloudAccountControllerProvider.notifier).cancelPendingLogin();
+    final UniversityServiceOperationGate gate = _ref.read(
+      universityServiceOperationGateProvider,
+    );
+    await gate.beginCompleteDeletion();
+    try {
+      return await _signOutAllAfterPendingOperations();
+    } finally {
+      gate.finishCompleteDeletion();
+    }
+  }
+
+  Future<SignOutEverywhereResult> _signOutAllAfterPendingOperations() async {
     final List<DirectServiceSignOutOutcome> outcomes =
         <DirectServiceSignOutOutcome>[];
-    for (final DirectService service in _ref.read(
-      connectedDirectServicesProvider,
-    )) {
+    for (final DirectService service in DirectService.values) {
       final bool success = await _signOut(service);
       outcomes.add(
         DirectServiceSignOutOutcome(service: service, success: success),
       );
     }
-    return SignOutEverywhereResult(outcomes);
+    if (outcomes.any(
+      (DirectServiceSignOutOutcome outcome) => !outcome.success,
+    )) {
+      // The central identity is deliberately last. Keeping it makes the failed
+      // services retryable and prevents a partial wipe from stranding the user.
+      return SignOutEverywhereResult(
+        outcomes,
+        identityDeleted: false,
+        identityDeletionAttempted: false,
+      );
+    }
+
+    try {
+      // The wallet also holds files the user saved on purpose (mail
+      // attachments), which no service disconnect removes. A failure keeps the
+      // identity, so the visible retry covers it.
+      await _ref.read(documentWalletStoreProvider).clear();
+      await _ref
+          .read(universityAccountControllerProvider.notifier)
+          .deleteIdentity();
+      return SignOutEverywhereResult(
+        outcomes,
+        identityDeleted: true,
+        identityDeletionAttempted: true,
+      );
+    } catch (_) {
+      return SignOutEverywhereResult(
+        outcomes,
+        identityDeleted: false,
+        identityDeletionAttempted: true,
+      );
+    }
   }
 
   Future<bool> _signOut(DirectService service) async {
     try {
-      switch (service) {
-        case DirectService.mail:
-          await _ref.read(mailAccountControllerProvider.notifier).signOut();
-        case DirectService.moodle:
-          await _ref
-              .read(moodleAccountControllerProvider.notifier)
-              .disconnect();
-        case DirectService.grades:
-          await _ref
-              .read(gradeAccountControllerProvider.notifier)
-              .deleteEverything();
-      }
+      await _ref.read(universityServiceAdapterProvider(service)).disconnect();
       return true;
     } catch (_) {
-      // Only the classification would ever be useful here, and each
-      // controller already keeps its own state signed-in on failure — that is
-      // exactly what lets a retry target just the services still connected.
+      // Only the classification is useful here. Every wipe is attempted on
+      // every run, so a retry also catches credentials a loading/error state
+      // could not advertise to the settings UI.
       return false;
     }
   }

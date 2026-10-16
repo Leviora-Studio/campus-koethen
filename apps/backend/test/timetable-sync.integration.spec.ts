@@ -10,7 +10,7 @@ import {
   entriesResponseSchema,
   filterResponseSchema,
 } from '../src/modules/timetable/webuntis.schema';
-import { createTestPrisma } from './helpers/database';
+import { createTestPrisma, resetDatabase } from './helpers/database';
 
 // These tests exercise a real PostgreSQL service. On a shared CI runner,
 // truncating the timetable tables can legitimately exceed Jest's 5s default.
@@ -75,6 +75,7 @@ describe('TimetableSyncService (integration)', () => {
   const counts = async () => ({
     groups: await prisma.timetableGroup.count(),
     activeGroups: await prisma.timetableGroup.count({ where: { active: true } }),
+    contextLinks: await prisma.timetableContextGroup.count(),
     entries: await prisma.timetableEntry.count(),
     links: await prisma.timetableEntryGroup.count(),
   });
@@ -89,9 +90,7 @@ describe('TimetableSyncService (integration)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE timetable_entry_groups, timetable_entries, timetable_groups, timetable_contexts, timetable_sync_runs RESTART IDENTITY CASCADE',
-    );
+    await resetDatabase(prisma);
   });
 
   const seedCatalogue = async () => {
@@ -128,9 +127,10 @@ describe('TimetableSyncService (integration)', () => {
   describe('group catalogue', () => {
     it('imports the catalogue', async () => {
       await seedCatalogue();
-      const { groups, activeGroups } = await counts();
+      const { groups, activeGroups, contextLinks } = await counts();
       expect(groups).toBeGreaterThan(0);
       expect(activeGroups).toBe(groups);
+      expect(contextLinks).toBe(groups);
     });
 
     it('repeating the import creates no duplicates', async () => {
@@ -152,6 +152,7 @@ describe('TimetableSyncService (integration)', () => {
       expect(await counts()).toMatchObject({
         groups: before.groups,
         activeGroups: before.activeGroups,
+        contextLinks: before.contextLinks,
       });
     });
 
@@ -435,6 +436,62 @@ describe('TimetableSyncService (integration)', () => {
       });
       expect(survivor).not.toBeNull();
       expect(await prisma.timetableEntry.findUnique({ where: { id: entry.id } })).not.toBeNull();
+    });
+
+    it('withdraws the link of a class that left a lesson which continues for another class', async () => {
+      await seedCatalogue();
+      await service(stubClient()).syncEntries(WINDOW.from, WINDOW.to);
+
+      // Both classes are in the catalogue and have their own day in the fixture.
+      const stays = await prisma.timetableGroup.findFirstOrThrow({
+        where: { externalId: '14808' },
+      });
+      const left = await prisma.timetableGroup.findFirstOrThrow({ where: { externalId: '14820' } });
+      const lesson = await prisma.timetableEntry.findFirstOrThrow({
+        where: { groups: { some: { groupId: stays.id } } },
+      });
+      // Until now the second class attended this lesson too.
+      await prisma.timetableEntryGroup.create({ data: { entryId: lesson.id, groupId: left.id } });
+
+      await service(stubClient()).syncEntries(WINDOW.from, WINDOW.to);
+
+      const links = await prisma.timetableEntryGroup.findMany({
+        where: { entryId: lesson.id },
+        select: { groupId: true },
+      });
+      expect(links.map((link) => link.groupId)).toEqual([stays.id]);
+    });
+
+    it("keeps a class's stored plan when its own response reports errors", async () => {
+      await seedCatalogue();
+      // One response per class, carrying only that class's own days.
+      const ownDays = (classId: number) => {
+        const week = entriesResponseSchema.parse(fixture('entries-week.json'));
+        return { ...week, days: week.days.filter((day) => day.resource.id === classId) };
+      };
+      const perClass = (failing: number | null) =>
+        ({
+          ...stubClient(),
+          fetchEntries: jest.fn(
+            async (_year: number, _from: string, _to: string, classId: number) =>
+              classId === failing
+                ? entriesResponseSchema.parse(fixture('entries-with-errors.json'))
+                : ownDays(classId),
+          ),
+        }) as unknown as WebUntisClient;
+
+      await service(perClass(null)).syncEntries(WINDOW.from, WINDOW.to);
+      const group = await prisma.timetableGroup.findFirstOrThrow({
+        where: { externalId: '14820' },
+      });
+      const before = await prisma.timetableEntryGroup.count({ where: { groupId: group.id } });
+      expect(before).toBeGreaterThan(0);
+
+      const outcome = await service(perClass(14820)).syncEntries(WINDOW.from, WINDOW.to);
+
+      // One faulty class neither aborts the run nor loses its plan.
+      expect(outcome.status).toBe('success');
+      expect(await prisma.timetableEntryGroup.count({ where: { groupId: group.id } })).toBe(before);
     });
 
     it('records sync run metadata', async () => {

@@ -2,6 +2,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
 import { PrismaService } from '../../prisma/prisma.service';
+import { addCalendarDays, campusToday } from '../../common/time/campus-date';
+import {
+  resolveTimetableGroupVisibility,
+  TimetableGroupEvidence,
+} from './timetable-group-deduplication';
 import { WebUntisClient, WebUntisError } from './webuntis.client';
 import {
   EntriesResponse,
@@ -193,7 +198,7 @@ export class TimetableSyncService {
   private async contextsFor(
     from: string,
     to: string,
-  ): Promise<Array<{ id: number; from: string; to: string }>> {
+  ): Promise<Array<{ id: number; storageId: string; from: string; to: string }>> {
     const contexts = await this.prisma.timetableContext.findMany({
       where: {
         source: 'webuntis',
@@ -201,14 +206,21 @@ export class TimetableSyncService {
         validTo: { gte: new Date(`${from}T00:00:00.000Z`) },
       },
       orderBy: { validFrom: 'asc' },
-      select: { externalId: true, validFrom: true, validTo: true },
+      select: { id: true, externalId: true, validFrom: true, validTo: true },
     });
     return contexts.flatMap((context) => {
       const id = Number(context.externalId);
       if (!Number.isSafeInteger(id)) return [];
       const start = context.validFrom.toISOString().slice(0, 10);
       const end = context.validTo.toISOString().slice(0, 10);
-      return [{ id, from: start > from ? start : from, to: end < to ? end : to }];
+      return [
+        {
+          id,
+          storageId: context.id,
+          from: start > from ? start : from,
+          to: end < to ? end : to,
+        },
+      ];
     });
   }
 
@@ -223,11 +235,37 @@ export class TimetableSyncService {
         throw new WebUntisError('malformed', 'No timetable context covers the sync window.');
       }
 
-      const catalogues: FilterResponse[] = [];
+      const catalogues: Array<{ contextId: string; catalogue: FilterResponse }> = [];
       for (const context of contexts) {
-        catalogues.push(await this.client.fetchClasses(context.id));
+        catalogues.push({
+          contextId: context.storageId,
+          catalogue: await this.client.fetchClasses(context.id),
+        });
       }
-      const classes = catalogues.flatMap((catalogue) => catalogue.classes);
+      // One empty semester catalogue is suspect. Updating the other semester
+      // while retiring the empty one's groups would violate the same
+      // last-good-data rule as an entirely empty response.
+      if (catalogues.some(({ catalogue }) => catalogue.classes.length === 0)) {
+        await this.prisma.timetableSyncRun.update({
+          where: { id: run.id },
+          data: {
+            status: 'empty',
+            finishedAt: new Date(),
+            errorMessage: 'one or more semester catalogues empty; existing groups kept',
+          },
+        });
+        return {
+          kind: 'groups',
+          status: 'empty',
+          received: 0,
+          accepted: 0,
+          rejected: 0,
+          written: 0,
+          removed: 0,
+        };
+      }
+
+      const classes = catalogues.flatMap(({ catalogue }) => catalogue.classes);
       const received = classes.length;
 
       const seen = classes
@@ -269,6 +307,20 @@ export class TimetableSyncService {
       // writes are batched, where the sequential loop simply wrote twice. Last
       // one wins, exactly as it did before.
       const uniqueGroups = [...new Map(seen.map((group) => [group.externalId, group])).values()];
+
+      const externalIdsByContext = new Map<string, string[]>(
+        catalogues.map(({ contextId, catalogue }) => [
+          contextId,
+          [
+            ...new Set(
+              catalogue.classes
+                .filter((item) => item.class.shortName.trim().length > 0)
+                .map((item) => String(item.class.id))
+                .filter((externalId) => externalId.length > 0),
+            ),
+          ],
+        ]),
+      );
 
       await this.prisma.$transaction(
         async (tx) => {
@@ -333,6 +385,42 @@ export class TimetableSyncService {
               data: { lastSeenAt: now },
             });
           }
+
+          const linkedGroups = await tx.timetableGroup.findMany({
+            where: {
+              source: 'webuntis',
+              externalId: { in: uniqueGroups.map((group) => group.externalId) },
+            },
+            select: { id: true, externalId: true },
+          });
+          const groupIdByExternal = new Map(
+            linkedGroups.map((group) => [group.externalId, group.id]),
+          );
+          for (const [contextId, externalIds] of externalIdsByContext) {
+            const groupIds = externalIds
+              .map((externalId) => groupIdByExternal.get(externalId))
+              .filter((groupId): groupId is string => groupId !== undefined);
+            // A catalogue is complete only if every accepted upstream class can
+            // be resolved to its persisted row. Fail the transaction closed;
+            // otherwise an unexpected partial write could erase valid semester
+            // links and make a period look empty to clients.
+            if (groupIds.length !== externalIds.length) {
+              throw new WebUntisError(
+                'malformed',
+                'Not every timetable group could be linked to its semester.',
+              );
+            }
+            await tx.timetableContextGroup.createMany({
+              data: groupIds.map((groupId) => ({ contextId, groupId })),
+              skipDuplicates: true,
+            });
+            await tx.timetableContextGroup.deleteMany({
+              where: {
+                contextId,
+                groupId: { notIn: groupIds },
+              },
+            });
+          }
         },
         // Headroom rather than a surprise P2028 later. It is reserve now, not a
         // necessity: a run without changes is one read and one stamp.
@@ -382,25 +470,39 @@ export class TimetableSyncService {
     }
   }
 
-  /** Converts one upstream response into entries keyed by a stable source key. */
-  private normalize(response: EntriesResponse): {
+  /**
+   * Converts the collected day objects into entries keyed by a stable source key.
+   *
+   * A lesson that cannot be read is rejected, but it is still IDENTIFIABLE: its
+   * key is taken before anything else can fail. `unreadable` remembers which
+   * classes listed it, so the write phase keeps its last valid version and
+   * those classes' links instead of treating the lesson as gone.
+   */
+  private normalize(days: EntriesResponse['days']): {
     entries: Map<string, NormalizedEntry>;
     rejected: number;
-    groupExternalIds: Set<string>;
+    /** externalKey → external ids of the classes whose day listed it unreadably. */
+    unreadable: Map<string, Set<string>>;
   } {
     const entries = new Map<string, NormalizedEntry>();
-    const groupExternalIds = new Set<string>();
+    const unreadable = new Map<string, Set<string>>();
     let rejected = 0;
 
-    for (const day of response.days) {
-      groupExternalIds.add(String(day.resource.id));
+    for (const day of days) {
+      const groupExternalId = String(day.resource.id);
 
       for (const raw of day.gridEntries) {
-        try {
-          // `ids` is the source's own key. Sorted and joined so a reordering
-          // upstream cannot masquerade as a different lesson.
-          const externalKey = [...raw.ids].sort((a, b) => a - b).join('-');
+        // `ids` is the source's own key. Sorted and joined so a reordering
+        // upstream cannot masquerade as a different lesson.
+        const externalKey = [...raw.ids].sort((a, b) => a - b).join('-');
+        const reject = (): void => {
+          rejected += 1;
+          const classes = unreadable.get(externalKey) ?? new Set<string>();
+          classes.add(groupExternalId);
+          unreadable.set(externalKey, classes);
+        };
 
+        try {
           const { subjects, teachers, rooms, infos } = pickAllPositions(raw);
 
           const title =
@@ -411,7 +513,7 @@ export class TimetableSyncService {
             '';
 
           if (!title) {
-            rejected += 1;
+            reject();
             continue;
           }
 
@@ -444,17 +546,17 @@ export class TimetableSyncService {
           if (existing && !existing.lessonInfo) {
             existing.lessonInfo = raw.lessonInfo?.trim() ? raw.lessonInfo : null;
           }
-          entry.groupExternalIds.add(String(day.resource.id));
+          entry.groupExternalIds.add(groupExternalId);
 
           entries.set(externalKey, entry);
         } catch {
           // A single unparseable lesson must not discard the whole window.
-          rejected += 1;
+          reject();
         }
       }
     }
 
-    return { entries, rejected, groupExternalIds };
+    return { entries, rejected, unreadable };
   }
 
   /**
@@ -526,10 +628,102 @@ export class TimetableSyncService {
   }
 
   /**
+   * Reconciles exact public catalogue aliases against the timetable window
+   * that was just imported.
+   *
+   * The first query carries only ~500 small group rows. Entry ids are loaded
+   * only for exact duplicate labels, not for the whole catalogue. A same-name
+   * group with a different long name or department never enters that second
+   * query and therefore remains independently selectable. Aliases are decided
+   * per semester catalogue, so a same-named group of another semester stays
+   * selectable too.
+   */
+  async reconcileGroupCatalogue(rangeStart: Date, rangeEnd: Date): Promise<void> {
+    const rawGroups = await this.prisma.timetableGroup.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        shortName: true,
+        longName: true,
+        department: true,
+        catalogVisible: true,
+        contexts: { select: { contextId: true } },
+      },
+    });
+    // Unit doubles written before catalogue visibility existed only project
+    // ids. Real Prisma rows always pass this guard.
+    const groups = rawGroups.filter(
+      (group) => typeof group.shortName === 'string' && typeof group.longName === 'string',
+    );
+    if (groups.length === 0) return;
+
+    const byPublicIdentity = new Map<string, string[]>();
+    for (const group of groups) {
+      const key = JSON.stringify([group.shortName, group.longName, group.department]);
+      const ids = byPublicIdentity.get(key) ?? [];
+      ids.push(group.id);
+      byPublicIdentity.set(key, ids);
+    }
+    const duplicateIds = [...byPublicIdentity.values()].filter((ids) => ids.length > 1).flat();
+    const links =
+      duplicateIds.length === 0
+        ? []
+        : await this.prisma.timetableEntryGroup.findMany({
+            where: {
+              groupId: { in: duplicateIds },
+              entry: { date: { gte: rangeStart, lte: rangeEnd } },
+            },
+            select: { groupId: true, entryId: true },
+          });
+    const entryIdsByGroup = new Map<string, string[]>();
+    for (const link of links) {
+      const ids = entryIdsByGroup.get(link.groupId) ?? [];
+      ids.push(link.entryId);
+      entryIdsByGroup.set(link.groupId, ids);
+    }
+
+    const evidence: TimetableGroupEvidence[] = groups.map((group) => ({
+      id: group.id,
+      shortName: group.shortName,
+      longName: group.longName,
+      department: group.department,
+      // Doubles written before semester catalogues existed carry no
+      // relation; real Prisma rows always do.
+      contextIds: Array.isArray(group.contexts)
+        ? group.contexts.map((context) => context.contextId)
+        : [],
+      entryIds: entryIdsByGroup.get(group.id) ?? [],
+    }));
+    const visibility = resolveTimetableGroupVisibility(evidence);
+    const show: string[] = [];
+    const hide: string[] = [];
+    for (const group of groups) {
+      const visible = visibility.get(group.id) ?? true;
+      if (visible === group.catalogVisible) continue;
+      (visible ? show : hide).push(group.id);
+    }
+    if (show.length > 0) {
+      await this.prisma.timetableGroup.updateMany({
+        where: { id: { in: show } },
+        data: { catalogVisible: true },
+      });
+    }
+    if (hide.length > 0) {
+      await this.prisma.timetableGroup.updateMany({
+        where: { id: { in: hide } },
+        data: { catalogVisible: false },
+      });
+    }
+  }
+
+  /**
    * Entries for every class in every school year covering the requested window.
    *
    * Removal is limited to the confirmed window AND the confirmed groups, and
-   * only ever runs after a successful, non-empty response.
+   * only ever runs after a successful, non-empty response. A class confirms
+   * only through its own clean answer; a class whose answer reports upstream
+   * errors or carries no day for it keeps its stored plan, and so does every
+   * class that still lists a lesson the importer cannot read.
    */
   async syncEntries(from: string, to: string): Promise<SyncOutcome> {
     const run = await this.prisma.timetableSyncRun.create({
@@ -549,6 +743,12 @@ export class TimetableSyncService {
 
       const days: EntriesResponse['days'] = [];
       const requestedGroupIds = new Set<string>();
+      // A class is CONFIRMED only by its own clean answer: no upstream
+      // `errors`, and at least one day object for exactly that class. Only a
+      // confirmed class may lose links below. Anything else leaves its stored
+      // plan untouched — without aborting the run for every other class.
+      const confirmedRanges = new Map<string, Array<{ from: string; to: string }>>();
+      const unconfirmedGroupIds = new Set<string>();
       for (const context of contexts) {
         const catalogue = await this.client.fetchClasses(context.id);
         if (catalogue.classes.length === 0) {
@@ -556,20 +756,44 @@ export class TimetableSyncService {
         }
         for (const item of catalogue.classes) {
           const classId = item.class.id;
-          requestedGroupIds.add(String(classId));
+          const externalId = String(classId);
+          requestedGroupIds.add(externalId);
           const classEntries = await this.client.fetchEntries(
             context.id,
             context.from,
             context.to,
             classId,
           );
+          if ((classEntries.errors?.length ?? 0) > 0) {
+            // A response the source itself flags as faulty is not evidence of
+            // anything, including the lessons it does carry.
+            unconfirmedGroupIds.add(externalId);
+            continue;
+          }
           days.push(...classEntries.days);
+          if (classEntries.days.some((day) => day.resource.id === classId)) {
+            const ranges = confirmedRanges.get(externalId) ?? [];
+            ranges.push({ from: context.from, to: context.to });
+            confirmedRanges.set(externalId, ranges);
+          } else {
+            unconfirmedGroupIds.add(externalId);
+          }
         }
       }
-      const response: EntriesResponse = { days };
-      const { entries, rejected, groupExternalIds } = this.normalize(response);
-      for (const id of requestedGroupIds) groupExternalIds.add(id);
-      const received = response.days.reduce((sum, day) => sum + day.gridEntries.length, 0);
+      // A class confirmed for one semester but not for another is not confirmed.
+      for (const externalId of unconfirmedGroupIds) confirmedRanges.delete(externalId);
+      if (unconfirmedGroupIds.size > 0) {
+        this.logger.warn(
+          `Timetable entries ${from}..${to}: ${unconfirmedGroupIds.size} class(es) unconfirmed; their stored plan kept`,
+        );
+      }
+
+      const { entries, rejected, unreadable } = this.normalize(days);
+      const received = days.reduce((sum, day) => sum + day.gridEntries.length, 0);
+      const groupExternalIds = new Set([
+        ...requestedGroupIds,
+        ...days.map((day) => String(day.resource.id)),
+      ]);
 
       if (entries.size === 0) {
         // A genuinely empty window is possible (semester break), but it is not
@@ -603,10 +827,18 @@ export class TimetableSyncService {
         select: { id: true, externalId: true },
       });
       const groupIdByExternal = new Map(groups.map((group) => [group.externalId, group.id]));
+      const externalIdByGroup = new Map(groups.map((group) => [group.id, group.externalId]));
 
       const rangeStart = new Date(`${from}T00:00:00.000Z`);
       const rangeEnd = new Date(`${to}T00:00:00.000Z`);
-      const confirmedGroupIds = [...groupIdByExternal.values()];
+      // Confirmed groups, each with the (semester-clipped) ranges its own clean
+      // answer actually covered.
+      const confirmedRangesByGroup = new Map<string, Array<{ from: string; to: string }>>();
+      for (const [externalId, ranges] of confirmedRanges) {
+        const groupId = groupIdByExternal.get(externalId);
+        if (groupId) confirmedRangesByGroup.set(groupId, ranges);
+      }
+      const confirmedGroupIds = [...confirmedRangesByGroup.keys()];
 
       const removed = await this.prisma.$transaction(
         async (tx) => {
@@ -739,19 +971,51 @@ export class TimetableSyncService {
             await tx.timetableEntryGroup.createMany({ data: links, skipDuplicates: true });
           }
 
-          // Withdraw links only inside the confirmed window and only for groups
-          // this response actually covered. An entry attended by a group outside
-          // the confirmed set keeps that link.
-          const withdrawn = await tx.timetableEntryGroup.deleteMany({
-            where: {
-              groupId: { in: confirmedGroupIds },
-              entry: {
-                source: 'webuntis',
-                date: { gte: rangeStart, lte: rangeEnd },
-                externalKey: { notIn: keptKeys },
-              },
-            },
-          });
+          // Withdraw links only for CONFIRMED groups and only inside the range
+          // each one's own answer covered. Within that scope the stored links
+          // are diffed against the ones just computed, link by link: a class
+          // that left a lesson which continues for another class loses exactly
+          // that link, not just links of lessons that vanished altogether. A
+          // lesson the class still listed, only unreadably, keeps its link.
+          // Groups outside the confirmed set keep every link.
+          const linkKey = (entryId: string, groupId: string): string =>
+            `${entryId}\u0000${groupId}`;
+          const current = new Set(links.map((link) => linkKey(link.entryId, link.groupId)));
+          const storedLinks =
+            confirmedGroupIds.length === 0
+              ? []
+              : await tx.timetableEntryGroup.findMany({
+                  where: {
+                    groupId: { in: confirmedGroupIds },
+                    entry: { source: 'webuntis', date: { gte: rangeStart, lte: rangeEnd } },
+                  },
+                  select: {
+                    entryId: true,
+                    groupId: true,
+                    entry: { select: { externalKey: true, date: true } },
+                  },
+                });
+          const staleByGroup = new Map<string, string[]>();
+          for (const link of storedLinks) {
+            if (current.has(linkKey(link.entryId, link.groupId))) continue;
+            const day = link.entry.date.toISOString().slice(0, 10);
+            const covered = (confirmedRangesByGroup.get(link.groupId) ?? []).some(
+              (range) => day >= range.from && day <= range.to,
+            );
+            if (!covered) continue;
+            const externalId = externalIdByGroup.get(link.groupId);
+            if (externalId && unreadable.get(link.entry.externalKey)?.has(externalId)) continue;
+            const stale = staleByGroup.get(link.groupId) ?? [];
+            stale.push(link.entryId);
+            staleByGroup.set(link.groupId, stale);
+          }
+          let withdrawn = 0;
+          for (const [groupId, entryIds] of staleByGroup) {
+            const result = await tx.timetableEntryGroup.deleteMany({
+              where: { groupId, entryId: { in: entryIds } },
+            });
+            withdrawn += result.count;
+          }
 
           // Only entries that now belong to NOBODY are cleaned up. A lesson still
           // attended by another group survives.
@@ -763,7 +1027,7 @@ export class TimetableSyncService {
             },
           });
 
-          return withdrawn.count + orphans.count;
+          return withdrawn + orphans.count;
         },
         // Generous ceiling for the whole-catalogue write. The worker owns these
         // tables exclusively and runs hourly, so holding one transaction for a
@@ -771,6 +1035,15 @@ export class TimetableSyncService {
         // real timetable.
         { timeout: 120_000, maxWait: 10_000 },
       );
+
+      // Catalogue de-duplication is derived presentation state. A failure here
+      // must not turn a successfully imported timetable into a failed run or
+      // roll back its data; the next successful entry sync retries it.
+      try {
+        await this.reconcileGroupCatalogue(rangeStart, rangeEnd);
+      } catch {
+        this.logger.warn('Timetable catalogue duplicate reconciliation failed; visibility kept');
+      }
 
       await this.prisma.timetableSyncRun.update({
         where: { id: run.id },
@@ -783,6 +1056,15 @@ export class TimetableSyncService {
           recordsWritten: entries.size,
           recordsRemoved: removed,
           groupsRequested: groupExternalIds.size,
+          // Queryable for monitoring. The run stays `success`: the confirmed
+          // classes are current, the unconfirmed ones kept their stored plan,
+          // and `partial` would mark the whole timetable as stale.
+          groupsUnconfirmed: unconfirmedGroupIds.size,
+          ...(unconfirmedGroupIds.size > 0
+            ? {
+                errorMessage: `${unconfirmedGroupIds.size} class(es) unconfirmed (upstream errors or no day for the class); their stored plan kept`,
+              }
+            : {}),
         },
       });
 
@@ -804,12 +1086,13 @@ export class TimetableSyncService {
     }
   }
 
-  /** The window the scheduled job covers. */
-  windowFor(today = new Date()): { from: string; to: string } {
-    const day = 86_400_000;
-    const from = new Date(today.getTime() - this.env.WEBUNTIS_LOOKBACK_DAYS * day);
-    const to = new Date(today.getTime() + this.env.WEBUNTIS_LOOKAHEAD_DAYS * day);
-    return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  /** The window the scheduled job covers, counted from the Berlin calendar day. */
+  windowFor(now = new Date()): { from: string; to: string } {
+    const today = campusToday(now);
+    return {
+      from: addCalendarDays(today, -this.env.WEBUNTIS_LOOKBACK_DAYS),
+      to: addCalendarDays(today, this.env.WEBUNTIS_LOOKAHEAD_DAYS),
+    };
   }
 
   async lastSuccessfulAt(kind: SyncKind): Promise<Date | null> {

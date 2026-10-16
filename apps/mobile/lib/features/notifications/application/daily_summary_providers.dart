@@ -18,6 +18,7 @@ import '../../events/application/saved_events_controller.dart';
 import '../../events/domain/saved_event_snapshot.dart';
 import '../../moodle/application/moodle_account_controller.dart';
 import '../../moodle/application/moodle_controller.dart';
+import '../../timetable/application/timetable_lesson_info_filter.dart';
 import '../../timetable/application/timetable_providers.dart';
 import '../../timetable/application/timetable_week.dart';
 import '../../timetable/data/timetable_models.dart';
@@ -29,6 +30,7 @@ import 'daily_summary.dart';
 import 'daily_summary_content.dart';
 import 'notification_providers.dart';
 import 'notification_settings_controller.dart';
+import 'saved_event_scope.dart';
 
 /// The local calendar day every planning contributor treats as "today".
 ///
@@ -136,7 +138,7 @@ final Provider<List<NotificationRequest>> dailySummaryCandidatesProvider =
       ];
     });
 
-/// The lectures of the selected group across the horizon.
+/// The lectures of every subscribed group across the horizon.
 ///
 /// Nothing at all without a chosen group: there is deliberately no default
 /// timetable in the app, and a summary built from someone else's lectures
@@ -146,21 +148,41 @@ Iterable<CalendarEntry> _timetableEntries(
   DateTime today,
   DateTime lastDay,
 ) sync* {
-  final String? groupId = ref.watch(selectedTimetableGroupIdProvider);
-  if (groupId == null) return;
+  final List<String> groupIds = ref.watch(selectedTimetableGroupIdsProvider);
+  if (groupIds.isEmpty) return;
+  final TimetableLessonInfoFilter lessonInfoFilter = ref.watch(
+    timetableLessonInfoFilterProvider,
+  );
+  final Map<String, Set<String>> moduleKeysByGroup = ref.watch(
+    selectedTimetableModuleKeysByGroupProvider,
+  );
+  final Set<String> yielded = <String>{};
   for (
     DateTime weekStart = TimetableWeek.startOf(today);
     !weekStart.isAfter(lastDay);
     weekStart = TimetableWeek.shift(weekStart, TimetableWeek.lengthInDays)
   ) {
-    final Loaded<Timetable>? week = ref
-        .watch(
-          timetableWeekProvider(
-            TimetableWeekRequest(groupId: groupId, weekStart: weekStart),
-          ),
-        )
-        .value;
-    if (week != null) yield* timetableToCalendarEntries(week.value);
+    for (final String groupId in groupIds) {
+      final Loaded<Timetable>? week = ref
+          .watch(
+            timetableWeekProvider(
+              TimetableWeekRequest(groupId: groupId, weekStart: weekStart),
+            ),
+          )
+          .value;
+      if (week == null) continue;
+      for (final CalendarEntry entry in timetableToCalendarEntries(
+        week.value,
+        include: (TimetableEntry entry) =>
+            (moduleKeysByGroup[groupId] == null ||
+                (entry.moduleKey != null &&
+                    moduleKeysByGroup[groupId]!.contains(entry.moduleKey))) &&
+            (groupId != lessonInfoFilter.groupId ||
+                lessonInfoFilter.acceptsEntry(entry)),
+      )) {
+        if (yielded.add(entry.id)) yield entry;
+      }
+    }
   }
 }
 
@@ -183,9 +205,12 @@ Iterable<CalendarEntry> _eventEntries(
     );
   }
 
-  final List<SavedEventSnapshot> saved =
-      ref.watch(savedEventsControllerProvider).value ??
-      const <SavedEventSnapshot>[];
+  // The same bookmarks N1 may remind about: never an orphaned or cancelled
+  // one, which would otherwise fill a day with something that is gone (F-04).
+  final List<SavedEventSnapshot> saved = notifiableSavedEvents(
+    ref.watch(savedEventsControllerProvider).value ??
+        const <SavedEventSnapshot>[],
+  );
   if (saved.isEmpty) return live;
 
   final List<PublicCalendar> catalog =
@@ -204,7 +229,8 @@ Iterable<CalendarEntry> _eventEntries(
   ];
 }
 
-/// The cached Moodle deadlines, and only while an account is connected.
+/// The cached Moodle deadlines, and only while an account is connected and
+/// the list is confirmed by Moodle's last answer (not a kept stale one).
 ///
 /// Read from the cache the overview already holds — this never triggers a
 /// Moodle call of its own, and no credential is touched here.
@@ -216,7 +242,7 @@ Iterable<CalendarEntry> _moodleEntries(Ref ref) {
       .watch(moodleControllerProvider)
       .value;
   if (overview == null) return const <CalendarEntry>[];
-  return moodleDeadlinesToCalendarEntries(overview.deadlines);
+  return moodleDeadlinesToCalendarEntries(overview.reminderDeadlines);
 }
 
 /// What the preferred canteen offers, per day, reduced to what a notification

@@ -19,6 +19,7 @@ import '../../events/data/event_posts_repository.dart';
 import '../../news/data/news_models.dart';
 import '../../news/presentation/article_block.dart';
 import '../../timetable/presentation/timetable_entry_card.dart';
+import '../../notifications/presentation/event_reminder_rule_tile.dart';
 import '../domain/calendar_entry.dart';
 import '../domain/calendar_entry_details.dart';
 import '../domain/entry_rooms.dart';
@@ -70,7 +71,14 @@ class _CalendarEntryPopup extends ConsumerWidget {
             AppSpacing.lg,
             AppSpacing.lg,
           ),
-          child: ArticleBlock(article: article, showFullContent: true),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              ArticleBlock(article: article, showFullContent: true),
+              const SizedBox(height: AppSpacing.md),
+              EventReminderRuleTile(entry: entry),
+            ],
+          ),
         ),
       );
     }
@@ -120,6 +128,9 @@ class CalendarEntrySheet extends ConsumerWidget {
     final String sourceLabel = switch (entry.source) {
       CalendarSource.moodle => l10n.calendarSourceMoodle,
       CalendarSource.timetable => l10n.calendarSourceTimetable,
+      CalendarSource.exchangeCalendar => l10n.calendarSourceExchange,
+      CalendarSource.canteenFavourite =>
+        entry.sourceLabel ?? l10n.calendarSourceCanteenFavourite,
       CalendarSource.publicCalendar ||
       CalendarSource.postEvent ||
       CalendarSource.savedEvents =>
@@ -128,6 +139,8 @@ class CalendarEntrySheet extends ConsumerWidget {
     final IconData sourceIcon = switch (entry.source) {
       CalendarSource.moodle => AppIcons.assignment_outlined,
       CalendarSource.timetable => AppIcons.schedule_outlined,
+      CalendarSource.exchangeCalendar => AppIcons.event_outlined,
+      CalendarSource.canteenFavourite => AppIcons.soup,
       CalendarSource.publicCalendar ||
       CalendarSource.postEvent ||
       CalendarSource.savedEvents => AppIcons.public_outlined,
@@ -218,6 +231,12 @@ class CalendarEntrySheet extends ConsumerWidget {
               ),
 
               ..._sourceRows(context, l10n, unmappedTimetableRooms),
+
+              if (entry.source == CalendarSource.publicCalendar ||
+                  entry.source == CalendarSource.savedEvents) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                EventReminderRuleTile(entry: entry),
+              ],
 
               if (rooms.isNotEmpty) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
@@ -318,6 +337,22 @@ class CalendarEntrySheet extends ConsumerWidget {
           ),
         ],
       ],
+      // Exchange locations are free text ("Online", an address, a room):
+      // always shown as such; a resolvable campus room additionally gets
+      // its link below.
+      ExchangeCalendarDetails(:final String? location) => <Widget>[
+        if (location != null && location.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          _DetailRow(
+            icon: AppIcons.place_outlined,
+            label: l10n.calendarDetailLocation,
+            values: <String>[location],
+          ),
+        ],
+      ],
+      // Nothing beyond the flattened fields: the top "Quelle" row above
+      // already names the canteen via `entry.sourceLabel`.
+      CanteenFavouriteMealCalendarDetails() => const <Widget>[],
       PublicCalendarDetails(
         :final String? location,
         :final String? description,

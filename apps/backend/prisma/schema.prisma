@@ -31,6 +31,8 @@ model Canteen {
   displayNameEn    String
   campusLabelDe    String
   campusLabelEn    String
+  /// Campus site (koethen, bernburg, dessau); the app lists its own site first.
+  siteKey          String  @default("koethen")
   active           Boolean @default(true)
   sortOrder        Int     @default(0)
 
@@ -182,6 +184,8 @@ model TimetableContext {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  groups TimetableContextGroup[]
+
   @@unique([source, externalId])
   @@index([source, active])
   @@map("timetable_contexts")
@@ -199,7 +203,10 @@ model TimetableGroup {
   longName   String
   department String?
 
-  active     Boolean  @default(true)
+  active         Boolean @default(true)
+  /// False only for a data-verified duplicate whose current timetable is
+  /// represented by another group with the exact same public metadata.
+  catalogVisible Boolean @default(true)
   /// Last successful catalogue run that still contained this group. A group is
   /// only deactivated after a COMPLETE successful catalogue import.
   lastSeenAt DateTime @default(now())
@@ -208,11 +215,29 @@ model TimetableGroup {
   updatedAt DateTime @updatedAt
 
   entries TimetableEntryGroup[]
+  contexts TimetableContextGroup[]
 
   @@unique([source, externalId])
-  @@index([active, shortName])
+  @@index([active, catalogVisible, shortName])
   @@index([department])
   @@map("timetable_groups")
+}
+
+/// Associates the public Campus group UUID with the semester/school-year
+/// catalogue it appeared in. The upstream ids stay on their owning rows and
+/// never become API fields.
+model TimetableContextGroup {
+  contextId String
+  groupId   String
+
+  context TimetableContext @relation(fields: [contextId], references: [id], onDelete: Cascade)
+  group   TimetableGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([contextId, groupId])
+  @@index([groupId, contextId])
+  @@map("timetable_context_groups")
 }
 
 /// One scheduled lesson. Shared by however many groups attend it.
@@ -296,12 +321,15 @@ model TimetableSyncRun {
   rangeFrom DateTime? @db.Date
   rangeTo   DateTime? @db.Date
 
-  groupsRequested Int @default(0)
-  recordsReceived Int @default(0)
-  recordsAccepted Int @default(0)
-  recordsRejected Int @default(0)
-  recordsWritten  Int @default(0)
-  recordsRemoved  Int @default(0)
+  groupsRequested   Int @default(0)
+  /// Entry runs: classes whose own response carried errors or no day for them.
+  /// Their stored plan was kept; the run still counts as current for the rest.
+  groupsUnconfirmed Int @default(0)
+  recordsReceived   Int @default(0)
+  recordsAccepted   Int @default(0)
+  recordsRejected   Int @default(0)
+  recordsWritten    Int @default(0)
+  recordsRemoved    Int @default(0)
 
   /// Classification only. Never a header, URL, raw payload or person's name.
   errorCode    String?
@@ -348,6 +376,11 @@ model PublicCalendar {
   includeEventDescription Boolean @default(false)
   includeEventLocation    Boolean @default(false)
 
+  /// Who owns this row: `strapi` (mirrored by the catalogue sync) or
+  /// `user-test` (written by the synthetic user-test seed). Only `strapi` rows
+  /// are retired by the catalogue sync or downloaded from Google.
+  source String @default("strapi")
+
   /// pending | ready | stale | revoked | unavailable | invalid
   operationalStatus String @default("pending")
 
@@ -356,6 +389,10 @@ model PublicCalendar {
   lastModified    String?
   /// SHA-256 of the last successfully processed feed body — never the body.
   lastContentHash String?
+  /// End of the window the stored occurrences were last expanded for. A
+  /// 304/unchanged feed may only skip the parse while this keeps up with the
+  /// moving window; otherwise recurrences at its far edge would never appear.
+  lastExpandedTo  DateTime?
 
   lastCatalogSyncAt    DateTime?
   lastSuccessfulSyncAt DateTime?

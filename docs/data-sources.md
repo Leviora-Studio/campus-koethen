@@ -11,12 +11,12 @@ Campus Köthen App · `AGPL-3.0-only`
 Diese Quellen werden **ausschließlich** vom Backend abgerufen. Der Flutter-Client greift auf keine
 von ihnen direkt zu (siehe [architecture.md](architecture.md), Grenze G1).
 
-| Quelle                           | Art                                 | Verbraucher   | Status                                     |
-| -------------------------------- | ----------------------------------- | ------------- | ------------------------------------------ |
-| Strapi 5 (eigene Instanz)        | REST + Mediathek, Read-only-Token   | Campus API    | aktiv                                      |
-| `meine-mensa.de/api/food_plans`  | öffentliche REST-Schnittstelle      | Campus Worker | aktiv                                      |
-| `hsa.webuntis.com` (View-API)    | interne API der öffentlichen Web-UI | Campus Worker | umgesetzt, `WEBUNTIS_ENABLED=false`        |
-| `calendar.google.com` (ICS-Feed) | öffentlicher ICS-Feed (RFC 5545)    | Campus Worker | umgesetzt, `PUBLIC_CALENDAR_ENABLED=false` |
+| Quelle                           | Art                                 | Verbraucher   | Status                                                 |
+| -------------------------------- | ----------------------------------- | ------------- | ------------------------------------------------------ |
+| Strapi 5 (eigene Instanz)        | REST + Mediathek, Read-only-Token   | Campus API    | aktiv                                                  |
+| `meine-mensa.de/api/food_plans`  | öffentliche REST-Schnittstelle      | Campus Worker | aktiv                                                  |
+| `hsa.webuntis.com` (View-API)    | interne API der öffentlichen Web-UI | Campus Worker | umgesetzt; Default `false`, PROD-Abweichung siehe §4.4 |
+| `calendar.google.com` (ICS-Feed) | öffentlicher ICS-Feed (RFC 5545)    | Campus Worker | umgesetzt, `PUBLIC_CALENDAR_ENABLED=false`             |
 
 **Redaktionelle Bilder** kommen ebenfalls aus Strapi, erreichen die App aber nie direkt: Die Campus
 API liefert sie unter `GET /v1/media/uploads/:filename` aus und veröffentlicht in allen DTOs
@@ -29,18 +29,21 @@ abgeschaltet, bis die Nutzung organisatorisch entschieden ist. Details in §4 un
 
 ### 1.2 Geräteseitige Quellen (Pfad 2)
 
-Diese vier Dienste spricht die App **direkt** an — ausdrücklich beschlossene, eng begrenzte
+Diese fünf Dienste spricht die App **direkt** an — ausdrücklich beschlossene, eng begrenzte
 Ausnahmen von G1, damit weder Campus API noch Strapi noch Worker Zugangsdaten oder persönliche
 Inhalte erhalten (siehe [`../AGENTS.md`](../AGENTS.md) §2).
 
-| Quelle                     | Art                                 | Verbraucher | Status |
-| -------------------------- | ----------------------------------- | ----------- | ------ |
-| `mail.hs-anhalt.de`        | IMAP/SMTP                           | Flutter     | aktiv  |
-| `service.ssc.hs-anhalt.de` | HIS-QIS, HTML (keine JSON-API)      | Flutter     | aktiv  |
-| `moodle.hs-anhalt.de`      | Moodle-Webservice, nur lesend       | Flutter     | aktiv  |
-| `REQUESTS_BASE_URL`        | Gremiensystem, Finanzanträge (POST) | Flutter     | aktiv  |
+| Quelle                       | Art                                           | Verbraucher | Status                                                                                        |
+| ---------------------------- | --------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------- |
+| `mail.hs-anhalt.de`          | IMAP/SMTP + EWS-Kalender (opt-in, nur lesend) | Flutter     | aktiv                                                                                         |
+| `service.ssc.hs-anhalt.de`   | HIS-QIS, HTML (keine JSON-API)                | Flutter     | aktiv                                                                                         |
+| `sscportal.ssc.hs-anhalt.de` | HISinOne, HTML/JSF (keine JSON-API)           | Flutter     | aktiv                                                                                         |
+| `moodle.hs-anhalt.de`        | Moodle-Webservice, nur lesend                 | Flutter     | aktiv                                                                                         |
+| `cloud.hs-anhalt.de`         | Nextcloud Login Flow v2 / OCS / WebDAV        | Flutter     | Lesen, Upload, Löschen und nur lesbare öffentliche Links umgesetzt; reale Geräteabnahme offen |
+| `REQUESTS_BASE_URL`          | Gremiensystem, Finanzanträge (POST)           | Flutter     | aktiv                                                                                         |
 
-Die ersten drei sind nutzerauthentifiziert. Der vierte ist es **nicht** — ausschlaggebend ist der
+Mail, Prüfungsportale, Moodle und Nextcloud sind nutzerauthentifiziert. Der Antragsdienst ist es
+**nicht** — ausschlaggebend ist der
 Inhalt: Eine Einreichung trägt den Namen der antragstellenden Person und eine Kopie des
 Studierendenausweises. Genau solche Daten sollen kein Campus-Köthen-Backend erreichen.
 
@@ -94,10 +97,12 @@ Betreiber: Studentenwerk Halle. Kein Token erforderlich. Antwort ist `applicatio
 
 ### 3.2 Verifizierte Standorte
 
-| `location_id` | Slug                     | Anzeigename         | Campus-Label   |
-| ------------- | ------------------------ | ------------------- | -------------- |
-| `7`           | `koethen-fasanerieallee` | Mensa Köthen        | Fasanerieallee |
-| `22`          | `koethen-lohmannstrasse` | Mensa Lohmannstraße | Lohmannstraße  |
+| `location_id` | Slug                     | Anzeigename         | Campus-Label   | `site`     |
+| ------------- | ------------------------ | ------------------- | -------------- | ---------- |
+| `7`           | `koethen-fasanerieallee` | Mensa Köthen        | Fasanerieallee | `koethen`  |
+| `22`          | `koethen-lohmannstrasse` | Mensa Lohmannstraße | Lohmannstraße  | `koethen`  |
+| `13`          | `dessau`                 | Mensa Dessau        | Dessau         | `dessau`   |
+| `8`           | `bernburg`               | Mensa Bernburg      | Bernburg       | `bernburg` |
 
 Diese Zuordnung ist **Backend-Konfiguration** (`apps/backend/src/modules/canteen/canteens.config.ts`).
 Flutter kennt keine Location-IDs. Eine weitere Mensa erfordert kein App-Release.
@@ -121,7 +126,7 @@ Am 22.07.2026 real gegen beide Standorte geprüft (HTTP 200):
         "name_2": "mit Kichererbsen, Wirsing und Kräuterdip",
         "ingredients": ["2", "52", "53", "A1", "A3", "G2"],
         "price_1": 1.95, // Studierende
-        "price_2": 4.95, // Bedienstete
+        "price_2": 4.95, // Mitarbeiter
         "price_3": 7, // Gäste  ← kann Integer sein, nicht nur Dezimal
         "extra_1": "",
         "extra_2": "",
@@ -196,7 +201,7 @@ Bewusst **nicht** zugeordnet ist `48` „Fisch": das ist die Fleischart, nicht d
 | Feld      | Slug       | Label DE    | Label EN  |
 | --------- | ---------- | ----------- | --------- |
 | `price_1` | `student`  | Studierende | Students  |
-| `price_2` | `employee` | Bedienstete | Employees |
+| `price_2` | `employee` | Mitarbeiter | Employees |
 | `price_3` | `guest`    | Gäste       | Guests    |
 
 **Alle** verfügbaren Preisgruppen werden gespeichert und ausgeliefert. Die Zuordnung
@@ -220,6 +225,25 @@ Der Studierendenpreis wird in der App hervorgehoben.
 - **Keine Mensabilder.** `food.image_url` wird nicht persistiert und nicht ausgeliefert.
 - Preise und Allergenangaben sind Angaben der Quelle ohne Gewähr; die App weist darauf hin.
 - Eine abschließende Nutzungsfreigabe durch den Betreiber ist ein offenes Release-Gate.
+
+### 3.9 Lokaler NFC-Guthabencheck
+
+Der NFC-Guthabencheck ist **keine Quelle für Mensaplandaten** und verwendet weder `meine-mensa.de`
+noch die Campus API. Er kommuniziert nach einer bewussten Nutzeraktion ausschließlich lokal per
+DESFire/ISO-DEP mit der vorgehaltenen Karte:
+
+1. Anwendung auswählen: `90 5A 00 00 03 5F 84 15 00`
+2. Nur nach erfolgreichem Statuswort lesen: `90 6C 00 00 01 01 00`
+3. Exakt vier Nutzdatenbytes als vorzeichenbehafteten Int32 Little Endian interpretieren und durch
+   `1000` in Euro umrechnen.
+
+Länge, Statuswort und ein defensiver Plausibilitätsbereich werden strikt geprüft. Das native Modul
+stellt nur den Transport bereit; Parser und Fehlerklassifikation sind für Android und iOS gemeinsam.
+Es gibt keine Schreib-APDU, keinen Hintergrundscan und keine Speicherung oder Übertragung von
+Kartenkennung, Rohantwort oder Saldo. Android kann einen per `TECH_DISCOVERED` erkannten ISO-DEP-Tag
+nach der systemseitigen Öffnen-Aktion direkt verarbeiten. iOS kann eine Drittanbieter-App außerhalb
+einer bereits laufenden Core-NFC-Sitzung nicht auf diese Weise starten und bietet deshalb nur den
+manuellen Scan aus der Mensaansicht an.
 
 ---
 
@@ -289,6 +313,18 @@ Die Schuljahre werden vorab über `/schoolyears` ermittelt; dadurch sind Gruppen
 des kommenden Semesters schon vor dem Wechsel des aktuellen Schuljahres verfügbar. Ein fehlerhafter
 Klassenabruf verwirft den gesamten Lauf, ohne vorhandene Daten zu löschen.
 
+Eine Klasse gilt nur dann als bestätigt, wenn ihre eigene Antwort ein leeres `errors[]` und mindestens
+ein Tagesobjekt für genau diese Klasse enthält. Nur bei bestätigten Klassen werden Zuordnungen
+entfernt, und zwar je Zuordnung: Verlässt eine Klasse eine Stunde, die für andere Klassen
+weiterläuft, verliert nur diese Klasse die Stunde. Meldet die Antwort einer Klasse Fehler oder
+fehlt ihr Tagesobjekt, bleibt ihr gespeicherter Plan unverändert, ohne dass der Lauf für die übrigen
+Klassen abbricht. Der Lauf bleibt `success`, weil die bestätigten Klassen aktuell sind und
+`partial` den ganzen Stundenplan als veraltet markieren würde. Die Anzahl unbestätigter Klassen steht
+als abfragbare Spalte `timetable_sync_runs.groupsUnconfirmed` in der Sync-Historie (dazu eine
+Warnung im Log), sodass der Betrieb auf dauerhaft unbestätigte Klassen alarmieren kann, etwa mit
+`SELECT … WHERE kind = 'entries' AND "groupsUnconfirmed" > 0`. Eine einzelne nicht lesbare
+Stunde (kein Titel, unlesbare Zeit) behält ihre zuletzt gültige Version.
+
 ### 4.4 Personenbezogene Daten
 
 Die Quelle liefert **Lehrpersonennamen**. Diese werden gespeichert und angezeigt, weil sie
@@ -304,7 +340,18 @@ keine davon liegt im Repository.
 - gewünschte Quellenangabe
 - zulässige Speicherung und Anzeige von Lehrpersonennamen sowie Aufbewahrungsfristen
 
-Bis dahin bleibt `WEBUNTIS_ENABLED=false`.
+Bis dahin bleibt `WEBUNTIS_ENABLED=false`. Das gilt auch für die versionierten
+Deployment-Templates. Da produktive Secrets und Umgebungswerte nicht im Repository liegen, wird
+der effektive Wert vor dem Rollout direkt auf dem Zielsystem und zusätzlich über
+`GET /v1/timetable/status` geprüft; ein Template allein ist kein Nachweis des Live-Zustands.
+
+**Festgestellte Produktionsabweichung (1. Oktober 2026):** Die öffentliche Statusroute der
+Produktions-API antwortete mit HTTP 200 und `featureEnabled: true` sowie einem frischen
+Synchronisationsstand. Damit ist der effektive Live-Wert trotz des weiterhin als offen
+dokumentierten Freigabe-Gates aktiv. Die versionierten Templates wurden auf `false` zurückgesetzt;
+die nicht versionierte Live-Konfiguration muss durch den Betreiber deaktiviert oder die erteilte
+organisatorische Freigabe nachvollziehbar dokumentiert werden. Diese Repository-Änderung nimmt
+keine Live-Umschaltung vor.
 
 ---
 
@@ -387,12 +434,14 @@ Vollständige Beschreibung inklusive Redaktionshandbuch: [public-calendars.md](p
 Diese Quellen erreicht **ausschließlich die App**. Ein Backend darf sie nie abrufen; es gibt für
 sie keine API-Route, keine Strapi-Collection, keinen Worker-Job und keine Datenbanktabelle.
 
-| Quelle                     | Zweck                                                                | Besonderheit                                                                                                                                                                                           | Doku                               |
-| -------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
-| `mail.hs-anhalt.de`        | Studentisches Postfach                                               | IMAPS 993, SMTP 587 mit **Pflicht**-STARTTLS, kein Klartext                                                                                                                                            | [student-mail.md](student-mail.md) |
-| `service.ssc.hs-anhalt.de` | HIS-QIS-Notenspiegel                                                 | **keine** offizielle API — HTML-Parsing über Spaltenüberschriften                                                                                                                                      | [grades.md](grades.md)             |
-| `moodle.hs-anhalt.de`      | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines               | feste, rein **lesende** Whitelist von `wsfunction`s                                                                                                                                                    | [moodle.md](moodle.md)             |
-| `REQUESTS_BASE_URL`        | Finanzanträge und Feedback an das Gremiensystem des Studierendenrats | Adresse **nie** als Quellcode-Konstante, **HTTPS** erzwungen; Antrag als `multipart/form-data`, Feedback als `application/json`, beide mit Idempotenzschlüssel; Status per `POST` mit dem Link im Body | —                                  |
+| Quelle                       | Zweck                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Besonderheit                                                                                                                                                                                                                                                                            | Doku                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `mail.hs-anhalt.de`          | Studentisches Postfach und optional persönlicher Standardkalender                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | IMAPS 993, SMTP 587 mit **Pflicht**-STARTTLS; EWS ausschließlich lesend über `/EWS/Exchange.asmx`, ohne Redirects und ohne persistenten Termincache                                                                                                                                     | [student-mail.md](student-mail.md) |
+| `service.ssc.hs-anhalt.de`   | HIS-QIS-Notenspiegel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | **keine** offizielle API — HTML-Parsing über Spaltenüberschriften                                                                                                                                                                                                                       | [grades.md](grades.md)             |
+| `sscportal.ssc.hs-anhalt.de` | HISinOne-Notenspiegel; zusätzlich **nur lesend** die drei festen Bescheinigungs-Druck-Buttons direkt auf der Notenübersichtsseite (volle Formularabgabe, kein AJAX) sowie auf der Seite „Studienservice" (mehrere Tabs, Wechsel per Voll-POST): Bescheinigungsübersicht, Personendaten/Kontaktdaten, Studiengangsübersicht. Der einmalige Abruf einer erzeugten Bescheinigung — aus beiden Quellen — ist zweistufig: zuerst `GET /qisserver/rds?state=docdownload…` auf dem Portal-Host, danach ein serverseitiger Redirect auf denselben Pfad/Zustand, aber die separate Origin `untrust-sscportal.ssc.hs-anhalt.de` — Ziel und Einweg-Token aus der aktuellen AJAX-Antwort bzw. dem Formular-Redirect, derselbe kurzlebige Cookie-Jar, vorhandener Content-Type sowie PDF-Magic/Größe geprüft; diese enge Pfad-/Parameter-Prüfung auf genau diese zwei Hosts ist **keine** allgemeine Allowlist | **keine** offizielle API — HTML-/JSF-Parsing; dieselben Zugangsdaten wie der Notenspiegel, kein zweiter Login; keine Prüfungsanmeldung, keine Adressänderung, keine sonstige Mutation                                                                                                   | [grades.md](grades.md)             |
+| `moodle.hs-anhalt.de`        | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | feste, rein **lesende** Whitelist von `wsfunction`s                                                                                                                                                                                                                                     | [moodle.md](moodle.md)             |
+| `cloud.hs-anhalt.de`         | Persönliche Nextcloud-Dateien                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Login Flow v2 im Systembrowser; OCS für eigene Nutzer-ID, App-Passwort-Widerruf und bestätigte öffentliche Read-only-Links; WebDAV nur unter der eigenen Nutzerwurzel, Upload ohne stilles Überschreiben und DELETE erst nach Bestätigung; kein persistenter Datei- oder Metadatencache | [nextcloud.md](nextcloud.md)       |
+| `REQUESTS_BASE_URL`          | Finanzanträge und Feedback an das Gremiensystem des Studierendenrats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Adresse **nie** als Quellcode-Konstante, **HTTPS** erzwungen; Antrag als `multipart/form-data`, Feedback als `application/json`, beide mit Idempotenzschlüssel; Status per `POST` mit dem Link im Body                                                                                  | —                                  |
 
 Gemeinsame Regeln: feste Host-Allowlist vor jedem Request · Redirects auf fremde Hosts oder auf
 Klartext werden abgebrochen · Zertifikatsprüfung nie deaktiviert · Zugangsdaten und Token nur im
@@ -408,10 +457,12 @@ Anhänge — einschließlich des Studierendenausweises — und Ergebnis bleiben 
 Gerät. Ein `400` oder `404` löscht **nie** einen lokal gespeicherten Vorgang.
 Details: [requests.md](requests.md).
 
-**Bekannte Fragilität:** HIS-QIS bietet keine JSON-API. Ändert die Hochschule das Portal, greift
-`portalStructureChanged` — mit lokalisierter Meldung, **ohne** den Cache zu überschreiben und
-**ohne** die Antwort zu loggen. Wie bei WebUntis gilt: eine Parseränderung ist zuerst als Änderung
-der Quelle zu behandeln, nicht als eigener Bug.
+**Bekannte Fragilität:** Weder HIS-QIS noch HISinOne bieten eine JSON-API — das gilt für den
+Notenspiegel genauso wie für die lesenden HISinOne-Funktionen (Bescheinigungen, Personen-/
+Kontaktdaten, Studiengangsübersicht). Ändert die Hochschule eines der Portale, greift `portalStructureChanged` — mit
+lokalisierter Meldung, **ohne** den Cache zu überschreiben und **ohne** die Antwort zu loggen. Wie
+bei WebUntis gilt: eine Parseränderung ist zuerst als Änderung der Quelle zu behandeln, nicht als
+eigener Bug.
 
 ---
 

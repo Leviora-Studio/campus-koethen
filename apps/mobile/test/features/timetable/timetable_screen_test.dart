@@ -10,8 +10,11 @@ import 'package:campus_koethen/features/calendar/presentation/calendar_entry_she
 import 'package:campus_koethen/features/campusmap/application/campus_map_providers.dart';
 import 'package:campus_koethen/features/campusmap/data/map_asset_loader.dart';
 import 'package:campus_koethen/features/campusmap/domain/map_catalog.dart';
+import 'package:campus_koethen/features/timetable/application/timetable_change.dart';
+import 'package:campus_koethen/features/timetable/application/timetable_change_controller.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_week.dart';
+import 'package:campus_koethen/features/timetable/data/timetable_models.dart';
 import 'package:campus_koethen/features/timetable/presentation/timetable_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -28,20 +31,89 @@ import '../../support/pump_app.dart';
 final DateTime monday = TimetableWeek.startOf(DateTime.now());
 late final MapCatalog testCatalog;
 
+class _FakeTimetableChangeController extends TimetableChangeController {
+  _FakeTimetableChangeController(this.changes);
+
+  final List<TimetableChange> changes;
+
+  @override
+  Future<List<TimetableChange>> build() async => changes;
+
+  final List<String> acknowledged = <String>[];
+
+  @override
+  Future<void> observe({
+    required TimetableChangeScope scope,
+    required Timetable timetable,
+  }) async {}
+
+  @override
+  Future<void> acknowledgeGroup(String groupId) async {
+    acknowledged.add(groupId);
+    changes.removeWhere((TimetableChange change) => change.groupId == groupId);
+    state = AsyncData<List<TimetableChange>>(List<TimetableChange>.of(changes));
+  }
+}
+
 InMemoryKeyValueStore storeWithGroup() =>
     InMemoryKeyValueStore(<String, Object>{
       PreferenceKeys.preferredTimetableGroup: timetableGroupIdFixture,
     });
 
-FakeHttpAdapter workingApi({Map<String, dynamic>? meta}) {
-  return FakeHttpAdapter((RequestOptions options) {
-    if (options.path.endsWith('/timetable/groups')) {
-      return FakeHttpResponse(envelope(timetableGroupsFixture));
+/// Every timetable fake adapter in this file must answer `/timetable/status`
+/// and resolve-by-id (`/timetable/groups/<id>`) — the screen now calls both
+/// on every load to show availability and to resolve the selected group,
+/// even for tests only interested in the week's content. Each test still
+/// supplies its own week/groups-list/error behaviour as [fallback].
+///
+/// The room catalogue an entry card resolves its rooms against is answered
+/// here too, as the JSON array the contract promises ([rooms], empty by
+/// default): a catch-all week object in its place is a structurally broken
+/// list response, which is an error rather than "no rooms" (G-03).
+FakeHttpResponse Function(RequestOptions) _withTimetableScaffolding(
+  FakeHttpResponse Function(RequestOptions) fallback, {
+  List<Map<String, dynamic>> rooms = const <Map<String, dynamic>>[],
+}) {
+  return (RequestOptions options) {
+    if (options.path.endsWith('/rooms')) {
+      return FakeHttpResponse(envelope(rooms));
     }
-    return FakeHttpResponse(
-      envelope(timetableWeekFixture(monday), meta: meta ?? timetableMeta()),
-    );
-  });
+    if (options.path.endsWith('/timetable/status')) {
+      return FakeHttpResponse(
+        envelope(<String, dynamic>{
+          'featureEnabled': true,
+          'groupCount': timetableGroupsFixture.length,
+        }),
+      );
+    }
+    final RegExpMatch? groupId = RegExp(
+      r'/timetable/groups/([^/]+)$',
+    ).firstMatch(options.path);
+    if (groupId != null) {
+      final String id = groupId.group(1)!;
+      final Map<String, dynamic> group = timetableGroupsFixture.firstWhere(
+        (Map<String, dynamic> g) => g['id'] == id,
+        orElse: () => timetableGroupsFixture.first,
+      );
+      return FakeHttpResponse(envelope(group));
+    }
+    return fallback(options);
+  };
+}
+
+FakeHttpAdapter workingApi({Map<String, dynamic>? meta}) {
+  return FakeHttpAdapter(
+    _withTimetableScaffolding((RequestOptions options) {
+      if (options.path.endsWith('/timetable/groups')) {
+        return FakeHttpResponse(
+          envelope(matchingTimetableGroups(options.queryParameters['query'])),
+        );
+      }
+      return FakeHttpResponse(
+        envelope(timetableWeekFixture(monday), meta: meta ?? timetableMeta()),
+      );
+    }),
+  );
 }
 
 /// Pumps the screen with a preselected group and jumps to the Monday that
@@ -132,18 +204,25 @@ void main() {
       await tester.tap(find.text('Kurs auswählen'));
       await tester.pumpAndSettle();
 
+      // The search field debounces via a bare Timer, which pumpAndSettle()
+      // does not reliably wait out on its own (it stops as soon as no new
+      // frame is scheduled, and a Timer alone does not schedule one) — pump
+      // past the 300ms debounce explicitly before letting the fetch settle.
       await tester.enterText(find.byType(TextField), 'maschinenbau');
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
 
       expect(find.text('MB1'), findsOneWidget);
       expect(find.text('AIN2 - BT'), findsNothing);
 
       await tester.enterText(find.byType(TextField), 'fb5');
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       expect(find.text('AIN2 - BT'), findsOneWidget);
       expect(find.text('MB1'), findsNothing);
 
       await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       expect(find.text('Kein passender Kurs'), findsOneWidget);
     });
@@ -153,39 +232,40 @@ void main() {
     testWidgets('links only a mapped WebUntis room on the card', (
       WidgetTester tester,
     ) async {
-      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
-        if (options.path.endsWith('/timetable/groups')) {
-          return FakeHttpResponse(envelope(timetableGroupsFixture));
-        }
-        if (options.path.endsWith('/rooms')) {
-          return FakeHttpResponse(
-            envelope(<Map<String, dynamic>>[
-              <String, dynamic>{
-                'roomKey': 'ratke-gebaeude-first-floor-216',
-                'roomNumber': '216',
-                'buildingKey': 'ratke-gebaeude',
-                'buildingNumber': '23',
-                'buildingName': 'Ratke-Gebäude',
-                'floorKey': 'ratke-gebaeude-first-floor',
-                'floorName': '1. Obergeschoss',
-                'roomType': 'lecture',
-                'mapVersion': testCatalog.mapVersion,
-                'sortOrder': 0,
-              },
-            ]),
-          );
-        }
-        final Map<String, dynamic> week = timetableWeekFixture(monday);
-        final List<dynamic> days = week['days'] as List<dynamic>;
-        final List<dynamic> entries =
-            (days.first as Map<String, dynamic>)['entries'] as List<dynamic>;
-        (entries.first
-            as Map<String, dynamic>)['rooms'] = <Map<String, dynamic>>[
-          <String, dynamic>{'shortName': 'K023-216'},
-          <String, dynamic>{'shortName': 'D-04/201'},
-        ];
-        return FakeHttpResponse(envelope(week, meta: timetableMeta()));
-      });
+      final FakeHttpAdapter adapter = FakeHttpAdapter(
+        _withTimetableScaffolding(
+          rooms: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'roomKey': 'ratke-gebaeude-first-floor-216',
+              'roomNumber': '216',
+              'buildingKey': 'ratke-gebaeude',
+              'buildingNumber': '23',
+              'buildingName': 'Ratke-Gebäude',
+              'floorKey': 'ratke-gebaeude-first-floor',
+              'floorName': '1. Obergeschoss',
+              'roomType': 'lecture',
+              'mapVersion': testCatalog.mapVersion,
+              'sortOrder': 0,
+            },
+          ],
+          (RequestOptions options) {
+            if (options.path.endsWith('/timetable/groups')) {
+              return FakeHttpResponse(envelope(timetableGroupsFixture));
+            }
+            final Map<String, dynamic> week = timetableWeekFixture(monday);
+            final List<dynamic> days = week['days'] as List<dynamic>;
+            final List<dynamic> entries =
+                (days.first as Map<String, dynamic>)['entries']
+                    as List<dynamic>;
+            (entries.first
+                as Map<String, dynamic>)['rooms'] = <Map<String, dynamic>>[
+              <String, dynamic>{'shortName': 'K023-216'},
+              <String, dynamic>{'shortName': 'D-04/201'},
+            ];
+            return FakeHttpResponse(envelope(week, meta: timetableMeta()));
+          },
+        ),
+      );
 
       await pumpTimetable(
         tester,
@@ -217,27 +297,29 @@ void main() {
     testWidgets('filters only the deselected exact lesson information text', (
       WidgetTester tester,
     ) async {
-      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
-        if (options.path.endsWith('/timetable/groups')) {
-          return FakeHttpResponse(envelope(timetableGroupsFixture));
-        }
-        if (options.path.endsWith('/timetable/lesson-info')) {
-          return FakeHttpResponse(
-            envelope(<String, dynamic>{
-              'values': <String>['P1', 'Gruppe1'],
-              'hasWithoutInfo': true,
-            }),
-          );
-        }
-        final Map<String, dynamic> week = timetableWeekFixture(monday);
-        final List<dynamic> days = week['days'] as List<dynamic>;
-        final Map<String, dynamic> firstDay =
-            days.first as Map<String, dynamic>;
-        final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
-        (entries[0] as Map<String, dynamic>)['lessonInfo'] = 'P1';
-        (entries[1] as Map<String, dynamic>)['lessonInfo'] = 'Gruppe1';
-        return FakeHttpResponse(envelope(week, meta: timetableMeta()));
-      });
+      final FakeHttpAdapter adapter = FakeHttpAdapter(
+        _withTimetableScaffolding((RequestOptions options) {
+          if (options.path.endsWith('/timetable/groups')) {
+            return FakeHttpResponse(envelope(timetableGroupsFixture));
+          }
+          if (options.path.endsWith('/timetable/lesson-info')) {
+            return FakeHttpResponse(
+              envelope(<String, dynamic>{
+                'values': <String>['P1', 'Gruppe1'],
+                'hasWithoutInfo': true,
+              }),
+            );
+          }
+          final Map<String, dynamic> week = timetableWeekFixture(monday);
+          final List<dynamic> days = week['days'] as List<dynamic>;
+          final Map<String, dynamic> firstDay =
+              days.first as Map<String, dynamic>;
+          final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
+          (entries[0] as Map<String, dynamic>)['lessonInfo'] = 'P1';
+          (entries[1] as Map<String, dynamic>)['lessonInfo'] = 'Gruppe1';
+          return FakeHttpResponse(envelope(week, meta: timetableMeta()));
+        }),
+      );
 
       await pumpTimetable(tester, adapter: adapter);
       expect(find.text('Mathematik 2'), findsOneWidget);
@@ -263,19 +345,21 @@ void main() {
     testWidgets('shows lesson information on the card and in its details', (
       WidgetTester tester,
     ) async {
-      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
-        if (options.path.endsWith('/timetable/groups')) {
-          return FakeHttpResponse(envelope(timetableGroupsFixture));
-        }
-        final Map<String, dynamic> week = timetableWeekFixture(monday);
-        final List<dynamic> days = week['days'] as List<dynamic>;
-        final Map<String, dynamic> firstDay =
-            days.first as Map<String, dynamic>;
-        final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
-        (entries.first as Map<String, dynamic>)['lessonInfo'] =
-            'Fiktive Information zur Stunde';
-        return FakeHttpResponse(envelope(week, meta: timetableMeta()));
-      });
+      final FakeHttpAdapter adapter = FakeHttpAdapter(
+        _withTimetableScaffolding((RequestOptions options) {
+          if (options.path.endsWith('/timetable/groups')) {
+            return FakeHttpResponse(envelope(timetableGroupsFixture));
+          }
+          final Map<String, dynamic> week = timetableWeekFixture(monday);
+          final List<dynamic> days = week['days'] as List<dynamic>;
+          final Map<String, dynamic> firstDay =
+              days.first as Map<String, dynamic>;
+          final List<dynamic> entries = firstDay['entries'] as List<dynamic>;
+          (entries.first as Map<String, dynamic>)['lessonInfo'] =
+              'Fiktive Information zur Stunde';
+          return FakeHttpResponse(envelope(week, meta: timetableMeta()));
+        }),
+      );
 
       await pumpTimetable(tester, adapter: adapter);
       expect(find.text('Fiktive Information zur Stunde'), findsOneWidget);
@@ -413,6 +497,145 @@ void main() {
     });
   });
 
+  group('course hiding', () {
+    testWidgets('a hidden course is absent from timetable change hints', (
+      WidgetTester tester,
+    ) async {
+      final InMemoryKeyValueStore store = storeWithGroup();
+      await store.setStringList(
+        PreferenceKeys.timetableHiddenCourses(timetableGroupIdFixture),
+        <String>['Mathematik 2'],
+      );
+      final DateTime detectedAt = DateTime.utc(2026, 10, 7);
+      TimetableChange change(String title, String entryId) => TimetableChange(
+        entryId: entryId,
+        title: title,
+        kind: TimetableChangeKind.room,
+        detectedAt: detectedAt,
+        oldStart: monday,
+        newStart: monday,
+        oldRooms: const <String>['A1'],
+        newRooms: const <String>['B2'],
+        groupId: timetableGroupIdFixture,
+        rangeKey: monday.toIso8601String(),
+      );
+
+      await pumpTimetable(
+        tester,
+        store: store,
+        overrides: <Override>[
+          timetableChangeControllerProvider.overrideWith(
+            () => _FakeTimetableChangeController(<TimetableChange>[
+              change('Mathematik 2', 'hidden'),
+              change('Technische Mechanik', 'visible'),
+            ]),
+          ),
+        ],
+      );
+
+      expect(find.text('1 ungelesene Änderung'), findsOneWidget);
+      expect(find.text('2 ungelesene Änderungen'), findsNothing);
+
+      await tester.tap(find.text('Änderungen ansehen'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Mathematik 2:'), findsNothing);
+      expect(find.textContaining('Technische Mechanik:'), findsOneWidget);
+    });
+
+    testWidgets('change hints of an additional group are shown and '
+        'acknowledged', (WidgetTester tester) async {
+      const String extraGroup = '33333333-3333-4333-8333-333333333333';
+      final InMemoryKeyValueStore store = storeWithGroup();
+      await store.setStringList(
+        PreferenceKeys.additionalTimetableGroups,
+        <String>[extraGroup],
+      );
+      final _FakeTimetableChangeController controller =
+          _FakeTimetableChangeController(<TimetableChange>[
+            TimetableChange(
+              entryId: 'extra',
+              title: 'Physik',
+              kind: TimetableChangeKind.room,
+              detectedAt: DateTime.utc(2026, 10, 7),
+              oldStart: monday,
+              newStart: monday,
+              oldRooms: const <String>['A1'],
+              newRooms: const <String>['B2'],
+              groupId: extraGroup,
+              rangeKey: monday.toIso8601String(),
+            ),
+          ]);
+
+      await pumpTimetable(
+        tester,
+        store: store,
+        overrides: <Override>[
+          timetableChangeControllerProvider.overrideWith(() => controller),
+        ],
+      );
+
+      expect(find.text('1 ungelesene Änderung'), findsOneWidget);
+
+      await tester.tap(find.text('Änderungen ansehen'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Physik:'), findsOneWidget);
+
+      await tester.tap(find.text('Als gelesen markieren'));
+      await tester.pumpAndSettle();
+      expect(controller.acknowledged, contains(extraGroup));
+      expect(find.text('1 ungelesene Änderung'), findsNothing);
+    });
+
+    testWidgets(
+      'hiding a course from its card removes it from the agenda and offers '
+      'undo',
+      (WidgetTester tester) async {
+        await pumpTimetable(tester);
+        expect(find.text('Mathematik 2'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Mathematik 2 ausblenden'));
+        await tester.pump();
+
+        expect(find.text('Mathematik 2'), findsNothing);
+        expect(find.text('„Mathematik 2“ ausgeblendet'), findsOneWidget);
+        expect(
+          find.text('Technische Mechanik'),
+          findsOneWidget,
+          reason: 'only the hidden course is affected',
+        );
+
+        // The snackbar's enter animation must finish before its action sits
+        // at the position a tap targets.
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.text('Rückgängig'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Mathematik 2'), findsOneWidget);
+      },
+    );
+
+    testWidgets('a hidden course can be restored from the filter sheet', (
+      WidgetTester tester,
+    ) async {
+      await pumpTimetable(tester);
+      await tester.tap(find.byTooltip('Mathematik 2 ausblenden'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.byTooltip('Stunden nach Information filtern'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ausgeblendete Kurse'), findsOneWidget);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+
+      await tester.tap(find.text('Mathematik 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Schließen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mathematik 2'), findsOneWidget);
+    });
+  });
+
   group('states', () {
     testWidgets('shows an error with a retry when nothing can be served', (
       WidgetTester tester,
@@ -437,12 +660,14 @@ void main() {
       bool offline = false;
       final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
         if (offline) throw Exception('offline');
-        if (options.path.endsWith('/timetable/groups')) {
-          return FakeHttpResponse(envelope(timetableGroupsFixture));
-        }
-        return FakeHttpResponse(
-          envelope(timetableWeekFixture(monday), meta: timetableMeta()),
-        );
+        return _withTimetableScaffolding((RequestOptions options) {
+          if (options.path.endsWith('/timetable/groups')) {
+            return FakeHttpResponse(envelope(timetableGroupsFixture));
+          }
+          return FakeHttpResponse(
+            envelope(timetableWeekFixture(monday), meta: timetableMeta()),
+          );
+        })(options);
       });
 
       final ProviderContainer container = await pumpTimetable(
@@ -479,6 +704,40 @@ void main() {
 
       expect(find.text('Stundenplan wird vorbereitet'), findsOneWidget);
       expect(find.text('Etwas ist schiefgelaufen'), findsNothing);
+    });
+
+    testWidgets('refresh refetches the week and resolves a pending plan', (
+      WidgetTester tester,
+    ) async {
+      String dataState = 'pending';
+      final FakeHttpAdapter adapter = FakeHttpAdapter(
+        _withTimetableScaffolding((RequestOptions options) {
+          return FakeHttpResponse(
+            envelope(
+              timetableWeekFixture(monday),
+              meta: timetableMeta(dataState: dataState),
+            ),
+          );
+        }),
+      );
+      await pumpTimetable(tester, adapter: adapter);
+      expect(find.text('Stundenplan wird vorbereitet'), findsOneWidget);
+      int entryRequests() => adapter.requests
+          .where((RequestOptions o) => o.path.endsWith('/timetable/entries'))
+          .length;
+      final int before = entryRequests();
+
+      dataState = 'ready';
+      await tester.tap(find.byTooltip('Aktualisieren'));
+      await tester.pumpAndSettle();
+
+      expect(entryRequests(), greaterThan(before));
+      expect(find.text('Stundenplan wird vorbereitet'), findsNothing);
+      expect(find.text('Mathematik 2'), findsOneWidget);
+
+      // Leaves no poll timer behind.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
     });
 
     testWidgets('explains a disabled feature without looking broken', (

@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../domain/mail_message.dart';
+import '../domain/mail_search_match.dart';
 
 /// JSON mappers for the offline mail cache.
 ///
@@ -63,6 +64,7 @@ abstract final class MailCacheCodec {
     'id': d.id,
     'subject': d.subject,
     'from': address(d.from),
+    if (d.replyTo.isNotEmpty) 'replyTo': d.replyTo.map(address).toList(),
     'to': d.to.map(address).toList(),
     'cc': d.cc.map(address).toList(),
     'date': d.date?.toUtc().toIso8601String(),
@@ -75,6 +77,9 @@ abstract final class MailCacheCodec {
         id: (json['id'] as String?) ?? '',
         subject: (json['subject'] as String?) ?? '',
         from: addressFrom(_map(json['from'])),
+        // Absent in entries cached before Reply-To was kept: replies then go
+        // to From, exactly as before.
+        replyTo: _list(json['replyTo']).map(addressFrom).toList(),
         to: _list(json['to']).map(addressFrom).toList(),
         cc: _list(json['cc']).map(addressFrom).toList(),
         date: _date(json['date']),
@@ -101,6 +106,26 @@ abstract final class MailCacheCodec {
       yield address['email'] as String?;
     }
   }
+
+  /// Compact, attachment-free search document stored separately from bodies.
+  static Map<String, dynamic> searchDocument(MailMessageDetail detail) =>
+      <String, dynamic>{
+        'text': mailDetailSearchFields(detail)
+            .whereType<String>()
+            .map(normalizeMailSearchTerm)
+            .where((String value) => value.isNotEmpty)
+            .join('\u0000'),
+        'header': header(
+          MailMessageHeader(
+            id: detail.id,
+            subject: detail.subject,
+            from: detail.from,
+            date: detail.date,
+            isSeen: true,
+            hasAttachments: detail.hasAttachments,
+          ),
+        ),
+      };
 
   /// A header for a cached message that is missing from the header index.
   ///

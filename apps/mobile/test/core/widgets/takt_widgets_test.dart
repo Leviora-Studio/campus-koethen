@@ -7,6 +7,7 @@ import 'package:campus_koethen/core/theme/app_dimensions.dart';
 import 'package:campus_koethen/core/theme/app_metrics.dart';
 import 'package:campus_koethen/core/widgets/brand_mark.dart';
 import 'package:campus_koethen/core/widgets/marker.dart';
+import 'package:campus_koethen/core/widgets/panel.dart';
 import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
 import 'package:campus_koethen/core/widgets/section_header.dart';
 import 'package:campus_koethen/core/widgets/time_rail.dart';
@@ -194,6 +195,29 @@ void main() {
       );
       expect(back.width, greaterThanOrEqualTo(AppSizes.minTouchTarget));
       expect(back.height, greaterThanOrEqualTo(AppSizes.minTouchTarget));
+    });
+
+    testWidgets('can visibly disable back navigation during an operation', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const Scaffold(
+          body: ScreenHeader(
+            title: 'Mensa',
+            showBack: true,
+            backEnabled: false,
+          ),
+        ),
+      );
+
+      final IconButton back = tester.widget<IconButton>(
+        find.ancestor(
+          of: find.byIcon(AppIcons.arrow_back),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(back.onPressed, isNull);
     });
 
     testWidgets('sets the actions on the title line, not on a strip above it', (
@@ -504,7 +528,14 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(BrandMark)), const Size(40, 40));
-      expect(find.image(const AssetImage(BrandAssets.icon)), findsOneWidget);
+      final Image image = tester.widget<Image>(
+        find.descendant(
+          of: find.byType(BrandMark),
+          matching: find.byType(Image),
+        ),
+      );
+      final ResizeImage provider = image.image as ResizeImage;
+      expect(provider.imageProvider, const AssetImage(BrandAssets.icon));
     });
 
     testWidgets('renders the binding logo with one accessible app name', (
@@ -516,9 +547,43 @@ void main() {
       );
 
       expect(find.bySemanticsLabel('Campus Köthen'), findsOneWidget);
-      expect(find.image(const AssetImage(BrandAssets.logo)), findsOneWidget);
+      final Image image = tester.widget<Image>(
+        find.descendant(
+          of: find.byType(BrandWordmark),
+          matching: find.byType(Image),
+        ),
+      );
+      final ResizeImage provider = image.image as ResizeImage;
+      expect(provider.imageProvider, const AssetImage(BrandAssets.logo));
       expect(find.text('CAMPUS'), findsNothing);
       expect(find.text('Köthen'), findsNothing);
+    });
+  });
+
+  group('Panel', () {
+    testWidgets('a labelled tappable panel keeps its tap for a screen reader', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      int taps = 0;
+      await pumpScreen(
+        tester,
+        Scaffold(
+          body: Panel(
+            semanticLabel: 'Karte',
+            onTap: () => taps++,
+            child: const Text('Inhalt'),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Karte')),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+      tester.semantics.tap(find.semantics.byLabel('Karte'));
+      expect(taps, 1);
+      handle.dispose();
     });
   });
 
@@ -599,6 +664,34 @@ void main() {
       // to MaterialLocalizations, so only the shape is asserted here.
       expect(find.bySemanticsLabel(RegExp('^News, .*1.*2')), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('^Mensa, .*2.*2')), findsOneWidget);
+    });
+
+    testWidgets('a screen reader can activate a tab', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      int? tapped;
+      await pumpScreen(
+        tester,
+        Scaffold(
+          bottomNavigationBar: TaktNavigationBar(
+            semanticLabel: 'Hauptnavigation',
+            destinations: destinations,
+            selectedIndex: 1,
+            onSelected: (int index) => tapped = index,
+          ),
+        ),
+      );
+
+      final Finder news = find.bySemanticsLabel(RegExp('^News,'));
+      expect(
+        tester.getSemantics(news),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+
+      tester.semantics.tap(find.semantics.byLabel(RegExp('^News,')));
+      expect(tapped, 0);
+      handle.dispose();
     });
 
     testWidgets('keeps every tab a 48dp target', (WidgetTester tester) async {

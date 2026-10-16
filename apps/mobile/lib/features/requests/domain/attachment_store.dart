@@ -25,6 +25,8 @@ abstract interface class AttachmentStore {
 
   /// Returns the decrypted bytes, or `null` when the entry is gone — a draft
   /// can outlive its attachments if storage was cleared.
+  ///
+  /// Throws [AttachmentStoreUnavailable] when the store itself cannot be read.
   Future<Uint8List?> read(RequestAttachment attachment);
 
   /// Removes one entry. Never touches the user's original file.
@@ -39,4 +41,48 @@ abstract interface class AttachmentStore {
   /// and the draft save leaves attachment bytes nothing references, and there
   /// was no path that could remove them.
   Future<bool> wipeEverything();
+}
+
+/// A repeatable, length-bounded plaintext view of one encrypted attachment.
+///
+/// The stream factory is repeatable because Dio starts consuming it only once
+/// the request is dispatched. No plaintext file path is exposed.
+class StoredAttachmentStream {
+  const StoredAttachmentStream({required this.length, required this.open});
+
+  final int length;
+  final Stream<List<int>> Function() open;
+}
+
+/// Optional streaming capability used by the production encrypted store.
+///
+/// Keeping it separate preserves compatibility with small in-memory test and
+/// fallback stores, while the real path never materialises a whole file.
+abstract interface class StreamingAttachmentStore {
+  Future<RequestAttachment?> putStream(
+    String fileName,
+    int expectedLength,
+    Stream<List<int>> bytes,
+  );
+
+  /// `null` when the entry is gone; throws [AttachmentStoreUnavailable] when
+  /// the store itself cannot be read.
+  Future<StoredAttachmentStream?> openRead(RequestAttachment attachment);
+}
+
+class AttachmentLimitExceeded implements Exception {
+  const AttachmentLimitExceeded();
+}
+
+/// The store itself could not be read — a locked keystore, a box that would
+/// not open.
+///
+/// Not "the file is gone": reading that as absent blamed a form field for a
+/// storage fault and invited the person to pick the student card again.
+/// Carries nothing that was stored.
+class AttachmentStoreUnavailable implements Exception {
+  const AttachmentStoreUnavailable();
+
+  @override
+  String toString() => 'AttachmentStoreUnavailable';
 }

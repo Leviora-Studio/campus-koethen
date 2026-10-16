@@ -4,7 +4,7 @@ import { blocksToPlainText, sanitizeBlocks } from '../../common/content/content-
 import { ApiError } from '../../common/errors/api-error';
 import { publicMediaUrl } from '../media/media.path';
 import { LocaleResolution } from '../../common/locale/locale';
-import { StrapiClient, StrapiListResponse, StrapiRequestError } from '../strapi/strapi.client';
+import { parseStrapiList, StrapiClient, StrapiRequestError } from '../strapi/strapi.client';
 import {
   ContactAreaDetailDto,
   ContactAreaListItemDto,
@@ -85,12 +85,23 @@ function mapPerson(raw: unknown, locale: Locale): ContactPersonDto | null {
   };
 }
 
+const CAMPUS_SITES = ['koethen', 'bernburg', 'dessau'] as const;
+type CampusSite = (typeof CAMPUS_SITES)[number];
+
+/** The site of an area; a missing or unknown value means Köthen, where every area began. */
+function siteOf(value: unknown): CampusSite {
+  return typeof value === 'string' && (CAMPUS_SITES as readonly string[]).includes(value)
+    ? (value as CampusSite)
+    : 'koethen';
+}
+
 function mapAreaBase(raw: Raw): Omit<ContactAreaListItemDto, 'personCount'> {
   return {
     slug: asString(raw['slug']),
     name: asString(raw['name']),
     shortDescription: asString(raw['shortDescription']),
     iconKey: asString(raw['iconKey'], 'service'),
+    site: siteOf(raw['site']),
     // Served by this API, like every other editorial image.
     image: isRecord(raw['image']) ? publicMediaUrl(raw['image']['url']) : null,
     sortOrder: typeof raw['sortOrder'] === 'number' ? raw['sortOrder'] : 0,
@@ -103,12 +114,90 @@ function mapAreaBase(raw: Raw): Omit<ContactAreaListItemDto, 'personCount'> {
   };
 }
 
-function activePersons(raw: Raw, locale: Locale): ContactPersonDto[] {
-  const persons = Array.isArray(raw['persons']) ? raw['persons'] : [];
+function activePersons(persons: unknown[], locale: Locale): ContactPersonDto[] {
   return persons
     .map((person) => mapPerson(person, locale))
     .filter((person): person is ContactPersonDto => person !== null)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+}
+
+/**
+ * Whether {@link mapPerson} would deliver this person: a record, not
+ * explicitly inactive, with a usable name. The one definition shared by the
+ * count, the fallback check and the mapping itself.
+ */
+function isDeliverablePerson(person: unknown): person is Raw {
+  return isRecord(person) && person['isActive'] !== false && str(person['name']) !== null;
+}
+
+/** The only person fields an editor translates; everything else is shared. */
+const LOCALISED_PERSON_FIELDS = ['role', 'description'] as const;
+
+/**
+ * The persons of an area as a reader of `localised`'s language sees them.
+ *
+ * Strapi 5 localises every relation between localised types, so the
+ * translated area carries its OWN person list — possibly never linked,
+ * possibly partial, possibly holding a person the canonical area does not
+ * have. Which persons exist therefore always comes from the CANONICAL
+ * relation; this is the same source the list counts from. The translation
+ * contributes only `role` and `description`, matched by the person's
+ * `documentId` (shared by all locales of one document). That id is used here
+ * and nowhere else — the DTO is built field by field and never carries it.
+ *
+ * `fallback` is true when a delivered person has German text in a localised
+ * field that the translation does not provide.
+ */
+function overlayPersons(
+  canonical: Raw,
+  localised: Raw | undefined,
+): { persons: unknown[]; fallback: boolean } {
+  const canonicalPersons = Array.isArray(canonical['persons']) ? canonical['persons'] : [];
+  const translatedById = new Map<string, Raw>();
+  const translatedPersons =
+    localised && Array.isArray(localised['persons']) ? localised['persons'] : [];
+  for (const person of translatedPersons) {
+    const id = isRecord(person) ? str(person['documentId']) : null;
+    if (id && isRecord(person) && !translatedById.has(id)) {
+      translatedById.set(id, person);
+    }
+  }
+
+  let fallback = false;
+  const persons = canonicalPersons.map((person): unknown => {
+    if (!isDeliverablePerson(person)) {
+      return person;
+    }
+    const id = str(person['documentId']);
+    const translation = id ? translatedById.get(id) : undefined;
+    const merged: Raw = { ...person };
+    for (const field of LOCALISED_PERSON_FIELDS) {
+      const translated = translation ? str(translation[field]) : null;
+      if (translated) {
+        merged[field] = translated;
+      } else if (str(person[field])) {
+        fallback = true;
+      }
+    }
+    return merged;
+  });
+
+  return { persons, fallback };
+}
+
+/** Canonical persons, overlaid with the translation when one is requested. */
+function personsFor(
+  canonical: Raw,
+  localised: Raw | undefined,
+  needsTranslation: boolean,
+): { persons: unknown[]; fallback: boolean } {
+  if (!needsTranslation) {
+    return {
+      persons: Array.isArray(canonical['persons']) ? canonical['persons'] : [],
+      fallback: false,
+    };
+  }
+  return overlayPersons(canonical, localised);
 }
 
 /**
@@ -131,9 +220,7 @@ function activePersonCount(raw: Raw): number {
   }
   let count = 0;
   for (const person of persons) {
-    if (!isRecord(person) || person['isActive'] === false) continue;
-    if (str(person['name']) === null) continue;
-    count += 1;
+    if (isDeliverablePerson(person)) count += 1;
   }
   return count;
 }
@@ -143,6 +230,7 @@ function sharedFields(canonical: Raw): Raw {
   return {
     slug: canonical['slug'],
     iconKey: canonical['iconKey'],
+    site: canonical['site'],
     image: canonical['image'],
     sortOrder: canonical['sortOrder'],
     isActive: canonical['isActive'],
@@ -211,8 +299,7 @@ export class ContactsService {
 
   private async fetch(query: Record<string, unknown>): Promise<Raw[]> {
     try {
-      const response = await this.strapi.get<StrapiListResponse<Raw>>('/api/contact-areas', query);
-      return Array.isArray(response?.data) ? response.data : [];
+      return parseStrapiList(await this.strapi.get<unknown>('/api/contact-areas', query)).data;
     } catch (error) {
       if (error instanceof StrapiRequestError) {
         throw new ApiError(error.kind === 'timeout' ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_UNAVAILABLE');
@@ -344,11 +431,19 @@ export class ContactsService {
         fallbackUsed = true;
       }
 
+      // Same rule as the detail endpoint: persons from the canonical relation,
+      // only their localised text from the translation.
+      const persons = personsFor(raw, localised, needsTranslation);
+      if (persons.fallback) {
+        fallbackUsed = true;
+      }
+
       return {
         slug: base.slug,
         name: base.name,
         shortDescription: base.shortDescription,
         iconKey: base.iconKey,
+        site: base.site,
         descriptionText: blocksToPlainText(sanitizeBlocks(merged['description']).blocks),
         generalEmail: base.generalEmail,
         phone: base.phone,
@@ -357,7 +452,7 @@ export class ContactsService {
         address: base.address,
         openingHours: base.openingHours,
         rooms: areaRooms.rooms,
-        persons: activePersons(localised ?? raw, locale.resolvedLocale).map(toSearchPerson),
+        persons: activePersons(persons.persons, locale.resolvedLocale).map(toSearchPerson),
       };
     });
 
@@ -440,17 +535,22 @@ export class ContactsService {
     // the canonical entry is the reliable source for them.
     const areaRooms = mapRoomReferences(canonical['rooms'], locale.resolvedLocale);
 
+    // Persons carry only non-localised contact data plus localised role and
+    // description. Which persons exist comes from the canonical relation — the
+    // same source the list counts from — and only their text is translated.
+    const persons = personsFor(canonical, localised, needsTranslation);
+
     return {
       data: {
         ...mapAreaBase(merged),
         description: blocks,
-        // Persons carry only non-localised contact data plus localised role and
-        // description; the localised variant wins when present.
-        persons: activePersons(localised ?? canonical, locale.resolvedLocale),
+        persons: activePersons(persons.persons, locale.resolvedLocale),
         rooms: areaRooms.rooms,
       },
       translationFallback:
-        (locale.resolvedLocale !== CANONICAL_LOCALE && !localised) || areaRooms.fallback,
+        (locale.resolvedLocale !== CANONICAL_LOCALE && !localised) ||
+        areaRooms.fallback ||
+        persons.fallback,
       droppedBlockTypes,
     };
   }

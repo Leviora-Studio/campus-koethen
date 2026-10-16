@@ -7,9 +7,10 @@ Planungsvertrag) und [design/notifications-ux-spec.md](design/notifications-ux-s
 Einstellungen, Texte). Dieses Dokument beschreibt, **was im Code steht**, wie die beiden
 Plattformen konfiguriert sind und was auf echten Geräten geprüft werden muss.
 
-Der Kern in einem Satz: Die App meldet Benachrichtigungen **im Voraus beim Betriebssystem des
-eigenen Geräts** an. Es gibt keinen Push-Dienst, kein Gerätetoken, keinen Registrierungsendpunkt,
-keinen serverseitigen Datensatz und keinen Code, der im Hintergrund läuft.
+Der Kern in einem Satz: Datierte Hinweise meldet die App **im Voraus beim Betriebssystem des
+eigenen Geräts** an; eine im Vordergrund per IMAP bestätigte neue E-Mail kann sie zusätzlich sofort
+lokal anzeigen. Es gibt keinen Push-Dienst, kein Gerätetoken, keinen Registrierungsendpunkt,
+keinen serverseitigen Datensatz. Seit ADR-0002 läuft zusätzlich ein periodischer, rein geräteseitiger Abgleich auch bei geschlossener App (§ 6).
 
 ## 1. Aufbau
 
@@ -18,7 +19,7 @@ OpenAPI-Vertrag sind **unverändert**.
 
 ```text
 domain/          reine Werte und Verträge, ohne Flutter und ohne Plugin
-  notification_category.dart      die drei freigegebenen Kategorien (N1/N2/N3)
+  notification_category.dart      sechs Kategorien (N1–N4 geplant, N5/N6 sofort)
   notification_request.dart       ein Kandidat: Kategorie, Ziel, Auslöser, Text, Sichtbarkeit
   planned_notification.dart       ein eingeplanter Eintrag + der 31-Bit-Systemschlüssel
   notification_plan.dart          Sollzustand + Diagnose (Zähler, keine Inhalte)
@@ -29,7 +30,9 @@ domain/          reine Werte und Verträge, ohne Flutter und ohne Plugin
   notification_gateway.dart       Port zum Betriebssystem (+ Noop-Variante)
 
 application/
+  event_reminder_candidates.dart  N1: öffentliche und gemerkte Events → Kandidaten
   canteen_favourite_candidates.dart  N3: Speiseplan × Favoriten → Kandidaten (reine Funktion)
+  moodle_deadline_candidates.dart N4: bestätigte Moodle-Fristen → Kandidaten, Tap-Auflösung
   notification_planner.dart       REINE FUNKTION: Kandidaten → vollständiger Sollzustand
   notification_scheduler.dart     serialisierte, vollständige Neuplanung
   notification_settings_controller.dart
@@ -49,17 +52,40 @@ presentation/
   notification_host.dart             Lebenszyklus, Kanäle, Anwenden des Plans, Tap-Routing
 ```
 
+### 1.0.1 Neue E-Mail (N6)
+
+`mail.new` ist keine vorausgeplante Erinnerung und belegt keinen Platz im 60er-Planungsbudget.
+Solange die App im Vordergrund ist, meldet IMAP IDLE eine mögliche Änderung. Der normale
+Mail-Sync bestätigt anschließend mindestens eine bisher unbekannte UID; erst dann ruft der
+`NotificationHost` `showNow(...)` auf. Der erste Inbox-Sync setzt nur die Ausgangsbasis.
+
+Die Kategorie unterliegt demselben globalen Opt-in, ihrem eigenen Schalter und der
+Betriebssystemberechtigung wie N1–N5. Titel und Text sind neutral und enthalten weder Absender noch
+Betreff; der validierte Payload enthält nur die numerische IMAP-UID und öffnet den Posteingang.
+Account-Wipe beziehungsweise Kontowechsel sind über die Mail-Session-Generation gegen verspätete
+Ereignisse abgesichert. Bei pausierter oder geschlossener App ist keine Live-Zustellung zugesagt;
+Start und Resume gleichen verpasste Nachrichten ab.
+
 ### 1.1 Vollständige Neuplanung, nie ein Delta
 
-Jeder Lauf verwirft alles (`cancelAll()`) und plant den gesamten Sollzustand neu. Aktualisieren,
-Ersetzen und Stornieren haben deshalb **keinen eigenen Codepfad**: Ein abgesagter, gelöschter oder
-verschobener Eintrag wird beim nächsten Lauf schlicht nicht mehr beziehungsweise anders erzeugt.
+Jeder Lauf verwirft alle **vorgemerkten** Einträge (`cancelAllPending()`) und plant den gesamten
+Sollzustand neu. Aktualisieren, Ersetzen und Stornieren haben deshalb **keinen eigenen Codepfad**:
+Ein abgesagter, gelöschter oder verschobener Eintrag wird beim nächsten Lauf schlicht nicht mehr
+beziehungsweise anders erzeugt.
 
-Läufe sind **serialisiert**. `cancelAll()` und das erneute Einplanen sind zusammen nicht atomar;
-zwei überlappende Läufe würden einander die Einträge wegräumen. Der `NotificationScheduler` hängt
-jeden Lauf an den vorherigen an.
+**Bereits zugestellte Benachrichtigungen gehören nicht zum Sollzustand und bleiben unberührt.** Das
+Gateway ruft dafür ausschließlich `cancelAllPendingNotifications()` des Plugins auf, nie dessen
+`cancelAll()`: Letzteres entfernt in flutter_local_notifications 22.3.0 zusätzlich alles bereits
+Angezeigte (Android `NotificationManager.cancelAll()`, iOS `removeAllDeliveredNotifications`). Weil
+bei jeder Rückkehr in den Vordergrund neu geplant wird, verschwänden sonst ungelesene Hinweise —
+Tagesübersicht, neue Mail, neue Note — genau in dem Moment aus der Mitteilungsleiste, in dem die App
+geöffnet wird. Dasselbe gilt für das Abschalten: Es entfernt nur Vorgemerktes.
 
-Bewusst offen bleibt das kurze Fenster zwischen `cancelAll()` und dem letzten `schedule(...)`: Wird
+Läufe sind **serialisiert**. `cancelAllPending()` und das erneute Einplanen sind zusammen nicht
+atomar; zwei überlappende Läufe würden einander die Einträge wegräumen. Der `NotificationScheduler`
+hängt jeden Lauf an den vorherigen an.
+
+Bewusst offen bleibt das kurze Fenster zwischen `cancelAllPending()` und dem letzten `schedule(...)`: Wird
 der Prozess genau dort beendet, bleibt nichts vorgemerkt, bis die App das nächste Mal startet. Das
 ist hinnehmbar, weil jeder App-Start neu plant — und es steht in der Gerätematrix (§ 4).
 
@@ -87,12 +113,12 @@ genug Raum für die Event-Erinnerungen, mit denen sie geteilt werden.
 Quellen — allesamt die vorhandenen Provider der jeweiligen Features, keine zweite Datenhaltung und
 kein zweiter Mapper:
 
-| Inhalt              | Quelle                                                                            |
-| ------------------- | --------------------------------------------------------------------------------- |
-| Lehrveranstaltungen | `timetableWeekProvider` der **gewählten** Gruppe; ohne Gruppe: keine              |
-| Relevante Events    | `publicCalendarMonthEntriesProvider` (aktivierte Kalender) + gemerkte Events      |
-| Moodle-Fristen      | der zwischengespeicherte Bestand, nur bei verbundenem Konto                       |
-| Mensa               | `canteenMenuProvider` der bevorzugten Mensa + `canteenFilterProvider` (Favoriten) |
+| Inhalt              | Quelle                                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Lehrveranstaltungen | `timetableWeekProvider` für Haupt-, Zusatzgruppen und Gruppen abonnierter Einzelmodule; Modulfilter lokal; ohne Hauptgruppe: keine |
+| Relevante Events    | `publicCalendarMonthEntriesProvider` (aktivierte Kalender) + gemerkte Events                                                       |
+| Moodle-Fristen      | der zwischengespeicherte Bestand, nur bei verbundenem Konto                                                                        |
+| Mensa               | `canteenMenuProvider` der bevorzugten Mensa + `canteenFilterProvider` (Favoriten)                                                  |
 
 Die Anzeigeschalter des Kalenders werden **nicht** gelesen; ein Test hält das fest (§ 3).
 
@@ -102,6 +128,8 @@ Regeln, die dabei gelten:
   Moodle-Frist und kein Mensa-Speiseplan. Ein vorhandener Speiseplan ist nach P4 ein eigener Anteil
   der Tagesübersicht und begründet deshalb auch ohne weitere Quelle eine Meldung.
 - **Eine abgesagte Lehrveranstaltung zählt nicht** und füllt keinen Tag.
+- **Verwaiste und abgesagte gemerkte Events zählen ebenfalls nicht** — dieselbe Regel wie in N1
+  (`notifiableSavedEvents`), geprüft am Merkeintrag selbst.
 - **Moodle bleibt aggregiert.** Der Tagesbefund hat kein Feld für einen Kurs- oder Aufgabentitel,
   der Text kann also keinen nennen. Ein Tag mit einer Frist wird zusätzlich als `neutral`
   markiert.
@@ -129,6 +157,9 @@ Moodle-Verbindung (am Gate `MoodleScreen`, weil der Setup-Screen im selben Momen
 | `event.reminder`    | `n1:<CalendarEntry.id>`         | `v1\|event.reminder\|<CalendarEntry.id>`                      |
 | `daily.summary`     | `n2:<YYYY-MM-DD>`               | `v1\|daily.summary\|<YYYY-MM-DD>`                             |
 | `canteen.favourite` | `n3:<canteenSlug>:<YYYY-MM-DD>` | `v1\|canteen.favourite\|<slug>:<YYYY-MM-DD>[:<Gerichtsname>]` |
+| `moodle.deadline`   | `n4:deadline-<Hash>`            | `v1\|moodle.deadline\|deadline-<Hash>`                        |
+| `grade.change`      | `n5:latest`                     | `v1\|grade.change\|grades`                                    |
+| `mail.new`          | `n6:<IMAP-UID>`                 | `v1\|mail.new\|<IMAP-UID>`                                    |
 
 Schlüssel, Payload und die vom Betriebssystem verlangte Ganzzahl werden **alle drei** aus
 Kategorie und Ziel abgeleitet und können deshalb nicht auseinanderlaufen. Der optionale
@@ -140,11 +171,23 @@ Doppelpunkt enthalten. Ein Name mit `|` verliert das Gerichtsziel, nicht den Hin
 übernommen, nicht neu gebildet. Die Ganzzahl ist ein deterministischer 31-Bit-FNV-1a-Hash; eine
 Kollision wäre folgenlos, weil ohnehin vollständig neu geplant wird.
 
-**Kein Payload trägt eine Moodle-Kennung oder einen anderen personenbezogenen Bezeichner.** Nach
-P5 gibt es keine Moodle- und keine Stundenplan-Einzelhinweise, und damit auch keine Kategorie, die
-so etwas bräuchte. Ein Test hält das fest.
+**Kein Payload trägt eine Moodle-Kennung oder einen anderen personenbezogenen Bezeichner.** Die
+Moodle-Fristerinnerung (N4) nennt als Ziel nur einen undurchsichtigen FNV-1a-Hash aus Frist-ID und
+Fälligkeit (`deadline-<Hash>`); Titel, Kurs und Moodle-ID erscheinen weder im Text noch im
+Payload. Ein Tap löst den Hash ausschließlich gegen den lokalen, verschlüsselten Fristen-Cache auf
+(`loadMoodleDeadlineDayForNotification`, ebenfalls höchstens `kNotificationTapSourceTimeout` lang
+wartend) und öffnet den Kalender in der Tagesansicht am Fälligkeitstag — die Moodle-Kursliste zeigt
+keine Fristen. Ist die Frist nicht mehr bekannt, bleibt es bei `/calendar` plus dezentem Hinweis.
+Stundenplan-Einzelhinweise gibt es nach P5 weiterhin nicht. N5 (`grade.change`) trägt das feste
+Ziel `grades`, N6 (`mail.new`) nur die numerische IMAP-UID.
 
-### 1.4 N1 — `event.reminder`, genau eine Erinnerung 24 Stunden vorher
+N4 und die Fristenzahl der Tagesübersicht (N2) lesen nur eine **bestätigte** Fristenliste
+(`MoodleOverviewState.reminderDeadlines`). Moodle lässt eine Frist nach der Abgabe aus seiner Liste
+fallen; liefert es deshalb eine leere Liste, bleibt der letzte Bestand nach AGENTS.md § 4 zwar im
+Kalender sichtbar, ist aber als unbestätigt markiert (`MoodleSyncMarks.deadlinesConfirmed`, auch
+über einen Neustart) und erzeugt keine Erinnerung mehr.
+
+### 1.4 N1 — `event.reminder`, eine lokal konfigurierbare Erinnerung je Event
 
 Umgesetzt in `application/event_reminder_candidates.dart` (LEVIORA-166). Die Kategorie besteht aus
 drei Teilen, die getrennt prüfbar sind:
@@ -157,19 +200,37 @@ Merkschalter des Kalenders (standardmäßig **aus**) hier nicht. Entdoppelt wird
 `savedEventEntriesForCalendar`, also der wiederverwendbaren Regel des Events-Features — nicht mit
 einer zweiten Fassung davon. Verwaiste (`isOrphaned`) und abgesagte Merkeinträge fallen heraus.
 
-**Regel** (`eventReminderRequests`, reine Funktion). Sollzeitpunkt ist `start` minus exakt 24
-Stunden als **absolute Dauer**; das Zustellfenster aus § 7.4 wendet der Planer an. Stundenplan- und
-Moodle-Einträge erzeugen hier **nie** einen Kandidaten (P5), ganztägige Einträge dagegen schon —
-sie haben einen definierten `start`, und die Regel gilt darauf unverändert.
+**Regel** (`eventReminderRequests`, reine Funktion). Der globale Vorlauf ist lokal zwischen
+15 Minuten, 1 Stunde, 6 Stunden, 1 Tag (Standard), 2 Tagen und 1 Woche wählbar. Im Detail eines
+öffentlichen oder gemerkten Events kann die Regel geerbt, überschrieben oder für genau dieses Event
+abgeschaltet werden. Vorläufe sind **absolute Dauern**; das Zustellfenster aus § 7.4 wendet der
+Planer an. Würde das Fenster einen kurzen Vorlauf hinter den Eventbeginn schieben, wird auf die
+letzte zulässige 20:00-Grenze vor dem Event zurückgefallen. Stundenplan- und Moodle-Einträge
+erzeugen hier **nie** einen Kandidaten (P5), ganztägige Einträge dagegen schon.
 
-**Text.** „Erinnerung morgen: …" beziehungsweise „Erinnerung heute: …", wenn das Zustellfenster den
-Hinweis auf den Eventtag selbst geschoben hat. Beide Seiten — Text und Zeitpunkt — fragen dieselbe
-`DeliveryWindow`, können also nicht auseinanderlaufen.
+Dieselbe Regel gilt für die Moodle-Fristerinnerung (`moodle.deadline`): Der Auslöser beider
+Kategorien nennt sein Ziel (`AbsoluteTrigger.before` = Eventbeginn beziehungsweise Frist), und der
+Planer verschiebt über `DeliveryWindow.shiftIntoWindowBefore` **nie auf oder hinter** dieses Ziel.
+Eine Abgabe um 23:59 Uhr mit 1 Stunde Vorlauf wird deshalb um 20:00 Uhr desselben Abends
+erinnert, nicht um 07:00 Uhr am Folgetag nach Fristende.
+
+**Text.** „Morgen: …" beziehungsweise „Heute: …", wenn der Hinweis am Eventtag selbst zugestellt
+wird; liegt das Event zwei oder mehr Kalendertage nach der Zustellung (Vorlauf „2 Tage" oder
+„1 Woche"), nennt der Text Wochentag und Datum („Mittwoch, 22. Juli: …", lokalisiert über `intl`).
+Gezählt werden **Kalendertage** zwischen Zustellung und Eventbeginn, nicht 24-Stunden-Blöcke — über
+eine Zeitumstellung hinweg bleibt „morgen" also morgen. Beide Seiten — Text und Zeitpunkt — fragen
+dieselbe `DeliveryWindow`, können also nicht auseinanderlaufen.
 
 **Tap.** Der Payload trägt die `CalendarEntry.id` und sonst nichts. `NotificationTapRouter` löst
 sie über den zusammengeführten Bestand auf, fokussiert den Tag **des Eintrags** (nicht einen Tag
-aus dem Payload, den es dort nicht gibt) und öffnet `showCalendarEntrySheet`. Löst sie nicht auf,
-bleibt es bei `/calendar` plus dezentem Hinweis.
+aus dem Payload, den es dort nicht gibt) und öffnet `showCalendarEntrySheet` auf dem
+Root-Navigator des GoRouters (`routerDelegate.navigatorKey`) — der `NotificationHost` sitzt im
+`MaterialApp.router`-Builder **oberhalb** dieses Navigators und hat selbst keinen. Löst sie nicht auf,
+bleibt es bei `/calendar` plus dezentem Hinweis. Vor dem Auflösen wartet der Tap
+(`loadCalendarEntryForNotification`) auf gemerkte Events, Kalenderkatalog und die Monate des
+Horizonts, höchstens `kNotificationTapSourceTimeout` (5 s) lang: Bei einem Kaltstart aus der
+Benachrichtigung ist sonst noch nichts geladen, und ein bestehendes Event würde als „nicht mehr
+verfügbar" gemeldet (Gerätematrix #20).
 
 **Eine bewusste Abweichung von § 7.2, aktenkundig:** Der Bestand beobachtet
 `publicCalendarMonthEntriesProvider` für den laufenden und den folgenden Monat. Gewartet wird nie —
@@ -179,6 +240,16 @@ einen Abruf an, und § 7.2 sagt „löst nie einen Netzabruf aus". Der laufende 
 Kalender ohnehin geholt; der Folgemonat ist der Unterschied. Wer die Regel wörtlich will, braucht
 einen reinen Cache-Lesepfad in `CachedEndpoint` — der wäre allerdings vom Abrufzyklus entkoppelt
 und verlöre den Auslöser „nach dem nächsten erfolgreichen Abruf neu planen".
+
+### 1.4a Zeitzone
+
+Geplant wird in der IANA-Zone des Geräts (`DeviceTimeZoneResolver`). Nennt das Gerät keine oder
+eine der gebündelten Datenbank unbekannte Zone, gilt sein aktueller UTC-Versatz — aber stets unter
+einem **echten** tz-Namen (`locationForDeviceOffset`): `UTC`, `Etc/GMT∓h` für ganze Stunden, sonst
+eine Region mit genau diesem Versatz (bevorzugt ohne Sommerzeit). Der Name des Ortes geht als
+`timeZoneName` an die native Seite von flutter_local_notifications 22.3.0 und landet dort in
+`java.time.ZoneId.of` (Android) beziehungsweise `NSTimeZone timeZoneWithName:` (iOS); ein
+erfundener Name wie das frühere `device-offset-<Minuten>` ließ dort jede Planung still scheitern.
 
 ### 1.5 Diagnose
 
@@ -199,7 +270,7 @@ Gerichtsname. Ein ausgeschöpftes Budget ist so ein Zähler und keine stille Kü
 | Terminierung             | `zonedSchedule(..., androidScheduleMode: inexactAllowWhileIdle)`                                                                                        |
 | Receiver                 | `ScheduledNotificationReceiver` und `ScheduledNotificationBootReceiver`, beide `exported="false"`                                                       |
 | Desugaring               | `isCoreLibraryDesugaringEnabled = true` + `desugar_jdk_libs:2.1.4` — Pflicht ab Plugin-Version 10, sonst schlägt bereits der Build fehl                 |
-| Kanäle                   | drei, je einer für N1/N2/N3, angelegt bevor irgendetwas geplant wird. Ein Kanal ist **kein** Gruppenschlüssel und berührt P8 nicht                      |
+| Kanäle                   | sechs, je einer für N1–N6, angelegt bevor etwas geplant oder sofort angezeigt wird. Ein Kanal ist **kein** Gruppenschlüssel und berührt P8 nicht        |
 | Kanalnamen               | aus den ARB-Dateien; ein Sprachwechsel registriert die Kanäle unter derselben Id neu, wodurch Android Name und Beschreibung übernimmt                   |
 | Kleines Symbol           | `@drawable/ic_notification`, einfarbig weiß und voll deckend — ein mehrfarbiges Icon stellt Android als graues Quadrat dar                              |
 | Sperrbildschirm          | `visibility: public` für öffentliche Inhalte, `private` für neutrale (P10). Beides greift nur unter Nutzereinstellungen, die die App nicht kontrolliert |
@@ -213,7 +284,7 @@ und dieser Preis steht in keinem Verhältnis.
 
 | Punkt                | Wert                                                                                                                                                     |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Capabilities         | **keine.** Kein Push-Entitlement, kein `aps-environment`, keine Background Modes                                                                         |
+| Capabilities         | Kein Push-Entitlement, kein `aps-environment`. Background Modes nur `fetch` und `processing` (ADR-0002)                                                  |
 | `AppDelegate.swift`  | setzt `UNUserNotificationCenter.current().delegate` und den `setPluginRegistrantCallback` in `didInitializeImplicitFlutterEngine` (UIScene-Lebenszyklus) |
 | Berechtigung         | wird **nie** beim Start angefragt: `DarwinInitializationSettings` fordert Alert, Badge und Sound ausdrücklich nicht an                                   |
 | Systemdialog         | erscheint genau einmal pro Installation. Danach führt der Weg nur noch über die Systemeinstellungen                                                      |
@@ -231,21 +302,21 @@ Aufgabentitel. Fremdtexte (Gerichtsname, Fachtitel, Eventtitel) werden nicht üb
 
 `apps/mobile/test/features/notifications/`:
 
-| Datei                                        | Deckt ab                                                                                                                                                                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `notification_planner_test.dart`             | 24-Stunden-Regel, beide Verschiebungsrichtungen, einschließende Grenzwerte 07:00/20:00, Zeitzonen, Sommerzeit, Vergangenheitsfilter, doppelte Schlüssel, Budget mit deterministischer Sortierung, Opt-in und Berechtigung |
-| `notification_payload_test.dart`             | Round-Trip, unbekannte Version, entfallene Kategorie, jede Fehlform, keine personenbezogene Kennung                                                                                                                       |
-| `notification_scheduler_test.dart`           | `cancelAll` vor dem Einplanen, keine Duplikate bei doppeltem Lauf, zwei gleichzeitige Läufe → genau ein Endzustand, Teilfehler                                                                                            |
-| `notification_settings_test.dart`            | Standardzustand, alle Kategorien an nach dem Opt-in, Persistenz über den Neustart, defekte und unbekannte gespeicherte Werte                                                                                              |
-| `notification_tap_router_test.dart`          | Ziel je Kategorie, optionales Gerichtsziel (auch mit Doppelpunkt im Namen), Fallback mit Hinweis, alte oder kaputte Payloads navigieren nirgendwohin                                                                      |
-| `canteen_favourite_candidates_test.dart`     | N3 rein: Abgleich nach Gerichtsnamen, leere Favoriten, leerer und abgelaufener Cache, doppelte Namen, mehrere Treffer als ein Hinweis, Preis, Kürzung langer Namen, DE/EN, Schlüssel gegen Payload                        |
-| `canteen_favourite_plan_test.dart`           | N3 über die Provider: Favorit gesetzt/entfernt, Menüwechsel, andere Mensa, Kategorie abgeschaltet, ohne Opt-in — jedes Mal als vollständiger neuer Sollzustand                                                            |
-| `notification_settings_screen_test.dart`     | Berechtigungsbanner, deaktivierte Kategorien, Abschalten trotz Sperre, stummgeschalteter Kanal, Persistenz eines Schalters                                                                                                |
-| `notification_scope_test.dart`               | Geltungsbereich (keine Kalender-Anzeigeschalter), kein Push-/Netz-/Hintergrundcode, ein einziger Plugin-Importeur, kein Gruppenschlüssel, Manifest- und Gradle-Zusicherungen                                              |
-| `daily_summary_test.dart`                    | leerer, normaler und überfüllter Tag, abgesagte Lehrveranstaltung, Speiseplan ohne Favorit, mehrtägige Einträge, Horizont, Sommerzeit im Tagesraster                                                                      |
-| `daily_summary_content_test.dart`            | DE-/EN-Text Wort für Wort, Moodle ohne Kurs- und Aufgabentitel, Sichtbarkeitsstufe, Kürzungsregeln, Ziel und Auslöser                                                                                                     |
-| `daily_summary_candidates_test.dart`         | die vier Quellen einzeln, Dedup gemerkter Events, Gating über Opt-in/Kategorie/Berechtigung, ein Kandidat je nicht leerem Tag, Sprachwechsel, 08:00 Ortszeit über die Sommerzeitumstellung und in einer anderen Zone      |
-| `notification_opt_in_entry_points_test.dart` | Einstiegspunkte C (Stundenplangruppe) und D (Moodle-Verbindung), einschließlich „schon abgelehnt" und fehlgeschlagener Verbindung                                                                                         |
+| Datei                                        | Deckt ab                                                                                                                                                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notification_planner_test.dart`             | 24-Stunden-Regel, beide Verschiebungsrichtungen, einschließende Grenzwerte 07:00/20:00, Zeitzonen, Sommerzeit, Vergangenheitsfilter, doppelte Schlüssel, Budget mit deterministischer Sortierung, Opt-in und Berechtigung               |
+| `notification_payload_test.dart`             | Round-Trip, unbekannte Version, entfallene Kategorie, jede Fehlform, keine personenbezogene Kennung                                                                                                                                     |
+| `notification_scheduler_test.dart`           | `cancelAllPending` vor dem Einplanen, zugestellte bleiben erhalten, keine Duplikate bei doppeltem Lauf, zwei gleichzeitige Läufe → genau ein Endzustand, Teilfehler                                                                     |
+| `notification_settings_test.dart`            | Standardzustand, alle Kategorien an nach dem Opt-in, Persistenz über den Neustart, defekte und unbekannte gespeicherte Werte                                                                                                            |
+| `notification_tap_router_test.dart`          | Ziel je Kategorie, optionales Gerichtsziel (auch mit Doppelpunkt im Namen), Fallback mit Hinweis, alte oder kaputte Payloads navigieren nirgendwohin                                                                                    |
+| `canteen_favourite_candidates_test.dart`     | N3 rein: Abgleich nach Gerichtsnamen, leere Favoriten, leerer und abgelaufener Cache, doppelte Namen, mehrere Treffer als ein Hinweis, Preis, Kürzung langer Namen, DE/EN, Schlüssel gegen Payload                                      |
+| `canteen_favourite_plan_test.dart`           | N3 über die Provider: Favorit gesetzt/entfernt, Menüwechsel, andere Mensa, Kategorie abgeschaltet, ohne Opt-in — jedes Mal als vollständiger neuer Sollzustand                                                                          |
+| `notification_settings_screen_test.dart`     | Berechtigungsbanner, deaktivierte Kategorien, Abschalten trotz Sperre, stummgeschalteter Kanal, Persistenz eines Schalters                                                                                                              |
+| `notification_scope_test.dart`               | Geltungsbereich (keine Kalender-Anzeigeschalter), kein Push-/Netzcode in der Funktion (der Hintergrund-Abgleich liegt bewusst außerhalb, § 6), ein einziger Plugin-Importeur, kein Gruppenschlüssel, Manifest- und Gradle-Zusicherungen |
+| `daily_summary_test.dart`                    | leerer, normaler und überfüllter Tag, abgesagte Lehrveranstaltung, Speiseplan ohne Favorit, mehrtägige Einträge, Horizont, Sommerzeit im Tagesraster                                                                                    |
+| `daily_summary_content_test.dart`            | DE-/EN-Text Wort für Wort, Moodle ohne Kurs- und Aufgabentitel, Sichtbarkeitsstufe, Kürzungsregeln, Ziel und Auslöser                                                                                                                   |
+| `daily_summary_candidates_test.dart`         | die vier Quellen einzeln, Dedup gemerkter Events, Gating über Opt-in/Kategorie/Berechtigung, ein Kandidat je nicht leerem Tag, Sprachwechsel, 08:00 Ortszeit über die Sommerzeitumstellung und in einer anderen Zone                    |
+| `notification_opt_in_entry_points_test.dart` | Einstiegspunkte C (Stundenplangruppe) und D (Moodle-Verbindung), einschließlich „schon abgelehnt" und fehlgeschlagener Verbindung                                                                                                       |
 
 ## 4. Manuelle Gerätematrix
 
@@ -259,7 +330,7 @@ ohne Gerät prüfbar ist (§ 3); die Matrix unten steht weiterhin offen.
 | #   | Fall                                                             | Erwartet                                                                                               |
 | --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 1   | Erster Start, Android 13+ und iOS                                | **kein** Systemdialog, keine Benachrichtigung vorgemerkt                                               |
-| 2   | Opt-in über einen kontextuellen Einstiegspunkt                   | erst das In-App-Sheet, dann der Systemdialog; danach sind alle drei Kategorien an                      |
+| 2   | Opt-in über einen kontextuellen Einstiegspunkt                   | erst das In-App-Sheet, dann der Systemdialog; danach sind alle sechs Kategorien an                     |
 | 3   | „Nicht jetzt" im Sheet                                           | kein Systemdialog, Zustand bleibt „nie gefragt", kein erneutes Fragen am selben Einstiegspunkt         |
 | 4   | Berechtigung im Dialog abgelehnt                                 | Hauptschalter aus, Banner mit Weg in die Systemeinstellungen, **kein** erneuter Dialog                 |
 | 5   | Berechtigung nachträglich in den Systemeinstellungen entzogen    | beim Zurückkehren erkannt: Banner erscheint, vorgemerkte Einträge werden entfernt                      |
@@ -282,7 +353,7 @@ ohne Gerät prüfbar ist (§ 3); die Matrix unten steht weiterhin offen.
 
 ## 5. Grenzen, die bleiben
 
-1. **Die App muss gelegentlich geöffnet werden.** Neu geplant wird nur, wenn die App läuft.
+1. **Ohne Hintergrund-Abgleich muss die App gelegentlich geöffnet werden.** Neu geplant wird dann nur, wenn die App läuft. Mit dem Abgleich (§ 6) geschieht das etwa alle 10 bis 15 Minuten, sofern das Betriebssystem den Lauf zulässt.
 2. **Änderungen nach der Planung schlagen erst mit dem nächsten Abruf durch.** Keine Echtzeitgarantie.
 3. **Eine bereits zugestellte Benachrichtigung ist nicht zurückholbar.**
 4. **Verpasste Zeitpunkte werden nicht nachgeholt.** Eine Erinnerung an gestern ist Lärm.
@@ -296,3 +367,32 @@ ohne Gerät prüfbar ist (§ 3); die Matrix unten steht weiterhin offen.
 10. **Der Abgleich läuft über den Gerichtsnamen**, nicht über `Meal.id` (ADR-0001 § 4.1, Befund 5).
     Ein auf Deutsch favorisiertes Gericht passt deshalb nicht auf den englischen Speiseplan;
     Gerichtsnamen werden nicht maschinell übersetzt (AGENTS.md § 6).
+
+## 6. Hintergrund-Abgleich (ADR-0002)
+
+Seit [ADR-0002](adr/0002-hintergrund-abgleich.md) ruft die App periodisch im Hintergrund E-Mail,
+Moodle und öffentliche Quellen ab und plant alle lokalen Erinnerungen neu. Es gibt weiterhin keinen
+Push-Server.
+
+| Punkt         | Wert                                                                                                                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Takt          | Android WorkManager, Periode 15 Minuten mit 5 Minuten Flex-Fenster: Beginn 10 bis 15 Minuten nach dem vorigen Lauf. iOS: `BGAppRefreshTask`, frühester Beginn 10 Minuten, im Alltag deutlich seltener |
+| Schalter      | „Im Hintergrund aktualisieren“ in den Benachrichtigungseinstellungen, standardmäßig an. Der Job ist nur registriert, wenn E-Mail oder Moodle verbunden oder Benachrichtigungen eingeschaltet sind     |
+| Schritte      | `mail` → `moodle` → `public` (höchstens etwa stündlich) → `plan`. Ein fehlgeschlagener Schritt stoppt die anderen nicht; nach 8 Minuten endet der Lauf                                                |
+| E-Mail        | eine neue Nachricht: Absender und Betreff nur lokal, gekürzt, Android-Sichtbarkeit „private“; mehrere: nur die Anzahl. Ein abgelehntes Passwort sperrt weitere Anmeldungen, bis neu angemeldet wird   |
+| Zwei Prozesse | Lebt die App im selben Prozess, führt **sie** den Lauf aus (`ForegroundBridge`). Sonst öffnet der Lauf die verschlüsselten Caches selbst und schließt sie wieder                                      |
+| Nicht erlaubt | Exchange-Termine in Benachrichtigungen oder Widget, Nachrichtentext, Logs mit Inhalten                                                                                                                |
+
+### Manuelle Geräteabnahme
+
+Die Automatiktests prüfen die Logik. Das Verhalten des Betriebssystems prüft nur ein Gerät:
+
+1. `flutter test integration_test/background_sync_device_check_test.dart -d DEVICE` — der komplette
+   Lauf ohne Fenster läuft durch (Stand 16. Oktober 2026: auf dem Android-Emulator, API 36, grün).
+2. Android: Mail verbinden, App aus der Übersicht wischen, eine Testmail an das Konto senden. Innerhalb
+   von etwa 15 Minuten erscheint der Hinweis; mit Energiesparmodus später.
+3. iOS: dasselbe, mit Geduld. Ein Lauf kann Stunden dauern; Xcode „Simulate Background Fetch“ löst
+   ihn sofort aus.
+4. Schalter ausschalten: kein weiterer Lauf (Android: `adb shell dumpsys jobscheduler` zeigt keinen
+   Job `dev.erikengler.campuskoethen.background-sync`).
+5. Falsches Mailpasswort: nach der ersten Ablehnung keine weitere Anmeldung durch Hintergrundläufe.

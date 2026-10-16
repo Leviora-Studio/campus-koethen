@@ -14,6 +14,7 @@ import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/content_blocks_view.dart';
+import '../../../core/widgets/marker.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../l10n/l10n.dart';
 import '../../calendar/domain/calendar_entry.dart' show calendarDayOf;
@@ -45,10 +46,16 @@ class ArticleBlock extends ConsumerWidget {
   const ArticleBlock({
     required this.article,
     this.showFullContent = false,
+    this.eventEnded = false,
     super.key,
   });
 
   final NewsArticle article;
+
+  /// The event this post announces is already over. Only set by the feeds
+  /// when the reader chose to reveal older events; drawn as a text label so
+  /// the state never rests on colour alone.
+  final bool eventEnded;
 
   /// Shows the complete article without the feed's expand/collapse control.
   ///
@@ -125,7 +132,12 @@ class ArticleBlock extends ConsumerWidget {
             ),
             if (article.isEventPost) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
-              _EventWhen(article: article, locale: locale, l10n: l10n),
+              _EventWhen(
+                article: article,
+                locale: locale,
+                l10n: l10n,
+                ended: eventEnded,
+              ),
             ],
 
             // The banner follows the headline rather than leading it. A
@@ -155,11 +167,13 @@ class _EventWhen extends StatelessWidget {
     required this.article,
     required this.locale,
     required this.l10n,
+    this.ended = false,
   });
 
   final NewsArticle article;
   final String locale;
   final AppLocalizations l10n;
+  final bool ended;
 
   @override
   Widget build(BuildContext context) {
@@ -198,18 +212,26 @@ class _EventWhen extends StatelessWidget {
           child: Icon(
             AppIcons.event_outlined,
             size: AppSizes.iconSmall,
-            color: colors.primary,
+            color: ended ? colors.textSecondary : colors.primary,
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
             when,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: colors.primary),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: ended ? colors.textSecondary : colors.primary,
+            ),
           ),
         ),
+        if (ended) ...<Widget>[
+          const SizedBox(width: AppSpacing.sm),
+          MarkerBadge(
+            label: l10n.newsEventEndedLabel,
+            semanticLabel: l10n.newsEventEndedLabel,
+            quiet: true,
+          ),
+        ],
       ],
     );
   }
@@ -284,24 +306,22 @@ class _ChannelLink extends StatelessWidget {
       link: true,
       label: l10n.newsChannelLinkSemanticLabel(channel.name),
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => context.pushNamed(
+      child: TextButton(
+        onPressed: () => context.pushNamed(
           AppRoutes.newsChannelName,
           pathParameters: <String, String>{'slug': channel.slug},
         ),
-        child: Padding(
-          // The text itself stays small so the byline keeps its own rhythm;
-          // the padding is what gives the link a real touch target without
-          // changing the visible line height (the rect a test reads off the
-          // Text below is unaffected by the Padding wrapping it).
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Text(
-            channel.name,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: colors.primary),
-          ),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, AppSizes.minTouchTarget),
+          padding: EdgeInsets.zero,
+          alignment: AlignmentDirectional.topStart,
+          tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+        child: Text(
+          channel.name,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: colors.primary),
         ),
       ),
     );

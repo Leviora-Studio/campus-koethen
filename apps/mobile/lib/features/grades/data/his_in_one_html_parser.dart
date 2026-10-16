@@ -6,6 +6,7 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html;
 
 import '../domain/decimal_parsing.dart';
+import '../domain/exam_report.dart';
 import '../domain/grade.dart';
 import '../domain/grade_failure.dart';
 import 'qis_html_parser.dart';
@@ -76,6 +77,18 @@ class HisInOneExpandRequest {
   };
 }
 
+/// A full, non-AJAX form submission ready to POST: an `action` plus a
+/// complete `formData` body (hidden fields, the chosen button's own
+/// name/value, and any extra marker field such as `DISABLE_VALIDATION`).
+/// Unlike [HisInOneExpandRequest], the button value here is never an empty
+/// string — the real printable-report buttons submit their own label text.
+class HisInOneFullPostRequest {
+  const HisInOneFullPostRequest({required this.action, required this.formData});
+
+  final String action;
+  final Map<String, String> formData;
+}
+
 /// Parses HISinOne (JSF-MyFaces) HTML into domain objects using a real DOM
 /// parser (no regex over general HTML).
 ///
@@ -115,11 +128,13 @@ abstract final class HisInOneHtmlParser {
   static Future<bool> isAuthenticated(String htmlSource) =>
       QisHtmlParser.isAuthenticated(htmlSource);
 
-  /// Builds the "expand all" request from the collapsed exam-overview page:
-  /// the `action` of the `id="examsReadonly"` form, ALL of its hidden fields
+  /// Builds the "expand" request from a collapsed exam-overview page: the
+  /// `action` of the `id="examsReadonly"` form, ALL of its hidden fields
   /// (the dynamic `_flowExecutionKey`, `authenticity_token` and
-  /// `javax.faces.ViewState` among them), and the expand-all button — found by
-  /// its id SUFFIX `:expandAll2`, falling back to `:expandAll`, never by its
+  /// `javax.faces.ViewState` among them), and the button to submit — found by
+  /// id SUFFIX `:expandAll2`, falling back to `:expandAll`, then to the
+  /// "Leistungsdaten" section's own open/close toggle when that section
+  /// itself is collapsed (see [_collapsedSectionToggleName]) — never by a
   /// (localized) label. Returns `null` when the form or a button cannot be
   /// found, so the caller can report `portalStructureChanged`.
   static Future<HisInOneExpandRequest?> findExpandRequest(String htmlSource) =>
@@ -178,7 +193,8 @@ abstract final class HisInOneHtmlParser {
 
     final String? buttonName =
         _buttonBySuffix(form, ':expandAll2') ??
-        _buttonBySuffix(form, ':expandAll');
+        _buttonBySuffix(form, ':expandAll') ??
+        _collapsedSectionToggleName(form);
     if (buttonName == null) return null;
 
     return HisInOneExpandRequest(
@@ -186,6 +202,31 @@ abstract final class HisInOneHtmlParser {
       hiddenFields: hidden,
       buttonName: buttonName,
     );
+  }
+
+  /// The "Leistungsdaten" section's own open/close toggle
+  /// (`examsReadonly:overviewAsTreeReadonly:minmax`), but only while the
+  /// section is actually collapsed (`aria-expanded="false"`).
+  ///
+  /// Confirmed 2026-10-04 against the real portal: this section is now
+  /// rendered collapsed by default, and a collapsed JSF panel renders no
+  /// `box_content` at all — no tree, no table, nothing to find — until this
+  /// toggle is submitted. A plain (non-AJAX) full postback of this button —
+  /// a `type="button"` whose only wired behavior is a `jsf.ajax.request`
+  /// click handler, not a native form submit — still reaches the same
+  /// server-side listener and returns the complete page with the section
+  /// open, exactly like the `:expandAll`/`:expandAll2` postback above.
+  ///
+  /// Matched by exact id, never by suffix alone: the sibling "Studienverlauf"
+  /// section has its own same-shaped `:minmax` button, and submitting THAT
+  /// one while it is expanded would collapse it instead.
+  static String? _collapsedSectionToggleName(Element form) {
+    final Element? button = form.querySelector(
+      '[id="$_examSectionIdPrefix:minmax"]',
+    );
+    if (button == null) return null;
+    if (button.attributes['aria-expanded'] != 'false') return null;
+    return button.attributes['name'] ?? button.attributes['id'];
   }
 
   static String? _buttonBySuffix(Element form, String suffix) {
@@ -196,6 +237,86 @@ abstract final class HisInOneHtmlParser {
       if (id.endsWith(suffix)) return el.attributes['name'] ?? id;
     }
     return null;
+  }
+
+  /// Reads the exam-overview page's own fixed "Bescheinigungen" print
+  /// buttons, found by their stable `submit_print_pdf` class — confirmed
+  /// 2026-10-04 from the real page, never assumed to exist. An account or
+  /// portal build without this section yields an empty list, not an error:
+  /// it is a legitimate absence, exactly like [HisInOneOverviewKind.empty]
+  /// for the exam tree itself.
+  static Future<List<ExamReportOffer>> findExamReports(String htmlSource) =>
+      compute(_findExamReportsSync, htmlSource);
+
+  static List<ExamReportOffer> _findExamReportsSync(String htmlSource) {
+    final Document doc = html.parse(htmlSource);
+    final List<ExamReportOffer> offers = <ExamReportOffer>[];
+    for (final Element button in doc.querySelectorAll(
+      'button.submit_print_pdf',
+    )) {
+      final String? id = button.attributes['id'];
+      final String? label = button.attributes['value'];
+      if (id == null || id.isEmpty || label == null || label.isEmpty) {
+        continue;
+      }
+      offers.add(ExamReportOffer(buttonId: id, label: label));
+    }
+    return offers;
+  }
+
+  /// Builds the full, non-AJAX form submission for one chosen
+  /// [ExamReportOffer]: the `examsReadonly` form's own `action`, every
+  /// hidden field already on the page, every CHECKED checkbox already on
+  /// the page (see below), the button's own name/value (read fresh, never
+  /// cached across page loads) and `DISABLE_VALIDATION=true` — exactly what
+  /// the real button's own `myfaces.oam.submitForm` call sends (confirmed
+  /// 2026-10-04). `null` when the form or the named button is not there, so
+  /// the caller reports `portalStructureChanged` rather than guessing a
+  /// request that cannot possibly land on the right report.
+  ///
+  /// The checkbox is not decorative: it is how the portal knows WHICH
+  /// degree-program node (e.g. "Master Media Engineering") a print button
+  /// should generate the certificate for — the "Studienverlauf" section
+  /// pre-checks exactly one leaf's `…:checkTick` by default. A native HTML
+  /// form submission includes a checked checkbox as `name=value` and omits
+  /// unchecked ones entirely; omitting it entirely (the previous behavior
+  /// here) made the server reply "Es wurde kein Studiengang ausgewählt"
+  /// instead of generating anything — confirmed 2026-10-04 on the real
+  /// portal.
+  static Future<HisInOneFullPostRequest?> buildExamReportPostRequest(
+    String htmlSource,
+    String buttonId,
+  ) => compute(_buildExamReportPostRequestSync, (htmlSource, buttonId));
+
+  static HisInOneFullPostRequest? _buildExamReportPostRequestSync(
+    (String, String) args,
+  ) {
+    final (String htmlSource, String buttonId) = args;
+    final Document doc = html.parse(htmlSource);
+    final Element? form = _elementById(doc, 'examsReadonly');
+    if (form == null) return null;
+    final String? action = form.attributes['action'];
+    if (action == null || action.isEmpty) return null;
+    final Element? button = _elementById(doc, buttonId);
+    final String? buttonValue = button?.attributes['value'];
+    if (button == null || buttonValue == null) return null;
+
+    final Map<String, String> formData = <String, String>{};
+    for (final Element input in form.querySelectorAll('input[type="hidden"]')) {
+      final String? name = input.attributes['name'];
+      if (name == null || name.isEmpty) continue;
+      formData[name] = input.attributes['value'] ?? '';
+    }
+    for (final Element input in form.querySelectorAll(
+      'input[type="checkbox"][checked]',
+    )) {
+      final String? name = input.attributes['name'];
+      if (name == null || name.isEmpty) continue;
+      formData[name] = input.attributes['value'] ?? 'true';
+    }
+    formData[buttonId] = buttonValue;
+    formData['DISABLE_VALIDATION'] = 'true';
+    return HisInOneFullPostRequest(action: action, formData: formData);
   }
 
   /// Parses the expanded exam-tree page. Leaf rows (real exam results) only —

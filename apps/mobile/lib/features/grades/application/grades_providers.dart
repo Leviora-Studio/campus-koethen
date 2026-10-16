@@ -3,12 +3,14 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/security/session_guard.dart';
 import '../data/encrypted_grade_cache.dart';
 import '../data/his_in_one_grades_gateway.dart';
 import '../data/legacy_qis_gateway.dart';
 import '../data/secure_grade_credential_store.dart';
 import '../data/secure_grade_portal_store.dart';
 import '../domain/clock.dart';
+import '../domain/exam_report_gateway.dart';
 import '../domain/grade_cache_store.dart';
 import '../domain/grade_credential_store.dart';
 import '../domain/grade_portal.dart';
@@ -17,6 +19,20 @@ import '../domain/grades_gateway.dart';
 import '../domain/his_in_one_profile.dart';
 import '../domain/legacy_qis_profile.dart';
 import 'grade_account_controller.dart';
+
+/// One personal-data store whose lifetime is tied to the grades account.
+///
+/// The callback must first invalidate and drain its own in-flight writers and
+/// only then perform a verified wipe. Runtime wiring registers the HISinOne
+/// student-service cache; the empty default keeps the grades feature reusable
+/// and makes the dependency explicit in tests.
+typedef GradeLinkedPersonalDataWiper = Future<void> Function();
+
+final Provider<List<GradeLinkedPersonalDataWiper>>
+gradeLinkedPersonalDataWipersProvider =
+    Provider<List<GradeLinkedPersonalDataWiper>>(
+      (Ref ref) => const <GradeLinkedPersonalDataWiper>[],
+    );
 
 /// The pinned legacy HIS-QIS endpoints (host allowlist).
 final Provider<LegacyQisProfile> legacyQisProfileProvider =
@@ -46,8 +62,17 @@ final Provider<GradesGateway> hisInOneGatewayProvider = Provider<GradesGateway>(
   (Ref ref) => HisInOneGradesGateway(ref.watch(hisInOneProfileProvider)),
 );
 
-/// The gateway for the account's ACTIVE portal (falls back to the legacy
-/// portal while no choice has been persisted, e.g. before the first sign-in).
+/// The exam-overview page's own "Bescheinigungen" print buttons — HISinOne
+/// only, exactly like `studentServiceGatewayProvider` is HISinOne only. The
+/// UI gates on `GradeAccountState.activePortal == GradePortal.hisInOne`
+/// before ever using this, the same way it gates student-service.
+final Provider<ExamReportGateway> examReportGatewayProvider =
+    Provider<ExamReportGateway>(
+      (Ref ref) => HisInOneGradesGateway(ref.watch(hisInOneProfileProvider)),
+    );
+
+/// The gateway for the account's ACTIVE portal (falls back to HISinOne, the
+/// standard portal, while no choice is known, e.g. before the first sign-in).
 /// A single Riverpod override on this provider (as tests do) replaces the
 /// whole resolution, so existing gateway fakes keep working unchanged.
 final Provider<GradesGateway> gradesGatewayProvider = Provider<GradesGateway>((
@@ -55,7 +80,7 @@ final Provider<GradesGateway> gradesGatewayProvider = Provider<GradesGateway>((
 ) {
   final GradePortal portal =
       ref.watch(gradeAccountControllerProvider).value?.activePortal ??
-      GradePortal.hisQisLegacy;
+      GradePortal.hisInOne;
   return portal == GradePortal.hisInOne
       ? ref.watch(hisInOneGatewayProvider)
       : ref.watch(legacyQisGatewayProvider);
@@ -69,3 +94,10 @@ final Provider<GradeCacheStore> gradeCacheStoreProvider =
 final Provider<Clock> gradeClockProvider = Provider<Clock>(
   (Ref ref) => const SystemClock(),
 );
+
+/// Coordinates portal work with account removal/replacement.
+final Provider<SessionGuard<({String username, GradePortal portal})>>
+gradeSessionGuardProvider =
+    Provider<SessionGuard<({String username, GradePortal portal})>>(
+      (Ref ref) => SessionGuard<({String username, GradePortal portal})>(),
+    );

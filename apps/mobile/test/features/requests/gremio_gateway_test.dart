@@ -7,7 +7,9 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:campus_koethen/features/requests/data/feedback_areas_repository.dart';
 import 'package:campus_koethen/features/requests/data/gremio_request_gateway.dart';
+import 'package:campus_koethen/features/requests/data/locations_repository.dart';
 import 'package:campus_koethen/features/requests/domain/application_files.dart';
 import 'package:campus_koethen/features/requests/domain/request_drafts.dart';
 import 'package:campus_koethen/features/requests/domain/request_gateway.dart';
@@ -70,6 +72,13 @@ FeedbackDraft _feedback({String submitterName = ''}) => FeedbackDraft(
   feedback: '  Die Öffnungszeiten sollten verlängert werden.  ',
 );
 
+/// A 2xx without a usable link: unknown and frozen, never "failed".
+final Matcher _acceptedWithoutLink = isA<SubmissionOutcomeUnknown>().having(
+  (SubmissionOutcomeUnknown result) => result.acceptedWithoutUsableLink,
+  'acceptedWithoutUsableLink',
+  isTrue,
+);
+
 const FakeGremioResponse _created = FakeGremioResponse(<String, dynamic>{
   'statusUrl': kFakeStatusUrl,
   'receiptPdfUrl': kFakeReceiptUrl,
@@ -95,6 +104,11 @@ void main() {
         reason: 'the key is mandatory and belongs to the draft',
       );
       expect(adapter.lastRequest.contentType, contains('multipart/form-data'));
+      expect(
+        store.wholeFileReads,
+        0,
+        reason: 'multipart must consume the bounded attachment stream',
+      );
     });
 
     test('sends exactly the documented fields, and nothing else', () async {
@@ -174,6 +188,74 @@ void main() {
         (result as SubmissionRejected).fieldErrors.keys,
         contains(RequestField.financeRequestFile),
       );
+    });
+
+    test(
+      'still submits a migrated draft whose old reference has no size',
+      () async {
+        final (gateway, adapter, store) = await _build((_) => _created);
+        final FinanceApplicationDraft base = await _application(store);
+        final RequestAttachment current = base.fileFor(
+          ApplicationFileSlot.financeRequest,
+        )!;
+        final FinanceApplicationDraft migrated = base.withFile(
+          ApplicationFileSlot.financeRequest,
+          RequestAttachment(fileName: current.fileName, path: current.path),
+        );
+
+        final SubmissionResult result = await gateway.submitApplication(
+          migrated,
+        );
+
+        expect(result, isA<SubmissionAccepted>());
+        expect(adapter.requests, hasLength(1));
+      },
+    );
+  });
+
+  group('nothing was sent', () {
+    test(
+      'a cancel before the request went out is not an unclear outcome',
+      () async {
+        final (gateway, adapter, store) = await _build((_) => _created);
+        final FinanceApplicationDraft draft = await _application(store);
+        // Tapped while the attachments were still being opened: the token was
+        // cancelled before the gateway could bind it to the transport.
+        final SubmissionCancelToken cancel = SubmissionCancelToken()..cancel();
+
+        final SubmissionResult result = await gateway.submitApplication(
+          draft,
+          cancel: cancel,
+        );
+
+        expect(
+          result,
+          isA<SubmissionNotSent>().having(
+            (SubmissionNotSent r) => r.reason,
+            'reason',
+            SubmissionNotSentReason.cancelled,
+          ),
+        );
+        expect(adapter.requests, isEmpty);
+      },
+    );
+
+    test('an unreadable attachment store is not a field error', () async {
+      final (gateway, adapter, store) = await _build((_) => _created);
+      final FinanceApplicationDraft draft = await _application(store);
+      store.failReads = true;
+
+      final SubmissionResult result = await gateway.submitApplication(draft);
+
+      expect(
+        result,
+        isA<SubmissionNotSent>().having(
+          (SubmissionNotSent r) => r.reason,
+          'reason',
+          SubmissionNotSentReason.attachmentsUnavailable,
+        ),
+      );
+      expect(adapter.requests, isEmpty);
     });
   });
 
@@ -364,6 +446,9 @@ void main() {
       );
     });
 
+    // E-02: the endpoint answered 2xx, so the case may well exist. Calling
+    // that "failed" invited a second submission with the student ID; it is
+    // an unknown outcome that freezes the draft for an identical replay.
     test('a success without a usable status link is not a success', () async {
       expect(
         await answer(
@@ -372,7 +457,7 @@ void main() {
             'number': 'F_1',
           }, statusCode: 201),
         ),
-        isA<SubmissionFailed>(),
+        _acceptedWithoutLink,
       );
     });
 
@@ -387,7 +472,22 @@ void main() {
             'number': null,
           }, statusCode: 201),
         ),
-        isA<SubmissionFailed>(),
+        _acceptedWithoutLink,
+      );
+    });
+
+    test('a foreign receipt link is refused the same way', () async {
+      // No case is ever stored with an empty or foreign receipt link
+      // (docs/requests.md §5) — the draft freezes instead.
+      expect(
+        await answer(
+          const FakeGremioResponse(<String, dynamic>{
+            'statusUrl': kFakeStatusUrl,
+            'receiptPdfUrl': 'https://requests.example.invalid/receipt',
+            'number': null,
+          }, statusCode: 200),
+        ),
+        _acceptedWithoutLink,
       );
     });
 
@@ -400,7 +500,7 @@ void main() {
             'number': null,
           }, statusCode: 201),
         ),
-        isA<SubmissionFailed>(),
+        _acceptedWithoutLink,
       );
     });
   });
@@ -438,6 +538,39 @@ void main() {
     });
   });
 
+  group('the pickers', () {
+    test('never fetch over a plain-http base address', () async {
+      // HTTPS is mandatory for this whole feature (AGENTS.md §2). Checking
+      // only for an empty address let an http:// value read in the clear.
+      final FakeGremioAdapter adapter = FakeGremioAdapter(
+        (_) => const FakeGremioResponse(<String, dynamic>{
+          'locations': <Object>[],
+          'areas': <Object>[],
+        }),
+      );
+      final Dio dio = fakeGremioDio(adapter);
+
+      expect(
+        await LocationsRepository(
+          dio: dio,
+          baseUrl: 'http://gremio.example',
+        ).fetch(),
+        isEmpty,
+      );
+      expect(
+        await FeedbackAreasRepository(
+          dio: dio,
+          baseUrl: 'http://gremio.example',
+        ).fetch(),
+        isEmpty,
+      );
+      expect(adapter.requests, isEmpty);
+
+      await LocationsRepository(dio: dio, baseUrl: kFakeBaseUrl).fetch();
+      expect(adapter.requests, hasLength(1), reason: 'HTTPS still works');
+    });
+  });
+
   group('secrets', () {
     test('no failure reason ever carries a link or personal data', () async {
       for (final FakeGremioResponse response in <FakeGremioResponse>[
@@ -455,7 +588,6 @@ void main() {
         );
         final String reason = switch (result) {
           SubmissionOutcomeUnknown(:final String reason) => reason,
-          SubmissionFailed(:final String reason) => reason,
           _ => '',
         };
         expect(reason, isNot(contains('testtoken')));

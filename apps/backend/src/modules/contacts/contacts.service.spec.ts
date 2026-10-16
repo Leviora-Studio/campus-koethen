@@ -123,6 +123,23 @@ describe('ContactsService', () => {
       expect(result.translationFallback).toBe(true);
     });
 
+    it('treats a 200 answer without a data list as an upstream failure', async () => {
+      let attempt = 0;
+      const client = makeClient(() => {
+        attempt += 1;
+        return attempt === 1 ? {} : { data: [area('ssc')] };
+      });
+      const service = new ContactsService(client);
+
+      await expect(service.listAreas(de)).rejects.toMatchObject({
+        code: 'UPSTREAM_UNAVAILABLE',
+      });
+      // Nothing was cached as an empty directory.
+      await expect(service.listAreas(de)).resolves.toMatchObject({
+        data: [expect.objectContaining({ slug: 'ssc' })],
+      });
+    });
+
     it('maps an upstream timeout to a 504', async () => {
       const client = {
         get: jest.fn(async () => {
@@ -133,6 +150,59 @@ describe('ContactsService', () => {
       await expect(new ContactsService(client).listAreas(de)).rejects.toMatchObject({
         code: 'UPSTREAM_TIMEOUT',
       });
+    });
+  });
+
+  describe('campus site', () => {
+    it('tells the app which site an area belongs to', async () => {
+      const client = makeClient(() => ({
+        data: [
+          area('a', { site: 'dessau' }),
+          area('b', { site: 'bernburg' }),
+          area('c', { site: 'koethen' }),
+        ],
+      }));
+
+      const result = await new ContactsService(client).listAreas(de);
+
+      expect(result.data.map((a) => [a.slug, a.site])).toEqual([
+        ['a', 'dessau'],
+        ['b', 'bernburg'],
+        ['c', 'koethen'],
+      ]);
+    });
+
+    it('treats an area without (or with an unknown) site as a Köthen one', async () => {
+      const client = makeClient(() => ({
+        data: [area('old'), area('odd', { site: 'halle' }), area('null', { site: null })],
+      }));
+
+      const result = await new ContactsService(client).listAreas(de);
+
+      expect(result.data.map((a) => a.site)).toEqual(['koethen', 'koethen', 'koethen']);
+    });
+
+    it('keeps the site of the German entry when the English one is read', async () => {
+      // `site` is not localised: a translation entry that never had it set
+      // must not move the area to Köthen.
+      const client = makeClient((query) =>
+        query['locale'] === 'en'
+          ? { data: [area('a', { name: 'A-en', site: undefined })] }
+          : { data: [area('a', { site: 'dessau' })] },
+      );
+
+      const result = await new ContactsService(client).listAreas(en);
+
+      expect(result.data[0]!.name).toBe('A-en');
+      expect(result.data[0]!.site).toBe('dessau');
+    });
+
+    it('is part of the detail answer too', async () => {
+      const client = makeClient(() => ({ data: [area('d', { site: 'dessau' })] }));
+
+      const result = await new ContactsService(client).getArea(de, 'd');
+
+      expect(result.data.site).toBe('dessau');
     });
   });
 
@@ -639,6 +709,195 @@ describe('ContactsService', () => {
       expect(result.data[0]!.rooms[0]!.buildingName).toBe('Ratke Building');
       expect(result.data[0]!.rooms[0]!.buildingNumber).toBe('23');
       expect(result.data[0]!.rooms[0]!.floorName).toBe('First floor');
+    });
+  });
+
+  /**
+   * Strapi 5 localises every relation between localised types: the English
+   * contact area carries its OWN person list, which an editor may never have
+   * linked. The list counted persons from the German relation while detail and
+   * search took the English one, so an English reader could see "2 persons" on
+   * the card and then an empty area — without any translation fallback flag.
+   *
+   * WHICH persons exist therefore comes from the canonical relation everywhere;
+   * the translation contributes only `role` and `description`, matched by the
+   * person's documentId, which never leaves this service.
+   */
+  describe('English persons come from the canonical relation', () => {
+    const demoA = {
+      documentId: 'demo-person-a',
+      name: 'Demo Person A',
+      role: 'Demo-Studienberatung',
+      description: 'Demo: berät zum Studium.',
+      isActive: true,
+      sortOrder: 10,
+    };
+    const demoB = {
+      documentId: 'demo-person-b',
+      name: 'Demo Person B',
+      role: 'Demo-Sekretariat',
+      isActive: true,
+      sortOrder: 20,
+    };
+
+    function byLocale(deRow: Record<string, unknown>, enRow: Record<string, unknown> | null) {
+      return makeClient((query) =>
+        query['locale'] === 'en' ? { data: enRow ? [enRow] : [] } : { data: [deRow] },
+      );
+    }
+
+    it('keeps the German persons when the English area has none linked', async () => {
+      const client = byLocale(
+        area('x', { persons: [demoA, demoB] }),
+        area('x', { name: 'English', persons: [] }),
+      );
+
+      const result = await new ContactsService(client).getArea(en, 'x');
+
+      expect(result.data.persons.map((p) => p.name)).toEqual(['Demo Person A', 'Demo Person B']);
+      expect(result.data.persons.map((p) => p.role)).toEqual([
+        'Demo-Studienberatung',
+        'Demo-Sekretariat',
+      ]);
+      expect(result.translationFallback).toBe(true);
+    });
+
+    it('overlays only role and description, matched by documentId', async () => {
+      const client = byLocale(
+        area('x', { persons: [demoA, demoB] }),
+        area('x', {
+          name: 'English',
+          persons: [
+            // Different order, a different (stale) name and an English-only
+            // person: none of that may decide what the reader sees.
+            {
+              documentId: 'demo-person-b',
+              name: 'Stale Name',
+              role: 'Demo office',
+              isActive: true,
+              sortOrder: 99,
+            },
+            {
+              documentId: 'demo-person-a',
+              name: 'Demo Person A',
+              role: 'Demo student advisory',
+              description: 'Demo: advises on studying.',
+              isActive: true,
+              sortOrder: 10,
+            },
+            {
+              documentId: 'demo-person-x',
+              name: 'Demo Person X',
+              role: 'Only linked in English',
+              isActive: true,
+            },
+          ],
+        }),
+      );
+
+      const result = await new ContactsService(client).getArea(en, 'x');
+
+      expect(result.data.persons).toEqual([
+        expect.objectContaining({
+          name: 'Demo Person A',
+          role: 'Demo student advisory',
+          description: 'Demo: advises on studying.',
+          sortOrder: 10,
+        }),
+        expect.objectContaining({ name: 'Demo Person B', role: 'Demo office', sortOrder: 20 }),
+      ]);
+      expect(result.translationFallback).toBe(false);
+      const serialised = JSON.stringify(result);
+      expect(serialised).not.toContain('documentId');
+      expect(serialised).not.toContain('demo-person-a');
+    });
+
+    it('keeps the German text of a person whose translation is missing and says so', async () => {
+      const client = byLocale(
+        area('x', { persons: [demoA, demoB] }),
+        area('x', {
+          name: 'English',
+          persons: [
+            {
+              documentId: 'demo-person-a',
+              name: 'Demo Person A',
+              role: 'Demo student advisory',
+              description: 'Demo: advises on studying.',
+              isActive: true,
+            },
+            { documentId: 'demo-person-b', name: 'Demo Person B', role: '', isActive: true },
+          ],
+        }),
+      );
+
+      const result = await new ContactsService(client).getArea(en, 'x');
+
+      expect(result.data.persons.map((p) => p.role)).toEqual([
+        'Demo student advisory',
+        'Demo-Sekretariat',
+      ]);
+      expect(result.translationFallback).toBe(true);
+    });
+
+    it('does not flag a fallback for a person that is never delivered', async () => {
+      const client = byLocale(
+        area('x', { persons: [demoA, { ...demoB, isActive: false }] }),
+        area('x', {
+          name: 'English',
+          persons: [
+            {
+              documentId: 'demo-person-a',
+              name: 'Demo Person A',
+              role: 'Demo student advisory',
+              description: 'Demo: advises on studying.',
+              isActive: true,
+            },
+          ],
+        }),
+      );
+
+      const result = await new ContactsService(client).getArea(en, 'x');
+
+      expect(result.data.persons.map((p) => p.name)).toEqual(['Demo Person A']);
+      expect(result.translationFallback).toBe(false);
+    });
+
+    it('builds the English search index from the same persons', async () => {
+      const client = byLocale(
+        area('x', { persons: [demoA, demoB] }),
+        area('x', { name: 'English', persons: [] }),
+      );
+
+      const result = await new ContactsService(client).searchIndex(en);
+
+      expect(result.data[0]!.persons.map((p) => p.name)).toEqual([
+        'Demo Person A',
+        'Demo Person B',
+      ]);
+      expect(result.translationFallback).toBe(true);
+    });
+
+    it('counts in the list exactly the persons the English detail delivers', async () => {
+      const deRow = area('x', { persons: [demoA, demoB] });
+      const enRow = area('x', { name: 'English', persons: [{ ...demoA }] });
+
+      const list = await new ContactsService(byLocale(deRow, enRow)).listAreas(en);
+      const detail = await new ContactsService(byLocale(deRow, enRow)).getArea(en, 'x');
+
+      expect(list.data[0]!.personCount).toBe(detail.data.persons.length);
+      expect(detail.data.persons).toHaveLength(2);
+    });
+
+    it('leaves German reads untouched', async () => {
+      const client = byLocale(area('x', { persons: [demoA, demoB] }), null);
+
+      const result = await new ContactsService(client).getArea(de, 'x');
+
+      expect(result.data.persons.map((p) => p.role)).toEqual([
+        'Demo-Studienberatung',
+        'Demo-Sekretariat',
+      ]);
+      expect(result.translationFallback).toBe(false);
     });
   });
 });

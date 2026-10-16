@@ -9,6 +9,10 @@
  * comes from a German-only source and is never translated.
  */
 
+/** The campus sites of Hochschule Anhalt this app covers. */
+export const CAMPUS_SITES = ['koethen', 'bernburg', 'dessau'] as const;
+export type CampusSite = (typeof CAMPUS_SITES)[number];
+
 export interface CanteenDefinition {
   slug: string;
   sourceLocationId: number;
@@ -16,6 +20,8 @@ export interface CanteenDefinition {
   displayNameEn: string;
   campusLabelDe: string;
   campusLabelEn: string;
+  /** The campus site the canteen belongs to; the app lists its own site first. */
+  siteKey: CampusSite;
   sortOrder: number;
   active: boolean;
 }
@@ -28,6 +34,7 @@ export const CANTEENS: readonly CanteenDefinition[] = [
     displayNameEn: 'Köthen Canteen',
     campusLabelDe: 'Fasanerieallee',
     campusLabelEn: 'Fasanerieallee',
+    siteKey: 'koethen',
     sortOrder: 10,
     active: true,
   },
@@ -38,7 +45,30 @@ export const CANTEENS: readonly CanteenDefinition[] = [
     displayNameEn: 'Lohmannstraße Canteen',
     campusLabelDe: 'Lohmannstraße',
     campusLabelEn: 'Lohmannstraße',
+    siteKey: 'koethen',
     sortOrder: 20,
+    active: true,
+  },
+  {
+    slug: 'dessau',
+    sourceLocationId: 13,
+    displayNameDe: 'Mensa Dessau',
+    displayNameEn: 'Dessau Canteen',
+    campusLabelDe: 'Dessau',
+    campusLabelEn: 'Dessau',
+    siteKey: 'dessau',
+    sortOrder: 30,
+    active: true,
+  },
+  {
+    slug: 'bernburg',
+    sourceLocationId: 8,
+    displayNameDe: 'Mensa Bernburg',
+    displayNameEn: 'Bernburg Canteen',
+    campusLabelDe: 'Bernburg',
+    campusLabelEn: 'Bernburg',
+    siteKey: 'bernburg',
+    sortOrder: 40,
     active: true,
   },
 ] as const;

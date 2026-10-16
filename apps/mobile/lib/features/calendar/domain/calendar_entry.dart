@@ -16,13 +16,23 @@ enum CalendarSource {
   moodle('moodle'),
   publicCalendar('public-calendar'),
 
+  /// A personal appointment read directly from the signed-in university
+  /// Exchange account. This source is strictly opt-in and never reaches the
+  /// Campus API or a persistent content cache.
+  exchangeCalendar('exchange-calendar'),
+
   /// An event post from `/v1/posts/events`, folded into the calendar as its
   /// own source so it can be deduplicated against a matching
   /// [publicCalendar] entry — see `features/events/domain/event_dedup.dart`.
   postEvent('post-event'),
 
   /// A locally saved entry from the offline saved-events list.
-  savedEvents('saved-events');
+  savedEvents('saved-events'),
+
+  /// A favourited dish on the preferred canteen's menu for that day — see
+  /// `features/calendar/application/calendar_providers.dart`'s
+  /// `calendarShowFavouriteMealsProvider`.
+  canteenFavourite('canteen-favourite');
 
   const CalendarSource(this.storageValue);
 
@@ -45,6 +55,10 @@ enum CalendarSource {
 /// feature's own aggregation (event overview + saved list), which has its
 /// own, separate source-filter preference — see
 /// `features/events/application/event_source_filter.dart`.
+/// [CalendarSource.canteenFavourite] is excluded for the same reason: it has
+/// its own off-by-default switch, `calendarShowFavouriteMealsProvider`.
+/// [CalendarSource.exchangeCalendar] is also excluded: it is a personal,
+/// direct and off-by-default mail setting rather than a public default.
 const List<CalendarSource> kMergeableCalendarSources = <CalendarSource>[
   CalendarSource.timetable,
   CalendarSource.moodle,
@@ -103,6 +117,22 @@ class CalendarEntry {
   /// Null only for an entry built without them; the agenda never needs it, and
   /// the detail sheet degrades to the flattened fields rather than failing.
   final CalendarEntryDetails? details;
+
+  CalendarEntry copyWithColor(int? colorArgb) => CalendarEntry(
+    id: id,
+    source: source,
+    title: title,
+    start: start,
+    end: end,
+    allDay: allDay,
+    subtitle: subtitle,
+    location: location,
+    isCancelled: isCancelled,
+    calendarSlug: calendarSlug,
+    sourceLabel: sourceLabel,
+    colorArgb: colorArgb,
+    details: details,
+  );
 
   static final Expando<DateTime> _dayCache = Expando<DateTime>(
     'calendarEntryDay',

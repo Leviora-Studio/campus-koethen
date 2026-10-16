@@ -65,6 +65,18 @@ void main() {
       CalendarData data = container.read(calendarDataProvider(monday));
       expect(data.forDay(monday), hasLength(4));
       expect(data.entryCountsByDay[monday], 4);
+      expect(
+        data.entries
+            .where((entry) => entry.source == CalendarSource.timetable)
+            .map((entry) => entry.id)
+            .toSet(),
+        timetable.days
+            .expand((day) => day.entries)
+            .map((entry) => 'timetable:${entry.id}')
+            .toSet(),
+        reason:
+            'calendar and timetable module must expose the same selected-group lessons',
+      );
 
       await container
           .read(timetableLessonInfoFilterProvider.notifier)
@@ -83,4 +95,155 @@ void main() {
       );
     },
   );
+
+  test(
+    'calendar reports a disabled backend before a group is selected',
+    () async {
+      final DateTime monday = DateTime(2026, 10, 5);
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          keyValueStoreProvider.overrideWithValue(InMemoryKeyValueStore()),
+          timetableStatusProvider.overrideWith(
+            (Ref ref) async => const Loaded<TimetableStatus>(
+              value: TimetableStatus(featureEnabled: false, groupCount: 0),
+              meta: ApiMeta.empty,
+            ),
+          ),
+          publicCalendarMonthEntriesProvider.overrideWith(
+            (Ref ref, DateTime anchor) async => const <CalendarEntry>[],
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(calendarDataProvider(monday), (_, _) {});
+      await Future.wait([
+        container.read(timetableStatusProvider.future),
+        container.read(publicCalendarMonthEntriesProvider(monday).future),
+      ]);
+      await container.pump();
+
+      expect(
+        container.read(calendarDataProvider(monday)).timetableState,
+        CalendarTimetableState.disabled,
+      );
+    },
+  );
+
+  test(
+    'calendar includes only selected modules from a module-only group',
+    () async {
+      final DateTime monday = DateTime(2026, 10, 5);
+      Timetable plan(String groupId, List<TimetableEntry> entries) => Timetable(
+        group: TimetableGroup(id: groupId, shortName: groupId),
+        days: <TimetableDay>[TimetableDay(date: monday, entries: entries)],
+      );
+      TimetableEntry lesson(String id, String code, int hour) => TimetableEntry(
+        id: id,
+        start: DateTime(2026, 10, 5, hour),
+        end: DateTime(2026, 10, 5, hour + 1),
+        title: id,
+        subjectCode: code,
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          keyValueStoreProvider.overrideWithValue(
+            InMemoryKeyValueStore(<String, Object>{
+              PreferenceKeys.preferredTimetableGroup: 'primary',
+            }),
+          ),
+          selectedTimetableGroupIdsProvider.overrideWithValue(const <String>[
+            'primary',
+            'other',
+          ]),
+          selectedTimetableModuleKeysByGroupProvider.overrideWithValue(
+            const <String, Set<String>>{
+              'other': <String>{'code:MATH2'},
+            },
+          ),
+          timetableWeekProvider.overrideWith((Ref ref, request) async {
+            return Loaded<Timetable>(
+              value: request.groupId == 'primary'
+                  ? plan('primary', <TimetableEntry>[
+                      lesson('primary', 'MAIN', 12),
+                    ])
+                  : plan('other', <TimetableEntry>[
+                      lesson('math', 'MATH2', 8),
+                      lesson('physics', 'PHYS2', 10),
+                    ]),
+              meta: ApiMeta.empty,
+            );
+          }),
+          publicCalendarMonthEntriesProvider.overrideWith(
+            (Ref ref, DateTime anchor) async => const <CalendarEntry>[],
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(calendarDataProvider(monday), (_, _) {});
+      await Future.wait([
+        for (final DateTime start in monthWeekStarts(monday))
+          for (final String groupId in const <String>['primary', 'other'])
+            container.read(
+              timetableWeekProvider(
+                TimetableWeekRequest(groupId: groupId, weekStart: start),
+              ).future,
+            ),
+        container.read(publicCalendarMonthEntriesProvider(monday).future),
+      ]);
+      await container.pump();
+
+      expect(
+        container
+            .read(calendarDataProvider(monday))
+            .forDay(monday)
+            .map((entry) => entry.title),
+        <String>['math', 'primary'],
+      );
+    },
+  );
+
+  test('calendar reports a pending import for the selected group', () async {
+    final DateTime monday = DateTime(2026, 10, 5);
+    final Timetable timetable = Timetable.fromJson(
+      timetableWeekFixture(monday),
+    )!;
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        keyValueStoreProvider.overrideWithValue(
+          InMemoryKeyValueStore(<String, Object>{
+            PreferenceKeys.preferredTimetableGroup: timetableGroupIdFixture,
+          }),
+        ),
+        timetableWeekProvider.overrideWith(
+          (Ref ref, TimetableWeekRequest request) async => Loaded<Timetable>(
+            value: timetable,
+            meta: const ApiMeta(featureEnabled: true, dataState: 'pending'),
+          ),
+        ),
+        publicCalendarMonthEntriesProvider.overrideWith(
+          (Ref ref, DateTime anchor) async => const <CalendarEntry>[],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(calendarDataProvider(monday), (_, _) {});
+    await Future.wait([
+      for (final DateTime start in monthWeekStarts(monday))
+        container.read(
+          timetableWeekProvider(
+            TimetableWeekRequest(
+              groupId: timetableGroupIdFixture,
+              weekStart: start,
+            ),
+          ).future,
+        ),
+      container.read(publicCalendarMonthEntriesProvider(monday).future),
+    ]);
+    await container.pump();
+
+    expect(
+      container.read(calendarDataProvider(monday)).timetableState,
+      CalendarTimetableState.pending,
+    );
+  });
 }

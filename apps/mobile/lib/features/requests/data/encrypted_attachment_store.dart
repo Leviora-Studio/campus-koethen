@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../../../core/cache/encrypted_box.dart';
+import '../domain/application_files.dart';
 import '../domain/attachment_store.dart';
 import '../domain/request_drafts.dart';
 
@@ -25,17 +26,27 @@ import '../domain/request_drafts.dart';
 ///
 /// The user's **original file is never touched**: this store only ever owns
 /// its own copy.
-class EncryptedAttachmentStore implements AttachmentStore {
+class EncryptedAttachmentStore
+    implements AttachmentStore, StreamingAttachmentStore {
   EncryptedAttachmentStore({EncryptedBox? box, Random? random})
-    : _box =
-          box ??
-          EncryptedBox(
-            boxName: 'campus_request_files_v1',
-            keyStorageKey: 'campus_request_files_key_v1',
-          ),
+    : _box = box ?? defaultBox(),
       _random = random ?? Random.secure();
 
+  /// The production box.
+  ///
+  /// Not a cache: it holds the only copy of what the person picked, the
+  /// student card included. A box its valid key cannot open is kept for a
+  /// retry or the deliberate wipe, never recreated empty
+  /// (docs/requests.md §8).
+  static EncryptedBox defaultBox() => EncryptedBox(
+    boxName: 'campus_request_files_v1',
+    keyStorageKey: 'campus_request_files_key_v1',
+    discardUnreadable: false,
+  );
+
   static const String _prefix = 'attachment:';
+  static const int chunkBytes = 256 * 1024;
+  static const int _formatVersion = 2;
 
   @override
   Future<bool> wipeEverything() async {
@@ -47,33 +58,170 @@ class EncryptedAttachmentStore implements AttachmentStore {
   final Random _random;
 
   @override
-  Future<RequestAttachment?> put(String fileName, Uint8List bytes) async {
-    final String id = '$_prefix${_token()}';
-    await _box.write(id, base64Encode(bytes));
-    // Read back: a draft that references bytes the store never kept would fail
-    // at submission time, long after the user could still fix it.
-    if (await _box.read(id) == null) return null;
-    return RequestAttachment(
-      fileName: fileName,
-      path: id,
-      sizeBytes: bytes.length,
-    );
-  }
+  Future<RequestAttachment?> put(String fileName, Uint8List bytes) =>
+      putStream(fileName, bytes.length, Stream<List<int>>.value(bytes));
 
   @override
-  Future<Uint8List?> read(RequestAttachment attachment) async {
-    final String? raw = await _box.read(attachment.path);
-    if (raw == null) return null;
+  Future<RequestAttachment?> putStream(
+    String fileName,
+    int expectedLength,
+    Stream<List<int>> bytes,
+  ) async {
+    if (!ApplicationFileLimits.acceptsFile(expectedLength)) {
+      throw const AttachmentLimitExceeded();
+    }
+    final String id = '$_prefix${_token()}';
+    final Uint8List buffer = Uint8List(chunkBytes);
+    int buffered = 0;
+    int total = 0;
+    int chunkCount = 0;
+
+    Future<bool> flush() async {
+      if (buffered == 0) return true;
+      final String encoded = base64Encode(
+        Uint8List.sublistView(buffer, 0, buffered),
+      );
+      final bool stored = await _box.writeChecked(
+        _chunkKey(id, chunkCount),
+        encoded,
+      );
+      if (!stored) return false;
+      chunkCount++;
+      buffered = 0;
+      return true;
+    }
+
     try {
-      return base64Decode(raw);
+      await for (final List<int> incoming in bytes) {
+        total += incoming.length;
+        if (total > expectedLength ||
+            !ApplicationFileLimits.acceptsFile(total)) {
+          throw const AttachmentLimitExceeded();
+        }
+        int offset = 0;
+        while (offset < incoming.length) {
+          final int take = (chunkBytes - buffered).clamp(
+            0,
+            incoming.length - offset,
+          );
+          buffer.setRange(buffered, buffered + take, incoming, offset);
+          buffered += take;
+          offset += take;
+          if (buffered == chunkBytes && !await flush()) {
+            throw const _AttachmentWriteFailed();
+          }
+        }
+      }
+      if (total != expectedLength) throw const AttachmentLimitExceeded();
+      if (!await flush()) throw const _AttachmentWriteFailed();
+      final String metadata = jsonEncode(<String, int>{
+        'version': _formatVersion,
+        'size': total,
+        'chunks': chunkCount,
+      });
+      if (!await _box.writeChecked(id, metadata)) {
+        throw const _AttachmentWriteFailed();
+      }
+      return RequestAttachment(fileName: fileName, path: id, sizeBytes: total);
+    } on AttachmentLimitExceeded {
+      await _deleteOwnedKeys(id);
+      rethrow;
     } catch (_) {
+      await _deleteOwnedKeys(id);
       return null;
     }
   }
 
   @override
+  Future<Uint8List?> read(RequestAttachment attachment) async {
+    final StoredAttachmentStream? source = await openRead(attachment);
+    if (source == null) return null;
+    final BytesBuilder result = BytesBuilder(copy: false);
+    try {
+      await for (final List<int> chunk in source.open()) {
+        result.add(chunk);
+      }
+      final Uint8List bytes = result.takeBytes();
+      return bytes.length == source.length ? bytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Throws [AttachmentStoreUnavailable] when the box cannot be read: that is
+  /// a storage fault, not a missing file, and must not be reported as one.
+  @override
+  Future<StoredAttachmentStream?> openRead(RequestAttachment attachment) async {
+    final String? raw;
+    try {
+      raw = await _box.readChecked(attachment.path);
+    } on EncryptedBoxUnavailable {
+      throw const AttachmentStoreUnavailable();
+    }
+    if (raw == null) return null;
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is Map &&
+          decoded['version'] == _formatVersion &&
+          decoded['size'] is int &&
+          decoded['chunks'] is int) {
+        final int size = decoded['size'] as int;
+        final int chunks = decoded['chunks'] as int;
+        if (!ApplicationFileLimits.acceptsFile(size) ||
+            chunks < 0 ||
+            chunks > (ApplicationFileLimits.maxFileBytes ~/ chunkBytes) + 1 ||
+            (attachment.sizeBytes != null && attachment.sizeBytes != size)) {
+          return null;
+        }
+        return StoredAttachmentStream(
+          length: size,
+          open: () => _readChunks(attachment.path, chunks, size),
+        );
+      }
+    } catch (_) {
+      // A v1 entry is raw base64 rather than JSON; handled below.
+    }
+
+    // Backward-compatible, one-read path for drafts created before the
+    // chunked format. Every new write uses v2.
+    try {
+      final Uint8List legacy = base64Decode(raw);
+      if (!ApplicationFileLimits.acceptsFile(legacy.length)) return null;
+      return StoredAttachmentStream(
+        length: legacy.length,
+        open: () => Stream<List<int>>.value(legacy),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Stream<List<int>> _readChunks(
+    String id,
+    int chunkCount,
+    int expectedLength,
+  ) async* {
+    int total = 0;
+    for (int index = 0; index < chunkCount; index++) {
+      final String? encoded = await _box.readChecked(_chunkKey(id, index));
+      if (encoded == null) throw const FormatException('missing chunk');
+      final Uint8List chunk = base64Decode(encoded);
+      total += chunk.length;
+      if (chunk.isEmpty ||
+          chunk.length > chunkBytes ||
+          total > expectedLength) {
+        throw const FormatException('invalid chunk');
+      }
+      yield chunk;
+    }
+    if (total != expectedLength) {
+      throw const FormatException('attachment length mismatch');
+    }
+  }
+
+  @override
   Future<void> delete(RequestAttachment attachment) =>
-      _box.delete(attachment.path);
+      _deleteOwnedKeys(attachment.path);
 
   @override
   Future<void> deleteAll(Iterable<RequestAttachment> attachments) async {
@@ -81,6 +229,17 @@ class EncryptedAttachmentStore implements AttachmentStore {
       await delete(attachment);
     }
   }
+
+  Future<void> _deleteOwnedKeys(String id) async {
+    final List<String> owned = (await _box.keys())
+        .where((String key) => key == id || key.startsWith('$id.chunk.'))
+        .toList(growable: false);
+    for (final String key in owned) {
+      await _box.delete(key);
+    }
+  }
+
+  static String _chunkKey(String id, int index) => '$id.chunk.$index';
 
   String _token() {
     final List<int> bytes = List<int>.generate(
@@ -90,4 +249,8 @@ class EncryptedAttachmentStore implements AttachmentStore {
     );
     return bytes.map((int b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
+}
+
+class _AttachmentWriteFailed implements Exception {
+  const _AttachmentWriteFailed();
 }

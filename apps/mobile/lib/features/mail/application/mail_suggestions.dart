@@ -4,6 +4,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/mail_cache_store.dart';
+import '../domain/mail_failure.dart';
+import 'mail_account_controller.dart';
 import 'mail_providers.dart';
 import 'mail_sync_controller.dart';
 
@@ -14,6 +16,101 @@ final FutureProvider<List<MailAddressEntry>> mailKnownAddressesProvider =
       ref.watch(mailCacheRevisionProvider);
       return ref.read(mailCacheStoreProvider).knownAddresses();
     });
+
+/// Set after Exchange rejected the stored credentials (HTTP 401/403) for the
+/// first time in the current mail session.
+///
+/// Every directory lookup and every Exchange calendar window is a Basic-auth
+/// login against the central university account, so both EWS uses share this
+/// lock. Once the password is known to be rejected, further requests — one per
+/// typed recipient or calendar rebuild — would only add failed logins and risk
+/// a lockout. A new sign-in advances the session generation and lifts the
+/// lock.
+class MailDirectoryAuthLock extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.watch(mailSessionGenerationProvider);
+    return false;
+  }
+
+  void lock() => state = true;
+}
+
+final NotifierProvider<MailDirectoryAuthLock, bool>
+mailDirectoryAuthLockProvider = NotifierProvider<MailDirectoryAuthLock, bool>(
+  MailDirectoryAuthLock.new,
+);
+
+/// How long the recipient field waits after the last keystroke before it asks
+/// for suggestions.
+const Duration kRecipientSuggestionDebounce = Duration(milliseconds: 250);
+
+/// Local + authenticated Exchange address-book suggestions for one query.
+///
+/// Callers debounce input ([kRecipientSuggestionDebounce]) and must keep a
+/// listener while awaiting the result: without one, this auto-dispose provider
+/// is disposed at the end of the event loop and abandons the lookup. EWS
+/// failures degrade to the encrypted local history so composing mail remains
+/// usable offline.
+final mailRecipientSuggestionsProvider = FutureProvider.autoDispose
+    .family<List<MailAddressEntry>, String>((Ref ref, String rawQuery) async {
+      final String query = rawQuery.trim();
+      if (query.length < 2) return const <MailAddressEntry>[];
+      bool cancelled = false;
+      ref.onDispose(() => cancelled = true);
+      final Future<List<MailAddressEntry>> localFuture = ref.read(
+        mailKnownAddressesProvider.future,
+      );
+      final MailAccountController accountController = ref.read(
+        mailAccountControllerProvider.notifier,
+      );
+      final MailDirectoryAuthLock authLock = ref.read(
+        mailDirectoryAuthLockProvider.notifier,
+      );
+      final int generation = ref.read(mailSessionGenerationProvider);
+      final directory = ref.read(mailDirectoryGatewayProvider);
+
+      final List<MailAddressEntry> local = await localFuture;
+      if (cancelled) return const <MailAddressEntry>[];
+      List<MailAddressEntry> exchange = const <MailAddressEntry>[];
+      if (!ref.read(mailDirectoryAuthLockProvider)) {
+        try {
+          final credentials = await accountController.requireCredentials();
+          if (cancelled) return const <MailAddressEntry>[];
+          exchange = await directory.search(credentials, query);
+        } on MailFailure catch (failure) {
+          if (failure.kind == MailFailureKind.invalidCredentials &&
+              !cancelled &&
+              ref.read(mailSessionGenerationProvider) == generation) {
+            authLock.lock();
+          }
+          // Search suggestions are optional assistance. The compose form
+          // keeps working with local results and direct address input.
+        } catch (_) {
+          // Same as above: never let an unexpected directory error reach the
+          // form.
+        }
+      }
+      return cancelled
+          ? const <MailAddressEntry>[]
+          : mergeRecipientSuggestions(local, exchange, query);
+    });
+
+List<MailAddressEntry> mergeRecipientSuggestions(
+  Iterable<MailAddressEntry> local,
+  Iterable<MailAddressEntry> exchange,
+  String query, {
+  int limit = 8,
+}) {
+  final Map<String, MailAddressEntry> distinct = <String, MailAddressEntry>{};
+  for (final MailAddressEntry entry in <MailAddressEntry>[
+    ...exchange,
+    ...local,
+  ]) {
+    distinct.putIfAbsent(entry.email.toLowerCase(), () => entry);
+  }
+  return suggestRecipients(distinct.values.toList(), query, limit: limit);
+}
 
 /// Ranks [all] against a query: an address whose email or name contains the
 /// query (case-insensitive), best matches first, capped for a compact list.

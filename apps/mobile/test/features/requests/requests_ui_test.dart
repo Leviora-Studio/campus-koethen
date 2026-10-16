@@ -4,12 +4,16 @@
 /// What the two forms and the detail view actually put on screen.
 library;
 
+import 'dart:async';
+
 import 'package:campus_koethen/core/links/safe_link_launcher.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/theme/app_colors.dart';
 import 'package:campus_koethen/core/theme/app_icons.dart';
+import 'package:campus_koethen/features/requests/application/requests_controller.dart';
 import 'package:campus_koethen/features/requests/application/requests_providers.dart';
 import 'package:campus_koethen/features/requests/data/attachment_picker.dart';
+import 'package:campus_koethen/features/requests/domain/application_files.dart';
 import 'package:campus_koethen/features/requests/domain/application_location.dart';
 import 'package:campus_koethen/features/requests/domain/case_status.dart';
 import 'package:campus_koethen/features/requests/domain/feedback_area.dart';
@@ -21,6 +25,7 @@ import 'package:campus_koethen/features/requests/domain/status_gateway.dart';
 import 'package:campus_koethen/features/requests/domain/submitted_case.dart';
 import 'package:campus_koethen/features/requests/presentation/application_form_screen.dart';
 import 'package:campus_koethen/features/requests/presentation/feedback_form_screen.dart';
+import 'package:campus_koethen/features/requests/presentation/request_form_parts.dart';
 import 'package:campus_koethen/features/requests/presentation/requests_screen.dart';
 import 'package:campus_koethen/features/requests/presentation/submission_detail_screen.dart';
 import 'package:flutter/material.dart';
@@ -392,6 +397,164 @@ void main() {
       },
     );
 
+    testWidgets('an expired key offers a deliberate way on (E-05)', (
+      WidgetTester tester,
+    ) async {
+      // A frozen feedback whose idempotency key outlived the server's 30 days
+      // used to be a dead end: every field locked, no way to send it.
+      final FeedbackDraft base = FeedbackDraft(
+        id: 'draft-old',
+        createdAt: _now,
+        updatedAt: _now,
+        idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
+        areaId: 1,
+        feedback: 'Mein Hinweis',
+      );
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..drafts = <RequestDraft>[
+          base.copyWith(
+            pending: PendingSubmission(
+              firstAttemptAt: DateTime.now().subtract(const Duration(days: 40)),
+              fingerprint: base.payloadFingerprint,
+            ),
+          ),
+        ];
+      final ScriptedRequestGateway gateway = ScriptedRequestGateway(
+        const SubmissionRateLimited(),
+      );
+      await pumpScreen(
+        tester,
+        const FeedbackFormScreen(draftId: 'draft-old'),
+        overrides: _overrides(store: store, gateway: gateway),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder send = find.text('Feedback absenden');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(gateway.keysUsed, isEmpty, reason: 'nothing goes out on its own');
+      // A headline that names what happened, the explanation beneath it.
+      expect(
+        find.text('Schutz vor Doppeleinreichung abgelaufen'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('mehr als 30 Tage zurück'), findsOneWidget);
+
+      final Finder sendAnyway = find.widgetWithText(
+        TextButton,
+        'Trotzdem als neuen Vorgang senden',
+      );
+      expect(sendAnyway, findsOneWidget);
+      await tester.ensureVisible(sendAnyway);
+      await tester.tap(sendAnyway);
+      await tester.pumpAndSettle();
+      // A decision, not a side effect: it asks first.
+      expect(find.text('Als neuen Vorgang senden?'), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Trotzdem als neuen Vorgang senden'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(store.drafts.single.isFrozen, isFalse);
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .every((TextField field) => field.enabled != false),
+        isTrue,
+      );
+    });
+
+    testWidgets('a clear refusal of a frozen draft offers a way out', (
+      WidgetTester tester,
+    ) async {
+      // The replay was refused outright (here: 404, the area is gone). The
+      // banner says "choose another one" — impossible while every field stays
+      // frozen, and deleting the draft was the only exit.
+      final FeedbackDraft base = FeedbackDraft(
+        id: 'draft-frozen',
+        createdAt: _now,
+        updatedAt: _now,
+        idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
+        areaId: 1,
+        feedback: 'Mein Hinweis',
+      );
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..drafts = <RequestDraft>[
+          base.copyWith(
+            pending: PendingSubmission(
+              firstAttemptAt: DateTime.now(),
+              fingerprint: base.payloadFingerprint,
+            ),
+          ),
+        ];
+      final ScriptedRequestGateway gateway = ScriptedRequestGateway(
+        const SubmissionTargetGone(),
+      );
+      await pumpScreen(
+        tester,
+        const FeedbackFormScreen(draftId: 'draft-frozen'),
+        overrides: _overrides(store: store, gateway: gateway),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder send = find.text('Feedback absenden');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(gateway.keysUsed, hasLength(1));
+      expect(store.drafts.single.isFrozen, isTrue, reason: 'never on its own');
+
+      final Finder release = find.widgetWithText(
+        TextButton,
+        'Trotzdem als neuen Vorgang senden',
+      );
+      expect(release, findsOneWidget);
+      await tester.ensureVisible(release);
+      await tester.tap(release);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Trotzdem als neuen Vorgang senden'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(store.drafts.single.isFrozen, isFalse);
+      expect(
+        store.drafts.single.idempotencyKey,
+        isNot(base.idempotencyKey),
+        reason: 'a new case, a new key',
+      );
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .every((TextField field) => field.enabled != false),
+        isTrue,
+      );
+    });
+
+    testWidgets('says so when a change cannot be saved', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..failDraftWrites = true;
+      await pumpScreen(
+        tester,
+        const FeedbackFormScreen(),
+        overrides: _overrides(store: store),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, 'Mein Hinweis');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Die Änderung konnte auf diesem Gerät nicht gespeichert werden.',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a rejected submission keeps the text', (
       WidgetTester tester,
     ) async {
@@ -452,6 +615,224 @@ void main() {
       expect(find.textContaining('Bitte'), findsNothing);
       expect(find.textContaining('Ungültige'), findsNothing);
       expect(find.textContaining('Unbekanntes'), findsNothing);
+    });
+  });
+
+  group('a submission in flight (E-01, VE-N02)', () {
+    FinanceApplicationDraft completeApplication() => FinanceApplicationDraft(
+      id: 'draft-app',
+      createdAt: _now,
+      updatedAt: _now,
+      idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
+      locationId: 1,
+      title: 'Grillabend',
+      applicant: 'Testperson',
+      files: const <ApplicationFileSlot, RequestAttachment>{
+        ApplicationFileSlot.financeRequest: RequestAttachment(
+          fileName: 'antrag.pdf',
+          path: 'fake-antrag',
+          sizeBytes: 3,
+        ),
+        ApplicationFileSlot.studentCard: RequestAttachment(
+          fileName: 'ausweis.pdf',
+          path: 'fake-ausweis',
+          sizeBytes: 3,
+        ),
+      },
+    );
+
+    testWidgets('locks every field and file slot while uploading', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..drafts = <RequestDraft>[completeApplication()];
+      final ScriptedRequestGateway gateway = ScriptedRequestGateway(
+        const SubmissionOutcomeUnknown('transport'),
+      )..gate = Completer<void>();
+      await pumpScreen(
+        tester,
+        const ApplicationFormScreen(draftId: 'draft-app'),
+        overrides: _overrides(store: store, gateway: gateway),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder send = find.text('Antrag einreichen');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Verbindlich absenden'));
+      // Not pumpAndSettle: the upload spinner never settles.
+      for (int i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(gateway.keysUsed, hasLength(1));
+
+      // Replacing or removing a file now would delete the bytes on the wire.
+      expect(
+        tester
+            .widgetList<FileSlotField>(find.byType(FileSlotField))
+            .every((FileSlotField slot) => !slot.enabled),
+        isTrue,
+      );
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .every((TextField field) => field.enabled == false),
+        isTrue,
+      );
+
+      gateway.gate!.complete();
+      await tester.pumpAndSettle();
+      // An unclear outcome keeps it locked — as a frozen draft now.
+      expect(find.text('Ausgang unklar'), findsWidgets);
+    });
+
+    testWidgets('locks the feedback form while uploading', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..drafts = <RequestDraft>[
+          FeedbackDraft(
+            id: 'draft-fb',
+            createdAt: _now,
+            updatedAt: _now,
+            idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
+            areaId: 1,
+            feedback: 'Mein Hinweis',
+          ),
+        ];
+      final ScriptedRequestGateway gateway = ScriptedRequestGateway(
+        const SubmissionRateLimited(),
+      )..gate = Completer<void>();
+      await pumpScreen(
+        tester,
+        const FeedbackFormScreen(draftId: 'draft-fb'),
+        overrides: _overrides(store: store, gateway: gateway),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder send = find.text('Feedback absenden');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .every((TextField field) => field.enabled == false),
+        isTrue,
+      );
+
+      // A plain rejection unlocks it again — and the spinner is gone.
+      gateway.gate!.complete();
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .every((TextField field) => field.enabled != false),
+        isTrue,
+      );
+      expect(find.text('Wird übermittelt …'), findsNothing);
+    });
+
+    testWidgets('the list marks a running upload and keeps it', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..drafts = <RequestDraft>[completeApplication()];
+      final ProviderContainer container = await pumpScreen(
+        tester,
+        const RequestsScreen(),
+        overrides: _overrides(store: store),
+      );
+      await tester.pumpAndSettle();
+
+      // The form was left while its upload kept running.
+      container.read(requestsInFlightProvider.notifier).start('draft-app');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Wird übermittelt …'), findsOneWidget);
+      final IconButton delete = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, AppIcons.delete_outline),
+      );
+      expect(delete.onPressed, isNull);
+    });
+  });
+
+  group('storage that refuses a write', () {
+    testWidgets('deleting a draft says so instead of doing nothing', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..drafts = <RequestDraft>[
+          FeedbackDraft(
+            id: 'draft-1',
+            createdAt: _now,
+            updatedAt: _now,
+            idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
+            areaId: 1,
+            feedback: 'Mein Hinweis',
+          ),
+        ];
+      await pumpScreen(
+        tester,
+        const RequestsScreen(),
+        overrides: _overrides(store: store),
+      );
+      await tester.pumpAndSettle();
+      store.failDraftWrites = true;
+
+      await tester.tap(
+        find.widgetWithIcon(IconButton, AppIcons.delete_outline),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Entwurf löschen'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Die Änderung konnte auf diesem Gerät nicht gespeichert werden.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('forgetting a case says so and stays on the case', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()
+        ..cases = <SubmittedCase>[
+          SubmittedCase(
+            id: 'case-1',
+            kind: RequestKind.feedback,
+            submittedAt: _now,
+            statusUrl: kFakeStatusUrl,
+            receiptPdfUrl: kFakeReceiptUrl,
+          ),
+        ];
+      await pumpScreen(
+        tester,
+        const SubmissionDetailScreen(submissionId: 'case-1'),
+        overrides: _overrides(store: store),
+      );
+      await tester.pumpAndSettle();
+      store.failCaseWrites = true;
+
+      final Finder forget = find.text('Vorgang vom Gerät entfernen');
+      await tester.ensureVisible(forget.first);
+      await tester.tap(forget.first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Entfernen'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Die Änderung konnte auf diesem Gerät nicht gespeichert werden.',
+        ),
+        findsOneWidget,
+      );
+      expect(store.cases, hasLength(1));
     });
   });
 
@@ -786,6 +1167,49 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('detail layout matrix keeps refresh and status reachable', (
+      WidgetTester tester,
+    ) async {
+      for (final (Size size, TextScaler scaler) in <(Size, TextScaler)>[
+        (const Size(320, 900), TextScaler.noScaling),
+        (const Size(360, 900), const TextScaler.linear(1.3)),
+        (const Size(800, 360), TextScaler.noScaling),
+        (const Size(320, 1400), const TextScaler.linear(2)),
+      ]) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        final FlakyRequestStore store = FlakyRequestStore()
+          ..cases = <SubmittedCase>[
+            SubmittedCase(
+              id: 'case-1',
+              kind: RequestKind.financeApplication,
+              submittedAt: _now,
+              statusUrl: kFakeStatusUrl,
+              receiptPdfUrl: kFakeReceiptUrl,
+              localTitle: 'Testantrag',
+            ),
+          ];
+
+        await pumpScreen(
+          tester,
+          const SubmissionDetailScreen(submissionId: 'case-1'),
+          textScaler: scaler,
+          overrides: _overrides(
+            store: store,
+            status: ScriptedStatusGateway(
+              StatusLoaded(CaseStatus.fromJson(applicationStatusBody())!),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Aktualisieren'), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: '$size at $scaler');
+      }
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     testWidgets('offers a retry when the status cannot be read', (
       WidgetTester tester,
     ) async {
@@ -815,6 +1239,39 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Erneut laden'), findsOneWidget);
+    });
+
+    testWidgets('an unreadable case list is not "nothing submitted"', (
+      WidgetTester tester,
+    ) async {
+      final FlakyRequestStore store = FlakyRequestStore()..failCaseReads = true;
+
+      await pumpScreen(
+        tester,
+        const SubmissionDetailScreen(submissionId: 'case-1'),
+        overrides: _overrides(store: store),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Noch nichts eingereicht.'), findsNothing);
+      expect(
+        find.text('Vorgänge konnten nicht geladen werden'),
+        findsOneWidget,
+      );
+
+      store.failCaseReads = false;
+      store.cases = <SubmittedCase>[
+        SubmittedCase(
+          id: 'case-1',
+          kind: RequestKind.feedback,
+          submittedAt: _now,
+          statusUrl: kFakeStatusUrl,
+          receiptPdfUrl: kFakeReceiptUrl,
+        ),
+      ];
+      await tester.tap(find.text('Erneut laden'));
+      await tester.pumpAndSettle();
+      expect(find.text('Vorgänge konnten nicht geladen werden'), findsNothing);
     });
 
     testWidgets('a 404 does not remove the local record', (

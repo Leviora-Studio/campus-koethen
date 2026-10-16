@@ -24,6 +24,12 @@ class SecureMoodleTokenStore implements MoodleTokenStore {
   static const String _usernameKey = 'moodle.username';
   static const String _siteNameKey = 'moodle.sitename';
 
+  /// Returns null only when no complete token is stored.
+  ///
+  /// A keychain that cannot be read is a different state and throws
+  /// [MoodleFailureKind.secureStorageUnavailable]. Reporting it as "absent"
+  /// made a stored connection look gone, and reconnecting then treated the
+  /// unreadable account as a different identity and wiped the encrypted cache.
   @override
   Future<MoodleToken?> read() async {
     try {
@@ -38,7 +44,7 @@ class SecureMoodleTokenStore implements MoodleTokenStore {
         siteName: await _storage.read(key: _siteNameKey),
       );
     } catch (_) {
-      return null;
+      throw const MoodleFailure(MoodleFailureKind.secureStorageUnavailable);
     }
   }
 
@@ -47,25 +53,66 @@ class SecureMoodleTokenStore implements MoodleTokenStore {
     try {
       await _storage.write(key: _tokenKey, value: token.value);
       await _storage.write(key: _userIdKey, value: '${token.userId}');
-      if (token.username != null) {
-        await _storage.write(key: _usernameKey, value: token.username);
-      }
-      if (token.siteName != null) {
-        await _storage.write(key: _siteNameKey, value: token.siteName);
+      await _writeOptional(_usernameKey, token.username);
+      await _writeOptional(_siteNameKey, token.siteName);
+
+      final Map<String, String?> expected = <String, String?>{
+        _tokenKey: token.value,
+        _userIdKey: '${token.userId}',
+        _usernameKey: token.username,
+        _siteNameKey: token.siteName,
+      };
+      for (final MapEntry<String, String?> entry in expected.entries) {
+        if (await _storage.read(key: entry.key) != entry.value) {
+          throw StateError('secure storage write was not retained');
+        }
       }
     } catch (_) {
-      try {
-        await clear();
-      } catch (_) {}
+      await _deleteUnchecked();
       throw const MoodleFailure(MoodleFailureKind.secureStorageUnavailable);
     }
   }
 
   @override
   Future<void> clear() async {
-    await _storage.delete(key: _tokenKey);
-    await _storage.delete(key: _userIdKey);
-    await _storage.delete(key: _usernameKey);
-    await _storage.delete(key: _siteNameKey);
+    Object? failure;
+    for (final String key in _keys) {
+      try {
+        await _storage.delete(key: key);
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    for (final String key in _keys) {
+      try {
+        if (await _storage.read(key: key) != null) {
+          failure ??= StateError('secure storage value survived deletion');
+        }
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (failure != null) {
+      throw const MoodleFailure(MoodleFailureKind.secureStorageUnavailable);
+    }
+  }
+
+  static const List<String> _keys = <String>[
+    _tokenKey,
+    _userIdKey,
+    _usernameKey,
+    _siteNameKey,
+  ];
+
+  Future<void> _writeOptional(String key, String? value) => value == null
+      ? _storage.delete(key: key)
+      : _storage.write(key: key, value: value);
+
+  Future<void> _deleteUnchecked() async {
+    for (final String key in _keys) {
+      try {
+        await _storage.delete(key: key);
+      } catch (_) {}
+    }
   }
 }

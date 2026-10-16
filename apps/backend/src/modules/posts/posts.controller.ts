@@ -16,6 +16,7 @@ import {
 } from '../../common/validation/query';
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
+import { addCalendarDays, campusToday } from '../../common/time/campus-date';
 import { PostsService } from './posts.service';
 import {
   ChannelDto,
@@ -42,9 +43,9 @@ export class PostsController {
 
     return refineDateRange(
       z.object({ from: isoDate.optional(), to: isoDate.optional() }).transform((raw) => {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = campusToday();
         const from = raw.from ?? today;
-        const to = raw.to ?? new Date(Date.now() + maxDays * 86_400_000).toISOString().slice(0, 10);
+        const to = raw.to ?? addCalendarDays(from, maxDays);
         return { from, to };
       }),
       maxDays,
@@ -95,14 +96,23 @@ export class PostsController {
     description:
       'Filter for posts with tag "event". Accepts optional `from` and `to` date bounds and channel filters. Interval overlap: eventStart <= to AND (eventEnd ?? eventStart) >= from. Sorted deterministically by eventStart asc, slug asc.',
   })
-  @ApiQuery({ name: 'from', required: false, description: 'YYYY-MM-DD' })
-  @ApiQuery({ name: 'to', required: false, description: 'YYYY-MM-DD' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'YYYY-MM-DD, a Europe/Berlin calendar day. Defaults to today.',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description:
+      'YYYY-MM-DD, a Europe/Berlin calendar day (inclusive). Defaults to from plus the maximum range.',
+  })
   @ApiQuery({
     name: 'channels',
     required: false,
     description: 'Comma-separated channel slugs. At most 25, each at most 100 characters.',
   })
-  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Max 10000.' })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, description: 'Max 50.' })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PostListResponseDto })
@@ -178,7 +188,7 @@ export class PostsController {
     required: false,
     description: 'Comma-separated tag slugs. At most 25, each at most 100 characters.',
   })
-  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Max 10000.' })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, description: 'Max 50.' })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PostListResponseDto })

@@ -80,6 +80,7 @@ class NewsRepository {
       parse: NewsArticle.listFromJson,
       // Only the first page is cached; deeper pages always need the network.
       allowCacheFallback: page == 1,
+      writeToCache: page == 1,
     );
 
     return loaded.map(
@@ -130,7 +131,12 @@ class NewsRepository {
             'pageSize': pageSize,
           },
           parse: NewsArticle.listFromJson,
+          // Only page 1 has a cache fallback, so only page 1 is stored: a
+          // later page would never be read back and would merely take a slot
+          // in the range budget it shares with timetable and calendar weeks
+          // (VG-N02).
           allowCacheFallback: page == 1,
+          writeToCache: page == 1,
         );
 
     return loaded.map(

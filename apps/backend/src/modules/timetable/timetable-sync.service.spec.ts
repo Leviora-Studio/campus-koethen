@@ -44,6 +44,127 @@ describe('TimetableSyncService school-year catalogue', () => {
   });
 });
 
+describe('TimetableSyncService catalogue duplicate reconciliation', () => {
+  it('publishes only the data-backed alias and writes only changed visibility', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const groups = [
+      {
+        id: 'empty',
+        shortName: 'MER2',
+        longName: '2.Sem.Ernährungstherapie Master',
+        department: 'FB1',
+        catalogVisible: true,
+      },
+      {
+        id: 'working',
+        shortName: 'MER2',
+        longName: '2.Sem.Ernährungstherapie Master',
+        department: 'FB1',
+        catalogVisible: false,
+      },
+      {
+        id: 'other-public-metadata',
+        shortName: 'MER2',
+        longName: '2.Sem.Ernährungstherapie dual',
+        department: 'FB1',
+        catalogVisible: true,
+      },
+    ];
+    const prisma = {
+      timetableGroup: { findMany: jest.fn().mockResolvedValue(groups), updateMany },
+      timetableEntryGroup: {
+        findMany: jest.fn().mockResolvedValue([
+          { groupId: 'working', entryId: 'lesson-1' },
+          { groupId: 'working', entryId: 'lesson-2' },
+        ]),
+      },
+    };
+    const service = new TimetableSyncService(
+      prisma as unknown as PrismaService,
+      {} as WebUntisClient,
+      {} as Env,
+    );
+
+    await service.reconcileGroupCatalogue(
+      new Date('2026-10-01T00:00:00.000Z'),
+      new Date('2027-04-01T00:00:00.000Z'),
+    );
+
+    expect(prisma.timetableEntryGroup.findMany).toHaveBeenCalledWith({
+      where: {
+        groupId: { in: ['empty', 'working'] },
+        entry: {
+          date: {
+            gte: new Date('2026-10-01T00:00:00.000Z'),
+            lte: new Date('2027-04-01T00:00:00.000Z'),
+          },
+        },
+      },
+      select: { groupId: true, entryId: true },
+    });
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['working'] } },
+      data: { catalogVisible: true },
+    });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['empty'] } },
+      data: { catalogVisible: false },
+    });
+  });
+
+  it('reconciles aliases per semester catalogue, never across semesters', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    // Right after a semester change: the next semester's same-named group has
+    // no lessons in the window yet and was hidden behind the old one.
+    const groups = [
+      {
+        id: 'summer',
+        shortName: 'MER2',
+        longName: '2.Sem.Ernährungstherapie Master',
+        department: 'FB1',
+        catalogVisible: true,
+        contexts: [{ contextId: 'context-ss' }],
+      },
+      {
+        id: 'winter',
+        shortName: 'MER2',
+        longName: '2.Sem.Ernährungstherapie Master',
+        department: 'FB1',
+        catalogVisible: false,
+        contexts: [{ contextId: 'context-ws' }],
+      },
+    ];
+    const prisma = {
+      timetableGroup: { findMany: jest.fn().mockResolvedValue(groups), updateMany },
+      timetableEntryGroup: {
+        findMany: jest.fn().mockResolvedValue([{ groupId: 'summer', entryId: 'lesson-1' }]),
+      },
+    };
+    const service = new TimetableSyncService(
+      prisma as unknown as PrismaService,
+      {} as WebUntisClient,
+      {} as Env,
+    );
+
+    await service.reconcileGroupCatalogue(
+      new Date('2026-09-23T00:00:00.000Z'),
+      new Date('2026-10-21T00:00:00.000Z'),
+    );
+
+    expect(prisma.timetableGroup.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ contexts: { select: { contextId: true } } }),
+      }),
+    );
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['winter'] } },
+      data: { catalogVisible: true },
+    });
+  });
+});
+
 /**
  * Cost contract of the entry write phase.
  *
@@ -140,6 +261,9 @@ describe('TimetableSyncService entry write phase', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       timetableEntryGroup: {
+        // No stored links: what gets withdrawn is covered state-based in
+        // timetable-sync.links.spec.ts.
+        findMany: jest.fn().mockResolvedValue([]),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
@@ -411,12 +535,22 @@ describe('TimetableSyncService catalogue write phase', () => {
   }
 
   function harness(stored: ReturnType<typeof storedGroup>[], upstream: ReturnType<typeof classes>) {
+    const linkedGroups = upstream.classes.map((item, index) => ({
+      id:
+        stored.find((row) => row.externalId === String(item.class.id))?.id ??
+        `created-group-${index}`,
+      externalId: String(item.class.id),
+    }));
     const tx = {
       timetableGroup: {
-        findMany: jest.fn().mockResolvedValue(stored),
+        findMany: jest.fn().mockResolvedValueOnce(stored).mockResolvedValueOnce(linkedGroups),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      timetableContextGroup: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
     const prisma = {
@@ -427,6 +561,7 @@ describe('TimetableSyncService catalogue write phase', () => {
       timetableContext: {
         findMany: jest.fn().mockResolvedValue([
           {
+            id: 'context-49',
             externalId: '49',
             validFrom: new Date('2026-04-07T00:00:00.000Z'),
             validTo: new Date('2026-09-30T00:00:00.000Z'),
@@ -460,6 +595,16 @@ describe('TimetableSyncService catalogue write phase', () => {
     expect(tx.timetableGroup.updateMany).toHaveBeenCalledWith({
       where: { id: { in: stored.map((row) => row.id) } },
       data: { lastSeenAt: expect.any(Date) },
+    });
+    expect(tx.timetableContextGroup.createMany).toHaveBeenCalledWith({
+      data: stored.map((row) => ({ contextId: 'context-49', groupId: row.id })),
+      skipDuplicates: true,
+    });
+    expect(tx.timetableContextGroup.deleteMany).toHaveBeenCalledWith({
+      where: {
+        contextId: 'context-49',
+        groupId: { notIn: stored.map((row) => row.id) },
+      },
     });
   });
 
@@ -500,5 +645,28 @@ describe('TimetableSyncService catalogue write phase', () => {
     expect(tx.timetableGroup.createMany).toHaveBeenCalledTimes(1);
     expect(tx.timetableGroup.update).not.toHaveBeenCalled();
     expect(tx.timetableGroup.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('TimetableSyncService sync window', () => {
+  const service = new TimetableSyncService(
+    {} as PrismaService,
+    {} as WebUntisClient,
+    { WEBUNTIS_LOOKBACK_DAYS: 7, WEBUNTIS_LOOKAHEAD_DAYS: 28 } as Env,
+  );
+
+  it('is anchored on the Berlin day just after local midnight', () => {
+    // 00:30 CEST on 21 July is still 20 July in UTC.
+    expect(service.windowFor(new Date('2026-07-20T22:30:00.000Z'))).toEqual({
+      from: '2026-07-14',
+      to: '2026-08-18',
+    });
+  });
+
+  it('counts whole calendar days across a daylight-saving change', () => {
+    expect(service.windowFor(new Date('2026-10-20T10:00:00.000Z'))).toEqual({
+      from: '2026-10-13',
+      to: '2026-11-17',
+    });
   });
 });

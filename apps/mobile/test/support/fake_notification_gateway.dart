@@ -2,15 +2,20 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:campus_koethen/features/notifications/domain/notification_category.dart';
+import 'package:campus_koethen/features/notifications/domain/immediate_notification.dart';
 import 'package:campus_koethen/features/notifications/domain/notification_gateway.dart';
 import 'package:campus_koethen/features/notifications/domain/notification_permission.dart';
 import 'package:campus_koethen/features/notifications/domain/planned_notification.dart';
 
 /// An in-memory notification centre.
 ///
-/// Records the call order, because the ordering of `cancelAll` against the
-/// scheduling that follows it is the property the scheduler exists to
+/// Records the call order, because the ordering of `cancelAllPending` against
+/// the scheduling that follows it is the property the scheduler exists to
 /// guarantee — and it is invisible in the final state alone.
+///
+/// Keeps what is still [pending] apart from what the reader can already see
+/// in the notification shade ([delivered]), the way the operating system does:
+/// a re-plan may only ever touch the former (F-01).
 class FakeNotificationGateway implements NotificationGateway {
   FakeNotificationGateway({
     this.permission = NotificationPermissionStatus.granted,
@@ -39,6 +44,11 @@ class FakeNotificationGateway implements NotificationGateway {
 
   final List<String> calls = <String>[];
   final List<PlannedNotification> pending = <PlannedNotification>[];
+  final List<ImmediateNotification> shown = <ImmediateNotification>[];
+
+  /// Keys of the notifications currently in the shade: shown immediately, or
+  /// scheduled and since fired ([deliverPending]).
+  final List<String> delivered = <String>[];
   final List<NotificationChannelSpec> channels = <NotificationChannelSpec>[];
 
   int requestCount = 0;
@@ -71,11 +81,18 @@ class FakeNotificationGateway implements NotificationGateway {
   }
 
   @override
-  Future<bool> cancelAll() async {
-    calls.add('cancelAll');
+  Future<bool> cancelAllPending() async {
+    calls.add('cancelAllPending');
     if (failCancellation) return false;
     pending.clear();
     return true;
+  }
+
+  /// Lets the pending entry with [key] fire, as the operating system would at
+  /// its scheduled moment: it leaves [pending] and appears in [delivered].
+  void deliverPending(String key) {
+    pending.removeWhere((PlannedNotification n) => n.key == key);
+    delivered.add(key);
   }
 
   @override
@@ -86,6 +103,13 @@ class FakeNotificationGateway implements NotificationGateway {
       throw StateError('platform refused ${notification.key}');
     }
     pending.add(notification);
+  }
+
+  @override
+  Future<void> showNow(ImmediateNotification notification) async {
+    calls.add('showNow:${notification.key}');
+    shown.add(notification);
+    delivered.add(notification.key);
   }
 
   @override

@@ -9,8 +9,14 @@ abstract final class PreferenceKeys {
   /// `system` | `de` | `en`
   static const String localeMode = 'settings.localeMode.v1';
 
-  /// `light` | `dark`. Legacy `system` values migrate to `light`.
-  static const String themeMode = 'settings.themeMode.v1';
+  /// `system` | `light` | `dark`.
+  static const String brightnessPreference = 'settings.brightness.v2';
+
+  /// Old brightness key read only as a migration source.
+  static const String legacyThemeMode = 'settings.themeMode.v1';
+
+  /// `pink` | `green` | `blue` | `violet` | `amber`.
+  static const String accentScheme = 'settings.accent.v1';
 
   /// Canteen slug, or absent when the user has not chosen one yet.
   static const String preferredCanteen = 'settings.preferredCanteen.v1';
@@ -20,6 +26,18 @@ abstract final class PreferenceKeys {
   static const String preferredTimetableGroup =
       'settings.preferredTimetableGroup.v1';
 
+  /// Additional Campus group UUIDs merged into the primary timetable.
+  static const String additionalTimetableGroups =
+      'settings.additionalTimetableGroups.v1';
+
+  /// Bounded, encoded Campus-group/module selections merged into the plan.
+  static const String additionalTimetableModules =
+      'settings.additionalTimetableModules.v1';
+
+  /// Campus period UUID whose semester suggestion was dismissed.
+  static const String dismissedTimetablePeriod =
+      'settings.dismissedTimetablePeriod.v1';
+
   /// Exact WebUntis lesson information strings switched off for one Campus
   /// group. A disabled set makes every newly appearing value visible by default.
   static String timetableLessonInfoDisabled(String groupId) =>
@@ -28,6 +46,13 @@ abstract final class PreferenceKeys {
   /// `1` when lessons without a lesson information text are hidden.
   static String timetableLessonInfoWithoutHidden(String groupId) =>
       'timetable.lessonInfo.withoutHidden.v1.$groupId';
+
+  /// Exact course titles (`TimetableEntry.displayTitle`) hidden for one Campus
+  /// group — distinct from [timetableLessonInfoDisabled], which filters by the
+  /// lesson-info remark, not by the course itself. A newly appearing course is
+  /// always visible by default.
+  static String timetableHiddenCourses(String groupId) =>
+      'timetable.courses.hidden.v1.$groupId';
 
   /// Schema version of the news channel subscription store.
   static const String channelStoreVersion = 'news.channels.version';
@@ -51,6 +76,10 @@ abstract final class PreferenceKeys {
   /// subscriptions this is a content filter the reader dips in and out of,
   /// not a standing preference, so there is no seen-slugs ledger.
   static const String newsTagFilterSelected = 'news.tags.filter.selected.v1';
+
+  /// The news feed's sort order: `newest` (server order, default) or
+  /// `chronological` (event posts by start, then the rest). A scalar.
+  static const String newsFeedSort = 'news.feed.sort.v1';
 
   // --- Public calendars (Y-of-X selection, non-sensitive) ------------------
 
@@ -142,16 +171,43 @@ abstract final class PreferenceKeys {
   /// Current schema version of the event source filter store.
   static const int eventSourceStoreCurrentVersion = 1;
 
+  /// The event overview's sort order (`EventSortOrder.storageValue`):
+  /// `chronological` (default when absent or unknown) or `newestFirst`.
+  static const String eventSortOrder = 'events.sort.v1';
+
   /// `1` while the "Meine gemerkten Events" calendar switch is on. Off by
   /// default — it is an optional, opt-in source, not one of the three
   /// classic calendar sources every install starts with.
   static const String calendarSavedEventsEnabled =
       'calendar.savedEvents.enabled.v1';
 
+  /// `1` while the preferred canteen's favourited dishes appear on the
+  /// calendar. Off by default, same reasoning as [calendarSavedEventsEnabled].
+  static const String calendarShowFavouriteMeals =
+      'calendar.favouriteMeals.enabled.v1';
+
+  /// `1` after the reader explicitly opts in to reading personal appointments
+  /// from the university Exchange account into the local merged calendar.
+  /// Absent is deliberately off: connecting mail alone is not consent.
+  static const String mailExchangeCalendarEnabled =
+      'mail.exchangeCalendar.enabled.v1';
+
+  /// `1` after the reader explicitly enables the native calendar home-screen
+  /// widget. No calendar payload is shared with the OS widget while absent.
+  static const String calendarHomeWidgetEnabled =
+      'calendar.homeWidget.enabled.v1';
+
+  /// `1` when event titles and locations may be copied to the private native
+  /// widget container. Off by default because a home screen may be visible
+  /// while the device is locked.
+  static const String calendarHomeWidgetShowDetails =
+      'calendar.homeWidget.showDetails.v1';
+
   // --- Local notifications (device-only, no registration) -----------------
   //
-  // Four small scalars and nothing else. There is no token, no installation
-  // id and no server-side record anywhere in this feature — ADR-0001 § 10.
+  // Small bounded scalar values and string lists only. There is no token, no
+  // installation id and no server-side record anywhere in this feature —
+  // ADR-0001 § 10.
 
   /// `1` once the reader has opted in to local notifications. Absent means
   /// "not yet asked", which is why no system prompt appears on a cold start.
@@ -161,6 +217,11 @@ abstract final class PreferenceKeys {
   static const String notificationsDailySummaryMinutes =
       'notifications.dailySummary.minutes.v1';
 
+  /// Lead time of an individual Moodle deadline reminder, in minutes.
+  /// Absent means 24 hours.
+  static const String notificationsMoodleDeadlineLeadMinutes =
+      'notifications.moodleDeadline.leadMinutes.v1';
+
   /// The notification categories the reader switched OFF, as category storage
   /// values.
   ///
@@ -169,6 +230,18 @@ abstract final class PreferenceKeys {
   /// introduced later has to be on as well rather than invisible.
   static const String notificationCategoriesDisabled =
       'notifications.categories.off.v1';
+
+  /// Default lead for public/saved event reminders, in minutes.
+  static const String notificationEventReminderMinutes =
+      'notifications.eventReminder.minutes.v1';
+
+  /// Bounded `entryId=minutes` overrides for individual public/saved events.
+  /// `-1` means no reminder for that event.
+  static const String notificationEventReminderOverrides =
+      'notifications.eventReminder.overrides.v1';
+
+  /// Bounded `styleKey=ARGB` overrides for calendar content colours.
+  static const String calendarColorOverrides = 'calendar.colorOverrides.v1';
 
   /// `1` once the reader has answered "not now" to the in-app pre-permission
   /// sheet. Keeps a contextual trigger point from asking again; the switch in
@@ -182,4 +255,32 @@ abstract final class PreferenceKeys {
   /// from a real refusal without storing an identifier or permission result.
   static const String notificationsSystemPromptRequested =
       'notifications.systemPrompt.requested.v1';
+
+  /// The campus site (`koethen`, `bernburg`, `dessau`) the reader studies at.
+  /// Decides what the canteen, map and contacts show first; absent means "not
+  /// chosen yet".
+  static const String campusSite = 'site.preferred.v1';
+
+  /// `1` after the developer option on the disabled HSA-GPT entry (ten quick
+  /// taps) switched the module on for this installation. A tester's own
+  /// switch, never set by the app.
+  static const String hsaKiDeveloperUnlock = 'dev.hsaKi.unlocked.v1';
+
+  // --- Background sync ------------------------------------------------------
+
+  /// `0` when the reader switched the periodic background sync off. Absent
+  /// means on: the run only does anything for a source the reader connected
+  /// and for a notification category they opted into.
+  static const String backgroundSyncEnabled = 'background.sync.enabled.v1';
+
+  /// `1` after a background run saw the mail server reject the stored
+  /// password. Background runs then stop logging in until the mail account is
+  /// signed in again or a sync succeeds: every refused login counts against
+  /// the central university account and can lock it.
+  static const String backgroundMailRejected = 'background.mail.rejected.v1';
+
+  /// Milliseconds since the epoch of the last background refresh of the public
+  /// sources (news, calendars, timetable); throttles them to about hourly.
+  static const String backgroundPublicRefreshedAt =
+      'background.publicRefresh.at.v1';
 }

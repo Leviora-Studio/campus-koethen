@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart'
 
 import '../domain/notification_category.dart';
 import '../domain/notification_gateway.dart';
+import '../domain/immediate_notification.dart';
 import '../domain/notification_permission.dart';
 import '../domain/notification_request.dart' show NotificationVisibility;
 import '../domain/planned_notification.dart';
@@ -89,7 +90,7 @@ class LocalNotificationGateway implements NotificationGateway {
             spec.category.channelId,
             spec.name,
             description: spec.description,
-            // Default, not high: none of the three categories is urgent
+            // Default, not high: none of the categories is urgent
             // enough to interrupt, and an app that shouts is an app that
             // gets silenced wholesale.
             importance: fln.Importance.defaultImportance,
@@ -168,12 +169,18 @@ class LocalNotificationGateway implements NotificationGateway {
   }
 
   @override
-  Future<bool> cancelAll() async {
+  Future<bool> cancelAllPending() async {
     try {
-      await _plugin.cancelAll();
+      // Never the plugin's `cancelAll()`: in 22.3.0 that also removes every
+      // notification already delivered (Android `NotificationManager
+      // .cancelAll()`, iOS `removeAllDeliveredNotifications`). A re-plan runs
+      // on every resume, so an unread hint would vanish from the shade the
+      // moment the reader opened the app. This one only cancels the alarms
+      // and pending requests that have not fired yet.
+      await _plugin.cancelAllPendingNotifications();
       return true;
     } catch (error) {
-      _report('cancelAll', error);
+      _report('cancelAllPendingNotifications', error);
       return false;
     }
   }
@@ -193,6 +200,25 @@ class LocalNotificationGateway implements NotificationGateway {
       androidScheduleMode: fln.AndroidScheduleMode.inexactAllowWhileIdle,
       notificationDetails: _detailsFor(notification),
     );
+  }
+
+  @override
+  Future<void> showNow(ImmediateNotification notification) async {
+    try {
+      await _plugin.show(
+        id: notification.systemId,
+        title: notification.title,
+        body: notification.body,
+        payload: notification.payload.toStorage(),
+        notificationDetails: _details(
+          notification.category,
+          notification.visibility,
+        ),
+      );
+    } catch (error) {
+      _report('show', error);
+      rethrow;
+    }
   }
 
   @override
@@ -256,14 +282,21 @@ class LocalNotificationGateway implements NotificationGateway {
   }
 
   fln.NotificationDetails _detailsFor(PlannedNotification notification) {
-    final NotificationChannelSpec? spec = _channels[notification.category];
+    return _details(notification.category, notification.visibility);
+  }
+
+  fln.NotificationDetails _details(
+    NotificationCategory category,
+    NotificationVisibility visibility,
+  ) {
+    final NotificationChannelSpec? spec = _channels[category];
     return fln.NotificationDetails(
       android: fln.AndroidNotificationDetails(
-        notification.category.channelId,
+        category.channelId,
         // The channel exists by the time anything is scheduled; the fallback
         // is the channel id so a mis-ordered call still produces a working
         // notification rather than an exception.
-        spec?.name ?? notification.category.channelId,
+        spec?.name ?? category.channelId,
         channelDescription: spec?.description,
         icon: androidSmallIcon,
         importance: fln.Importance.defaultImportance,
@@ -271,7 +304,7 @@ class LocalNotificationGateway implements NotificationGateway {
         // No group key, ever. P8 asks for separate notifications, and a group
         // key is what would merge them. That Android stacks one app's
         // notifications visually is system behaviour and not this app's doing.
-        visibility: switch (notification.visibility) {
+        visibility: switch (visibility) {
           NotificationVisibility.publicContent =>
             fln.NotificationVisibility.public,
           NotificationVisibility.neutral => fln.NotificationVisibility.private,

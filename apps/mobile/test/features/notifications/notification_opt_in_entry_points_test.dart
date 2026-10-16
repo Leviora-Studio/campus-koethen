@@ -3,15 +3,12 @@
 
 /// Contextual entry points C and D of the UX spec (§ 2.2).
 ///
-/// Both exist because of the daily overview: choosing a timetable group and
-/// connecting Moodle are the two moments at which lectures and submission
-/// deadlines start existing locally, and neither ever produces a reminder of
-/// its own — they only ever appear in the 08:00 overview (P5). Both offer the
-/// **existing** global opt-in; there is no second permission concept here.
+/// Choosing a timetable group and connecting Moodle are the two moments at
+/// which lectures and submission deadlines start existing locally. Both offer
+/// the existing global opt-in; Moodle may additionally produce its own local,
+/// neutral deadline reminder, without a second permission concept.
 library;
 
-import 'package:campus_koethen/core/network/api_meta.dart';
-import 'package:campus_koethen/core/network/loaded.dart';
 import 'package:campus_koethen/features/moodle/application/moodle_providers.dart';
 import 'package:campus_koethen/features/moodle/presentation/moodle_screen.dart';
 import 'package:campus_koethen/features/notifications/application/notification_providers.dart';
@@ -27,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_moodle.dart';
 import '../../support/fake_notification_gateway.dart';
+import '../../support/fake_timetable.dart';
 import '../../support/pump_app.dart';
 
 const String _prePromptTitle = 'Lokale Benachrichtigungen aktivieren?';
@@ -57,12 +55,11 @@ class _GroupPickerHost extends ConsumerWidget {
 List<Override> _timetableOverrides(FakeNotificationGateway gateway) =>
     <Override>[
       notificationGatewayProvider.overrideWithValue(gateway),
-      timetableGroupsProvider.overrideWith(
-        (Ref ref) async => const Loaded<List<TimetableGroup>>(
-          value: <TimetableGroup>[
+      timetableGroupSearchProvider('').overrideWith(
+        () => FixedTimetableGroupSearchController(
+          fixedTimetableGroupSearch(const <TimetableGroup>[
             TimetableGroup(id: 'inf-24', shortName: 'INF 24'),
-          ],
-          meta: ApiMeta.empty,
+          ]),
         ),
       ),
     ];

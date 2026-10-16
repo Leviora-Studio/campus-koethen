@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ApiError } from '../../common/errors/api-error';
+import { PaginationMetaDto } from '../../common/dto/meta.dto';
 import { LocaleResolution } from '../../common/locale/locale';
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
@@ -10,6 +11,8 @@ import {
   TimetableEntryDto,
   TimetableGroupDto,
   TimetableLessonInfoDto,
+  TimetableModuleDto,
+  TimetablePeriodDto,
   TimetableRoomDto,
   TimetableStatusDto,
   TimetableTeacherDto,
@@ -113,42 +116,168 @@ export class TimetableService {
 
   async listGroups(
     locale: LocaleResolution,
-    filter: { query?: string; department?: string },
-  ): Promise<{ data: TimetableGroupDto[]; lastSyncAt: Date | null; stale: boolean }> {
+    filter: { page: number; pageSize: number; query?: string; department?: string },
+  ): Promise<{
+    data: TimetableGroupDto[];
+    pagination: PaginationMetaDto;
+    lastSyncAt: Date | null;
+    stale: boolean;
+  }> {
     if (!this.featureEnabled) {
       const lastSyncAt = await this.lastSuccessful('groups');
-      return { data: [], lastSyncAt, stale: true };
+      return {
+        data: [],
+        pagination: { page: filter.page, pageSize: filter.pageSize, total: 0, totalPages: 0 },
+        lastSyncAt,
+        stale: true,
+      };
     }
 
     const query = filter.query?.trim();
-    const [lastSyncAt, groups] = await Promise.all([
+    const where = {
+      active: true,
+      catalogVisible: true,
+      ...(filter.department ? { department: filter.department } : {}),
+      ...(query
+        ? {
+            OR: [
+              { shortName: { contains: query, mode: 'insensitive' as const } },
+              { longName: { contains: query, mode: 'insensitive' as const } },
+              { department: { contains: query, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+    const [lastSyncAt, total, groups] = await Promise.all([
       this.lastSuccessful('groups'),
+      this.prisma.timetableGroup.count({ where }),
       this.prisma.timetableGroup.findMany({
-        where: {
-          active: true,
-          ...(filter.department ? { department: filter.department } : {}),
-          ...(query
-            ? {
-                OR: [
-                  { shortName: { contains: query, mode: 'insensitive' as const } },
-                  { longName: { contains: query, mode: 'insensitive' as const } },
-                  { department: { contains: query, mode: 'insensitive' as const } },
-                ],
-              }
-            : {}),
-        },
-        orderBy: [{ shortName: 'asc' }],
+        where,
+        orderBy: [{ shortName: 'asc' }, { longName: 'asc' }, { department: 'asc' }, { id: 'asc' }],
         select: { id: true, shortName: true, longName: true, department: true },
-        // The full catalogue is ~270 rows and is delivered in one response, but
-        // the cap keeps an unexpected catalogue explosion from becoming an
-        // unbounded payload.
-        take: 500,
+        skip: (filter.page - 1) * filter.pageSize,
+        take: filter.pageSize,
       }),
     ]);
 
     void locale;
     return {
       data: groups.map((group) => TimetableService.mapGroup(group)),
+      pagination: {
+        page: filter.page,
+        pageSize: filter.pageSize,
+        total,
+        totalPages: Math.ceil(total / filter.pageSize),
+      },
+      lastSyncAt,
+      stale: this.isStale(lastSyncAt),
+    };
+  }
+
+  /**
+   * Resolve one stored Campus UUID without downloading the catalogue.
+   *
+   * A hidden alias answers with its visible representative — but only from the
+   * same semester catalogue(s), exactly the scope in which the alias was
+   * decided. A same-named group of another semester is a different cohort.
+   */
+  async getGroup(
+    locale: LocaleResolution,
+    groupId: string,
+  ): Promise<{ data: TimetableGroupDto; lastSyncAt: Date | null; stale: boolean }> {
+    const select = {
+      id: true,
+      shortName: true,
+      longName: true,
+      department: true,
+      catalogVisible: true,
+    } as const;
+    const [group, lastSyncAt] = await Promise.all([
+      this.prisma.timetableGroup.findFirst({
+        where: { id: groupId },
+        select: { ...select, contexts: { select: { contextId: true } } },
+      }),
+      this.lastSuccessful('groups'),
+    ]);
+    if (!group) {
+      throw new ApiError('TIMETABLE_GROUP_NOT_FOUND', locale.resolvedLocale);
+    }
+    const contextIds = group.contexts.map((context) => context.contextId);
+    const publicGroup = group.catalogVisible
+      ? group
+      : ((await this.prisma.timetableGroup.findFirst({
+          where: {
+            active: true,
+            catalogVisible: true,
+            shortName: group.shortName,
+            longName: group.longName,
+            department: group.department,
+            contexts:
+              contextIds.length > 0 ? { some: { contextId: { in: contextIds } } } : { none: {} },
+          },
+          orderBy: { id: 'asc' },
+          select,
+        })) ?? group);
+    return {
+      data: TimetableService.mapGroup(publicGroup),
+      lastSyncAt,
+      stale: this.isStale(lastSyncAt),
+    };
+  }
+
+  /**
+   * Semester catalogues known to the worker, in chronological order.
+   *
+   * Only Campus UUIDs and source display strings cross the boundary. The
+   * WebUntis school-year and class ids remain private database columns.
+   */
+  async listPeriods(): Promise<{
+    data: TimetablePeriodDto[];
+    lastSyncAt: Date | null;
+    stale: boolean;
+  }> {
+    if (!this.featureEnabled) {
+      const lastSyncAt = await this.lastSuccessful('groups');
+      return { data: [], lastSyncAt, stale: true };
+    }
+    const [lastSyncAt, periods] = await Promise.all([
+      this.lastSuccessful('groups'),
+      this.prisma.timetableContext.findMany({
+        where: { groups: { some: {} } },
+        orderBy: { validFrom: 'desc' },
+        take: 8,
+        select: {
+          id: true,
+          name: true,
+          validFrom: true,
+          validTo: true,
+          groups: {
+            orderBy: { group: { shortName: 'asc' } },
+            select: {
+              group: {
+                select: {
+                  id: true,
+                  shortName: true,
+                  longName: true,
+                  department: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data: periods
+        .map((period) => ({
+          id: period.id,
+          name: period.name,
+          validFrom: period.validFrom.toISOString().slice(0, 10),
+          validTo: period.validTo.toISOString().slice(0, 10),
+          groups: period.groups.map(({ group }) => TimetableService.mapGroup(group)),
+        }))
+        .reverse(),
       lastSyncAt,
       stale: this.isStale(lastSyncAt),
     };
@@ -185,6 +314,48 @@ export class TimetableService {
       }
     }
     return { values: [...values].sort(), hasWithoutInfo };
+  }
+
+  /**
+   * Modules already observed for a study group. The catalogue is assembled
+   * from retained Campus rows and never causes an upstream request.
+   */
+  async listModules(
+    groupId: string,
+    locale: LocaleResolution,
+  ): Promise<{ data: TimetableModuleDto[]; lastSyncAt: Date | null; stale: boolean }> {
+    const [group, lastSyncAt] = await Promise.all([
+      this.prisma.timetableGroup.findFirst({ where: { id: groupId }, select: { id: true } }),
+      this.lastSuccessful('entries'),
+    ]);
+    if (!group) {
+      throw new ApiError('TIMETABLE_GROUP_NOT_FOUND', locale.resolvedLocale);
+    }
+    if (!this.featureEnabled) {
+      return { data: [], lastSyncAt, stale: true };
+    }
+
+    const entries = await this.prisma.timetableEntry.findMany({
+      where: { groups: { some: { groupId } } },
+      orderBy: { startsAt: 'desc' },
+      select: { subjectCode: true, title: true },
+      // A group normally has only a few hundred retained lessons. The bound
+      // prevents accidental unbounded reads if retention changes later.
+      take: 2000,
+    });
+    const modules = new Map<string, TimetableModuleDto>();
+    for (const entry of entries) {
+      const title = entry.title.trim();
+      if (!title) continue;
+      const subjectCode = entry.subjectCode?.trim() || null;
+      const key = subjectCode ? `code:${subjectCode}` : `title:${title}`;
+      if (!modules.has(key)) modules.set(key, { subjectCode, title });
+    }
+    return {
+      data: [...modules.values()].sort((a, b) => a.title.localeCompare(b.title)),
+      lastSyncAt,
+      stale: this.isStale(lastSyncAt),
+    };
   }
 
   async getWeek(
@@ -309,7 +480,9 @@ export class TimetableService {
 
   async getStatus(): Promise<TimetableStatusDto> {
     const [groupCount, lastGroupSyncAt, lastEntryRun] = await Promise.all([
-      this.prisma.timetableGroup.count({ where: { active: true } }),
+      this.prisma.timetableGroup.count({
+        where: { active: true, catalogVisible: true },
+      }),
       this.lastSuccessful('groups'),
       this.lastEntryRun(),
     ]);

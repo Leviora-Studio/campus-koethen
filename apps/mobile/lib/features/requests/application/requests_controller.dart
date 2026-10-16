@@ -40,6 +40,34 @@ class SubmitStoreFailed extends SubmitOutcome {
   const SubmitStoreFailed();
 }
 
+/// Nothing was sent: the stored case list could not be read.
+///
+/// Sending first and then failing to record the answer would strand the one
+/// status link the endpoint hands out, so the attempt stops before the
+/// network is touched.
+class SubmitStoreUnavailable extends SubmitOutcome {
+  const SubmitStoreUnavailable();
+}
+
+/// Nothing was sent: this draft is already being submitted.
+///
+/// A second form on the same draft must not start a parallel upload under
+/// the same key.
+class SubmitInFlight extends SubmitOutcome {
+  const SubmitInFlight();
+}
+
+/// The attempt ended in a way that requires the draft to be kept frozen, and
+/// storage refused to keep it.
+///
+/// The freeze still holds for this session; the user is told that the draft
+/// must not be changed before it is sent again.
+class SubmitDraftStoreFailed extends SubmitOutcome {
+  const SubmitDraftStoreFailed(this.result);
+
+  final SubmissionResult result;
+}
+
 /// Everything the gateway itself reported.
 class SubmitGatewaySaid extends SubmitOutcome {
   const SubmitGatewaySaid(this.result);
@@ -67,6 +95,14 @@ class SubmitPayloadChanged extends SubmitOutcome {
   const SubmitPayloadChanged();
 }
 
+/// The requests data on this device was wiped while this attempt ran.
+///
+/// Whatever the attempt produced — a status link, a frozen draft — is
+/// dropped rather than written back into the store the person just emptied.
+class SubmitDiscarded extends SubmitOutcome {
+  const SubmitDiscarded();
+}
+
 /// Locally stored drafts, newest first.
 class RequestsController extends AsyncNotifier<List<RequestDraft>> {
   RequestStore get _store => ref.read(requestStoreProvider);
@@ -82,6 +118,21 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
       );
 
   List<RequestDraft> get _current => state.value ?? const <RequestDraft>[];
+
+  /// The stored drafts — waiting for a load in progress, refusing a failed
+  /// one. Writing an empty stand-in would replace every stored draft.
+  Future<List<RequestDraft>> _loaded() async {
+    try {
+      await future;
+    } catch (_) {
+      throw const RequestStoreUnavailable();
+    }
+    final AsyncValue<List<RequestDraft>> current = state;
+    if (current.hasError || !current.hasValue) {
+      throw const RequestStoreUnavailable();
+    }
+    return current.requireValue;
+  }
 
   RequestDraft? byId(String id) {
     for (final RequestDraft draft in _current) {
@@ -118,10 +169,12 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
   /// is refused: its bytes are the retry payload, and changing them under the
   /// same key is what turns a replay into a conflict or a duplicate.
   Future<void> save(RequestDraft draft, {required DateTime now}) async {
+    if (_isInFlight(draft.id)) return;
+    final List<RequestDraft> current = await _loaded();
     final RequestDraft? existing = byId(draft.id);
     if (existing != null && existing.isFrozen) return;
 
-    final List<RequestDraft> next = _current
+    final List<RequestDraft> next = current
         .where((RequestDraft d) => d.id != draft.id)
         .toList();
     if (!draft.isEmpty) next.add(_touch(draft, now));
@@ -135,13 +188,32 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
       };
 
   /// Deletes a draft and the attachments it owned.
+  ///
+  /// Refused while the draft is being sent: its files are what is on the wire,
+  /// and an unclear outcome would freeze it again — pointing at files that no
+  /// longer exist.
   Future<void> delete(String id) async {
+    if (_isInFlight(id)) return;
+    final List<RequestDraft> current = await _loaded();
     final RequestDraft? draft = byId(id);
-    await _persist(_current.where((RequestDraft d) => d.id != id).toList());
+    await _persist(current.where((RequestDraft d) => d.id != id).toList());
     if (draft is FinanceApplicationDraft) {
       await _attachments.deleteAll(draft.files.values);
     }
   }
+
+  /// Deletes a file the draft [draftId] no longer references (replaced or
+  /// removed in the form). Refused while that draft is being sent.
+  Future<void> discardAttachment(
+    String draftId,
+    RequestAttachment attachment,
+  ) async {
+    if (_isInFlight(draftId)) return;
+    await _attachments.delete(attachment);
+  }
+
+  bool _isInFlight(String id) =>
+      ref.read(requestsInFlightProvider).contains(id);
 
   /// Submits a draft and records the result.
   ///
@@ -155,12 +227,60 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
   ///
   /// Any failure short of that leaves the draft and its files exactly where
   /// they were. Nothing the user typed or picked is ever lost to an error.
+  ///
+  /// While it runs, the draft is **in flight** ([requestsInFlightProvider]):
+  /// saving, deleting, unfreezing, discarding its files and a second submit
+  /// are all refused, from this screen or any other. And it never throws — a
+  /// storage failure is an outcome the form has to show, not a crash that
+  /// leaves its spinner running.
   Future<SubmitOutcome> submit(
     RequestDraft draft, {
     required DateTime now,
     SubmissionProgress? onProgress,
     SubmissionCancelToken? cancel,
   }) async {
+    final RequestsInFlight inFlight = ref.read(
+      requestsInFlightProvider.notifier,
+    );
+    // Claimed before the first await, so two taps cannot both get past it.
+    if (inFlight.contains(draft.id)) return const SubmitInFlight();
+    final SubmissionCancelToken token = cancel ?? SubmissionCancelToken();
+    final int generation = inFlight.start(draft.id, token);
+    try {
+      final SubmitOutcome outcome = await _submit(
+        draft,
+        now: now,
+        onProgress: onProgress,
+        cancel: token,
+        isCurrent: () => inFlight.isCurrent(generation),
+      );
+      return inFlight.isCurrent(generation) ? outcome : const SubmitDiscarded();
+    } finally {
+      inFlight.finish(draft.id);
+    }
+  }
+
+  /// [isCurrent] turns false once the local requests data was wiped while
+  /// this attempt ran. From then on nothing is written: no case, no frozen
+  /// draft — the store the person just emptied stays empty.
+  Future<SubmitOutcome> _submit(
+    RequestDraft draft, {
+    required DateTime now,
+    required SubmissionCancelToken cancel,
+    required bool Function() isCurrent,
+    SubmissionProgress? onProgress,
+  }) async {
+    // Before anything goes out: an accepted case has to be recordable, and
+    // the case list is what it is recorded into.
+    try {
+      await ref.read(submissionsProvider.future);
+    } catch (_) {
+      return const SubmitStoreUnavailable();
+    }
+    if (ref.read(submissionsProvider).hasError) {
+      return const SubmitStoreUnavailable();
+    }
+
     final PendingSubmission? pending = draft.pending;
     if (pending != null) {
       // A frozen draft may only be retried with byte-identical data.
@@ -173,25 +293,37 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
     }
 
     final RequestGateway gateway = ref.read(requestGatewayProvider);
-    final SubmissionResult result = switch (draft) {
-      FinanceApplicationDraft() => await gateway.submitApplication(
-        draft,
-        onProgress: onProgress,
-        cancel: cancel,
-      ),
-      FeedbackDraft() => await gateway.submitFeedback(
-        draft,
-        onProgress: onProgress,
-        cancel: cancel,
-      ),
-    };
+    SubmissionResult result;
+    try {
+      result = switch (draft) {
+        FinanceApplicationDraft() => await gateway.submitApplication(
+          draft,
+          onProgress: onProgress,
+          cancel: cancel,
+        ),
+        FeedbackDraft() => await gateway.submitFeedback(
+          draft,
+          onProgress: onProgress,
+          cancel: cancel,
+        ),
+      };
+    } catch (_) {
+      // Whatever the client threw, the bytes may already have left. Unknown,
+      // not failed: the draft freezes and a retry replays under the same key.
+      result = const SubmissionOutcomeUnknown('client-error');
+    }
 
-    if (result is SubmissionAccepted) return _record(draft, result, now);
+    if (!isCurrent()) return const SubmitDiscarded();
+    if (result is SubmissionAccepted) {
+      return _record(draft, result, now, isCurrent);
+    }
 
     if (result is SubmissionOutcomeUnknown) {
       // Freeze: the case may exist. The key and the exact payload have to
       // survive unchanged so a retry can replay instead of filing a second.
-      await _freeze(draft, now);
+      if (!await _freezeSafely(draft, now)) {
+        return SubmitDraftStoreFailed(result);
+      }
     }
     return SubmitGatewaySaid(result);
   }
@@ -200,6 +332,7 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
     RequestDraft draft,
     SubmissionAccepted accepted,
     DateTime now,
+    bool Function() isCurrent,
   ) async {
     final SubmittedCase submitted = SubmittedCase(
       id: draft.id,
@@ -220,19 +353,46 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
     } catch (_) {
       // ANY failure to store, not just the store's own exception type: the
       // case exists and its link may now be lost, so the draft — with its key
-      // — is kept rather than deleted on the way past a crash.
+      // — is kept rather than deleted on the way past a crash. And frozen:
+      // the endpoint holds this key now, so only a byte-identical replay can
+      // fetch the link again; an edited retry would end in a 409.
+      if (!isCurrent()) return const SubmitDiscarded();
+      await _freezeSafely(draft, now);
       return const SubmitStoreFailed();
     }
+    if (!isCurrent()) return const SubmitDiscarded();
 
-    await _persist(
-      _current.where((RequestDraft d) => d.id != draft.id).toList(),
-    );
+    try {
+      await _persist(
+        _current.where((RequestDraft d) => d.id != draft.id).toList(),
+      );
+    } catch (_) {
+      // The case is safely recorded — that is what counts. The leftover draft
+      // on disk still names its files, so they stay until it is deleted; a
+      // replay of it under the same key files nothing new.
+      return SubmitRecorded(submitted);
+    }
     if (draft is FinanceApplicationDraft) {
       // Safe now: the case is recorded, so these bytes are no longer the only
       // copy of anything that still has to be sent.
-      await _attachments.deleteAll(draft.files.values);
+      try {
+        await _attachments.deleteAll(draft.files.values);
+      } catch (_) {}
     }
     return SubmitRecorded(submitted);
+  }
+
+  /// [_freeze], reporting a storage failure instead of throwing it.
+  ///
+  /// The freeze is in this session's state either way ([_persist] publishes
+  /// before it writes), so the form stays locked even when the disk refused.
+  Future<bool> _freezeSafely(RequestDraft draft, DateTime now) async {
+    try {
+      await _freeze(draft, now);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _freeze(RequestDraft draft, DateTime now) async {
@@ -252,20 +412,28 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
     ]);
   }
 
-  /// Lets the user abandon a frozen draft.
+  /// Lets the user abandon a frozen draft and send it as a **new** case.
   ///
-  /// Used when the key has expired and they decide the case never arrived.
-  /// Deliberately explicit: this is the one path that can produce a duplicate,
-  /// and it must be a decision rather than a side effect.
+  /// Used when the key has expired, or the replay was refused outright, and
+  /// they decide to go on. Deliberately explicit: this is the one path that
+  /// can produce a duplicate, and it must be a decision rather than a side
+  /// effect.
+  ///
+  /// The draft gets a fresh idempotency key (docs/requests.md §4): it may be
+  /// edited now, and under the old key a server that still knows it would
+  /// answer the changed payload with a 409 instead of a new case.
   Future<void> unfreeze(String id) async {
+    if (_isInFlight(id)) return;
+    final List<RequestDraft> current = await _loaded();
     final RequestDraft? draft = byId(id);
     if (draft == null) return;
+    final String key = IdempotencyKey.generate();
     final RequestDraft thawed = switch (draft) {
-      FinanceApplicationDraft() => draft.copyWith(clearPending: true),
-      FeedbackDraft() => draft.copyWith(clearPending: true),
+      FinanceApplicationDraft() => draft.asNewCase(idempotencyKey: key),
+      FeedbackDraft() => draft.asNewCase(idempotencyKey: key),
     };
     await _persist(<RequestDraft>[
-      ..._current.where((RequestDraft d) => d.id != id),
+      ...current.where((RequestDraft d) => d.id != id),
       thawed,
     ]);
   }
@@ -277,10 +445,55 @@ class RequestsController extends AsyncNotifier<List<RequestDraft>> {
   }
 }
 
+/// The ids of drafts whose submission is running right now.
+///
+/// Also the handle a local wipe uses on them: [abandonAll] cancels every
+/// running upload and makes its result stale, so nothing it returns is
+/// written back into the emptied store.
+class RequestsInFlight extends Notifier<Set<String>> {
+  final Map<String, SubmissionCancelToken> _tokens =
+      <String, SubmissionCancelToken>{};
+  int _generation = 0;
+
+  @override
+  Set<String> build() => const <String>{};
+
+  bool contains(String id) => state.contains(id);
+
+  /// Marks [id] as being sent; returns the generation the attempt belongs to.
+  int start(String id, [SubmissionCancelToken? cancel]) {
+    if (cancel != null) _tokens[id] = cancel;
+    state = <String>{...state, id};
+    return _generation;
+  }
+
+  void finish(String id) {
+    _tokens.remove(id);
+    state = <String>{...state.where((String other) => other != id)};
+  }
+
+  /// Whether an attempt started in [generation] may still write its result.
+  bool isCurrent(int generation) => generation == _generation;
+
+  /// Cancels every running upload and discards what they return.
+  void abandonAll() {
+    _generation++;
+    for (final SubmissionCancelToken token in _tokens.values.toList()) {
+      token.cancel();
+    }
+  }
+}
+
+final NotifierProvider<RequestsInFlight, Set<String>> requestsInFlightProvider =
+    NotifierProvider<RequestsInFlight, Set<String>>(RequestsInFlight.new);
+
 final AsyncNotifierProvider<RequestsController, List<RequestDraft>>
 requestsProvider =
     AsyncNotifierProvider<RequestsController, List<RequestDraft>>(
       RequestsController.new,
+      // A failed read stays an error the screen can show and retry, instead
+      // of a "loading" state every write would wait on.
+      retry: (_, _) => null,
     );
 
 /// The file slots of an application, in form order.

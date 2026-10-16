@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -300,6 +301,62 @@ void main() {
       );
     });
 
+    testWidgets('a screen reader can activate every channel link', (
+      WidgetTester tester,
+    ) async {
+      await _pumpCard(
+        tester,
+        _article(
+          channels: const <NewsChannelRef>[
+            NewsChannelRef(slug: 'fb5-news', name: 'FB5-News'),
+          ],
+        ),
+      );
+
+      final List<SemanticsNode> linkNodes = _linkNodes(tester);
+      expect(linkNodes, isNotEmpty);
+      for (final SemanticsNode node in linkNodes) {
+        expect(node, isSemantics(isLink: true, hasTapAction: true));
+      }
+    });
+
+    testWidgets('uses a focusable 48 dp button for every channel', (
+      WidgetTester tester,
+    ) async {
+      await _pumpCardWithRouter(
+        tester,
+        _article(
+          channels: const <NewsChannelRef>[
+            NewsChannelRef(slug: 'fb5-news', name: 'FB5-News'),
+          ],
+        ),
+      );
+
+      final Finder button = find.ancestor(
+        of: find.text('FB5-News'),
+        matching: find.byType(TextButton),
+      );
+      expect(button, findsOneWidget);
+      expect(
+        tester.getSize(button).height,
+        greaterThanOrEqualTo(kMinInteractiveDimension),
+      );
+
+      for (
+        int i = 0;
+        i < 8 && !Focus.of(tester.element(find.text('FB5-News'))).hasFocus;
+        i++
+      ) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(Focus.of(tester.element(find.text('FB5-News'))).hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('channel:fb5-news'), findsOneWidget);
+    });
+
     testWidgets(
       'tapping a channel handle navigates, without toggling the card',
       (WidgetTester tester) async {
@@ -369,6 +426,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Mehr anzeigen'), findsOneWidget);
     expect(find.text('Weniger anzeigen'), findsNothing);
+  });
+
+  testWidgets('a screen reader can open a post image', (
+    WidgetTester tester,
+  ) async {
+    await _pumpCard(
+      tester,
+      _article(heroImage: const NewsImage(url: '/v1/media/uploads/hero.jpg')),
+    );
+
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Bild im Vollbild öffnen')),
+      isSemantics(isButton: true, hasTapAction: true),
+    );
   });
 
   testWidgets('only the real actions announce themselves as buttons', (
@@ -524,7 +595,7 @@ void main() {
         tester,
         _article(
           content: const <ContentBlock>[
-            ImageBlock(url: 'https://cdn.example.org/plakat.png'),
+            ImageBlock(url: '/v1/media/uploads/plakat.png'),
           ],
         ),
       );

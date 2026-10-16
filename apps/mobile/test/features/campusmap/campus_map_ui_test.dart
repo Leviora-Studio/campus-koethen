@@ -11,6 +11,7 @@ import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/network/api_client.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/theme/app_dimensions.dart';
 import 'package:campus_koethen/core/theme/app_theme.dart';
@@ -180,6 +181,7 @@ Future<void> pumpMap(
   String? initialRoomKey,
   Locale locale = AppLocales.german,
   Size? size,
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
   if (size == null) {
     useTallSurface(tester);
@@ -191,6 +193,7 @@ Future<void> pumpMap(
     tester,
     CampusMapScreen(initialRoomKey: initialRoomKey),
     locale: locale,
+    textScaler: textScaler,
     keyValueStore: store,
     overrides: mapOverrides(rooms ?? roomsFixture, contacts: contacts),
   );
@@ -232,6 +235,23 @@ Rect controlBarRect(WidgetTester tester) => tester.getRect(
 );
 
 void main() {
+  testWidgets('layout matrix keeps search and map actions on screen', (
+    WidgetTester tester,
+  ) async {
+    for (final (Size size, TextScaler scaler) in <(Size, TextScaler)>[
+      (const Size(320, 800), TextScaler.noScaling),
+      (const Size(360, 800), const TextScaler.linear(1.3)),
+      (const Size(800, 360), TextScaler.noScaling),
+      (const Size(320, 1000), const TextScaler.linear(2)),
+    ]) {
+      await pumpMap(tester, size: size, textScaler: scaler);
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byTooltip('Ansicht zurücksetzen'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '$size at $scaler');
+    }
+  });
+
   testWidgets('room search fallback opens the map without a room selection', (
     WidgetTester tester,
   ) async {
@@ -289,6 +309,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // The hub uses the module's full title; "Lageplan" alone is the short one.
+    await tester.scrollUntilVisible(
+      find.text('Lageplan & Räume'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Lageplan & Räume'), findsOneWidget);
     expect(
       find.text('Gebäudepläne mit interaktiver Raumsuche'),
@@ -333,6 +358,31 @@ void main() {
   ) async {
     await pumpMap(tester);
     expect(find.text('Schematischer Plan'), findsNothing);
+  });
+
+  testWidgets('the info dialog names the plan source and its schematic kind', (
+    WidgetTester tester,
+  ) async {
+    await pumpMap(tester);
+
+    await tester.tap(find.byTooltip('Über diesen Plan'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.textContaining('nicht maßstabsgetreu'), findsOneWidget);
+    expect(find.text('Plangrundlage: Hochschule Anhalt'), findsOneWidget);
+  });
+
+  testWidgets('the info dialog speaks English in English', (
+    WidgetTester tester,
+  ) async {
+    await pumpMap(tester, locale: AppLocales.english);
+
+    await tester.tap(find.byTooltip('About this plan'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('not to scale'), findsOneWidget);
+    expect(find.text('Plan source: Hochschule Anhalt'), findsOneWidget);
   });
 
   testWidgets('searching 216 selects and marks 216', (
@@ -936,7 +986,8 @@ void _selectionTests() {
 
     expect(
       find.bySemanticsLabel(
-        'Gebäude auswählen, aktuell ${buildingName(ratke)}',
+        'Standort und Gebäude auswählen, aktuell Köthen, '
+        '${buildingName(ratke)}',
       ),
       findsOneWidget,
     );
@@ -947,6 +998,106 @@ void _selectionTests() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a screen reader can open the building picker', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle handle = tester.ensureSemantics();
+    await pumpMap(tester);
+
+    final String label =
+        'Standort und Gebäude auswählen, aktuell Köthen, '
+        '${buildingName(ratke)}';
+    expect(
+      tester.getSemantics(find.bySemanticsLabel(label)),
+      isSemantics(isButton: true, hasTapAction: true),
+    );
+
+    tester.semantics.tap(find.semantics.byLabel(label));
+    await tester.pumpAndSettle();
+    expect(find.text(buildingName('koethen-01')), findsOneWidget);
+    handle.dispose();
+  });
+
+  group('sites', () {
+    Future<void> openBuildingMenu(WidgetTester tester) async {
+      await tester.tap(find.text(buildingName(ratke)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the building menu lists every site with its buildings, and '
+        'says which sites have no plans yet', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await openBuildingMenu(tester);
+
+      expect(find.text('Köthen'), findsOneWidget);
+      expect(find.text('Bernburg'), findsOneWidget);
+      expect(find.text('Dessau'), findsOneWidget);
+      expect(find.text(buildingName('koethen-01')), findsOneWidget);
+      expect(find.text('Noch keine Lagepläne'), findsNWidgets(2));
+    });
+
+    testWidgets('choosing a site without plans says so and keeps the way '
+        'back', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await openBuildingMenu(tester);
+
+      await tester.tap(find.text('Noch keine Lagepläne').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FloorMapView), findsNothing);
+      expect(
+        find.text(
+          'Für Dessau liegen noch keine Lagepläne vor. '
+          'Wähle oben einen anderen Standort.',
+        ),
+        findsOneWidget,
+      );
+
+      // The control is still there: its label is now the site.
+      await tester.tap(find.text('Dessau'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(buildingName('koethen-01')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FloorMapView), findsOneWidget);
+    });
+
+    testWidgets('a preferred site without plans opens on that site, not on '
+        'the campus of another site', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final InMemoryKeyValueStore store = InMemoryKeyValueStore()
+        ..setString(PreferenceKeys.campusSite, 'bernburg');
+      await pumpScreen(
+        tester,
+        const CampusMapScreen(),
+        keyValueStore: store,
+        overrides: mapOverrides(roomsFixture),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FloorMapView), findsNothing);
+      expect(find.textContaining('Für Bernburg'), findsOneWidget);
+    });
+
+    testWidgets('a linked room still opens its own building, whatever site '
+        'is preferred', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final InMemoryKeyValueStore store = InMemoryKeyValueStore()
+        ..setString(PreferenceKeys.campusSite, 'dessau');
+      await pumpScreen(
+        tester,
+        CampusMapScreen(
+          initialRoomKey: roomsFixture.first['roomKey'] as String,
+        ),
+        keyValueStore: store,
+        overrides: mapOverrides(roomsFixture),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FloorMapView), findsOneWidget);
+    });
   });
 
   testWidgets('the floor picker switches storeys inside the building', (

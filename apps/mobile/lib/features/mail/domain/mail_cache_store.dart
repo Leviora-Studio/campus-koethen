@@ -4,6 +4,53 @@
 import 'mail_message.dart';
 import 'mail_search_match.dart';
 
+class MailCachePolicy {
+  static const int defaultPrefetchBodies = 20;
+
+  /// Size of the newest-headers window every INBOX sync fetches.
+  static const int defaultWindowHeaders = 50;
+
+  const MailCachePolicy({
+    this.maxHeaders = 500,
+    this.maxBodies = 200,
+    this.maxBodyBytes = 100 * 1024 * 1024,
+    this.headerRetention = const Duration(days: 365),
+    this.bodyRetention = const Duration(days: 180),
+    this.prefetchBodies = defaultPrefetchBodies,
+    this.windowHeaders = defaultWindowHeaders,
+  });
+
+  /// The [windowHeaders] headers with the highest IMAP UIDs — exactly the
+  /// server window of the last sync — are exempt from [headerRetention] and
+  /// [maxHeaders]: dropping one would hide a current mail and make the next
+  /// sync report it as new again.
+  final int windowHeaders;
+  final int maxHeaders;
+  final int maxBodies;
+  final int maxBodyBytes;
+  final Duration headerRetention;
+  final Duration bodyRetention;
+  final int prefetchBodies;
+
+  /// Whether a body dated [date] survives the age-based pruning at [now].
+  /// An undated body ages from the moment it is stored, so it always does.
+  bool retainsBodyDated(DateTime? date, DateTime now) =>
+      date == null ||
+      !date.toUtc().isBefore(now.toUtc().subtract(bodyRetention));
+}
+
+class MailCacheStats {
+  const MailCacheStats({
+    required this.headerCount,
+    required this.bodyCount,
+    required this.byteCount,
+  });
+
+  final int headerCount;
+  final int bodyCount;
+  final int byteCount;
+}
+
 /// Offline store for the INBOX: headers, full message bodies and (optionally)
 /// attachment bytes are kept on the device so messages open instantly and work
 /// without a connection.
@@ -21,11 +68,27 @@ abstract interface class MailCacheStore {
   /// Replaces the header index with [headers] (the caller merges first).
   Future<void> saveHeaders(List<MailMessageHeader> headers);
 
+  /// The INBOX UIDVALIDITY the cached UIDs belong to, or null when none has
+  /// been recorded yet. A server reporting a different value has renumbered
+  /// the mailbox: every cached UID may then name another message.
+  Future<int?> readUidValidity();
+
+  /// Records the UIDVALIDITY the cached INBOX UIDs belong to. Survives
+  /// [clearCachedBodies] together with the header list; [clear] removes it.
+  Future<void> saveUidValidity(int uidValidity);
+
   /// Ids of messages whose full body is cached.
   Future<Set<String>> cachedMessageIds();
 
   /// A cached full message, or null if only its header (or nothing) is known.
   Future<MailMessageDetail?> readMessage(String id);
+
+  /// Whether a body dated [date] would outlive the next age-based [prune].
+  ///
+  /// A background prefetch must skip bodies for which this is false: storing
+  /// them only to delete them again would repeat the full download on every
+  /// sync. Opening such a message still loads it on demand.
+  bool retainsBody(DateTime? date);
 
   /// Stores a full message (and updates the known-address index from it).
   Future<void> saveMessage(MailMessageDetail message);
@@ -38,6 +101,10 @@ abstract interface class MailCacheStore {
   /// (growing) index once per message, which turns a page of mail into
   /// quadratic work. Callers with more than one message must use this.
   Future<void> saveMessages(List<MailMessageDetail> messages);
+
+  /// Removes one message, its header and any addresses no longer referenced by
+  /// another cached message.
+  Future<void> removeMessage(String id);
 
   /// Headers of the cached messages matching [query], newest first.
   ///
@@ -53,6 +120,14 @@ abstract interface class MailCacheStore {
 
   /// Every address seen across cached messages (From/To/Cc), for suggestions.
   Future<List<MailAddressEntry>> knownAddresses();
+
+  Future<MailCacheStats> stats();
+
+  /// Removes offline bodies, attachment bytes and derived indexes while
+  /// retaining the lightweight header list.
+  Future<void> clearCachedBodies();
+
+  Future<void> prune();
 
   /// Wipes everything. Called when the account is removed.
   Future<void> clear();

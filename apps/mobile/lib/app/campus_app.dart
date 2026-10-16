@@ -7,12 +7,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/locale/locale_mode.dart';
 import '../core/prefs/settings_controller.dart';
 import '../core/theme/app_motion.dart';
+import '../core/theme/appearance_preferences.dart';
 import '../core/theme/app_theme.dart';
 import '../features/campusmap/presentation/room_catalog_refresh_host.dart';
+import '../features/canteen/presentation/canteen_balance_launch_host.dart';
+import '../features/calendar/home_widget/calendar_home_widget_host.dart';
 import '../features/notifications/presentation/notification_host.dart';
 import '../l10n/l10n.dart';
 import 'app_router.dart';
 import 'app_sync_host.dart';
+import 'background_sync_host.dart';
 
 /// Root widget of the app.
 ///
@@ -29,11 +33,16 @@ class CampusApp extends ConsumerWidget {
     final (
       LocaleMode localeMode,
       ThemeMode themeMode,
+      AccentScheme accentScheme,
       bool reducedMotion,
     ) = ref.watch(
       settingsProvider.select(
-        (AppSettings settings) =>
-            (settings.localeMode, settings.themeMode, settings.reducedMotion),
+        (AppSettings settings) => (
+          settings.localeMode,
+          settings.themeMode,
+          settings.accentScheme,
+          settings.reducedMotion,
+        ),
       ),
     );
 
@@ -50,16 +59,30 @@ class CampusApp extends ConsumerWidget {
       // The notification runtime needs a locale for the Android channel names
       // and a navigator for a tap to land in, so it wraps the router's output
       // rather than sitting above the MaterialApp.
-      builder: (BuildContext context, Widget? child) => NotificationHost(
-        child: AppSyncHost(
-          child: RoomCatalogRefreshHost(
-            child: child ?? const SizedBox.shrink(),
+      builder: (BuildContext context, Widget? child) => CalendarHomeWidgetHost(
+        child: CanteenBalanceLaunchHost(
+          child: NotificationHost(
+            child: BackgroundSyncHost(
+              child: AppSyncHost(
+                child: RoomCatalogRefreshHost(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
+            ),
           ),
         ),
       ),
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(motion: motion),
-      darkTheme: AppTheme.dark(motion: motion),
+      theme: AppTheme.light(accentScheme: accentScheme, motion: motion),
+      darkTheme: AppTheme.dark(accentScheme: accentScheme, motion: motion),
+      highContrastTheme: AppTheme.highContrastLight(
+        accentScheme: accentScheme,
+        motion: motion,
+      ),
+      highContrastDarkTheme: AppTheme.highContrastDark(
+        accentScheme: accentScheme,
+        motion: motion,
+      ),
       themeMode: themeMode,
       locale: localeMode.locale,
       supportedLocales: AppLocales.supported,

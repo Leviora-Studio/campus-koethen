@@ -1,26 +1,27 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
-/// The notification categories the product release (LEVIORA-159) approved.
+/// The notification categories approved by the product plan.
 ///
-/// The set is closed: ADR-0001 § 7.3 lists exactly three, and P5 rules out
-/// individual reminders for timetable slots and Moodle deadlines. Adding a
-/// value here is a product decision, not a refactoring.
+/// The set is closed. Adding a value here is a product decision, not a
+/// refactoring. Moodle deadline reminders and grade-change alerts were added
+/// by the academic-updates plan after ADR-0001's initial three categories; new
+/// mail is an immediate, privacy-neutral signal added on top of them.
 ///
 /// Every category carries its own identity in three places, and all three are
 /// stable across app updates because they end up inside data the operating
 /// system keeps:
 ///
 /// * [key] — what a notification payload names (`v1|<key>|<target>`),
-/// * [keyPrefix] — the first segment of a scheduling key (`n1:`, `n2:`, `n3:`),
+/// * [keyPrefix] — the first segment of a notification key (`n1:` … `n4:`),
 /// * [channelId] — the Android notification channel.
 ///
 /// [order] is the tie-breaker of the planner's deterministic sort, so two
 /// notifications due at the very same instant always survive the budget in the
 /// same order — see `notification_planner.dart`.
 enum NotificationCategory {
-  /// N1 · `event.reminder` — one reminder exactly 24 hours before a public or
-  /// saved event (P3).
+  /// N1 · `event.reminder` — at most one reminder with the global or
+  /// event-specific lead for a public or saved event.
   eventReminder(
     key: 'event.reminder',
     keyPrefix: 'n1',
@@ -48,6 +49,40 @@ enum NotificationCategory {
     storageValue: 'canteen',
     order: 2,
     windowPolicy: DeliveryWindowPolicy.fixedLocalTime,
+  ),
+
+  /// N4 · `moodle.deadline` — one neutral local reminder before each cached
+  /// Moodle deadline.
+  moodleDeadline(
+    key: 'moodle.deadline',
+    keyPrefix: 'n4',
+    channelId: 'moodle_deadline_channel',
+    storageValue: 'moodleDeadline',
+    order: 3,
+    windowPolicy: DeliveryWindowPolicy.shiftIntoWindow,
+  ),
+
+  /// N5 · `grade.change` — immediate, neutral alert after a successful grade
+  /// refresh detects a new result. It does not contribute scheduled candidates
+  /// to the planner.
+  gradeChange(
+    key: 'grade.change',
+    keyPrefix: 'n5',
+    channelId: 'grade_change_channel',
+    storageValue: 'gradeChange',
+    order: 4,
+    windowPolicy: DeliveryWindowPolicy.anyLocalTime,
+  ),
+
+  /// N6 · `mail.new` — an immediate, content-neutral hint after IMAP reports
+  /// a new message and the inbox reconciliation confirms it.
+  newMail(
+    key: 'mail.new',
+    keyPrefix: 'n6',
+    channelId: 'mail_channel',
+    storageValue: 'mail',
+    order: 5,
+    windowPolicy: DeliveryWindowPolicy.anyLocalTime,
   );
 
   const NotificationCategory({
@@ -65,8 +100,8 @@ enum NotificationCategory {
   /// First segment of every scheduling key of this category.
   final String keyPrefix;
 
-  /// The Android notification channel this category posts to. Three channels,
-  /// one per category, so a reader can silence one kind without silencing the
+  /// The Android notification channel this category posts to. One channel per
+  /// category lets a reader silence one kind without silencing the
   /// rest. A channel is **not** a group key and does not bundle anything
   /// (ADR-0001 § 7.7, P8).
   final String channelId;
@@ -100,9 +135,8 @@ enum DeliveryWindowPolicy {
   /// A time explicitly selected by the reader, including overnight hours.
   anyLocalTime,
 
-  /// The desired instant is derived from a source date (an event start minus
-  /// 24 hours), so it can fall outside the window and is moved to the next
-  /// 07:00 — ADR-0001 § 7.4.
+  /// The desired instant is derived from a source date minus a configured
+  /// lead, so it can fall outside the window and must be shifted safely.
   shiftIntoWindow,
 
   /// The category names a fixed local wall-clock time that lies inside the

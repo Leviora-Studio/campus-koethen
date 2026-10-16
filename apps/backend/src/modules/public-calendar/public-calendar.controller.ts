@@ -7,6 +7,12 @@ import { Locale, LocaleResolution } from '../../common/locale/locale';
 import { RequestLocale } from '../../common/locale/locale.decorator';
 import { isoDate, parseWith, refineDateRange } from '../../common/validation/query';
 import { ENV } from '../../config/app-config.module';
+import {
+  addCalendarDays,
+  campusDayEnd,
+  campusDayStart,
+  campusToday,
+} from '../../common/time/campus-date';
 import { Env } from '../../config/env.schema';
 import { PublicCalendarService } from './public-calendar.service';
 import {
@@ -51,9 +57,9 @@ export class PublicCalendarController {
       z.object({ from: isoDate.optional(), to: isoDate.optional() }).transform((raw) => {
         // Resolved at parse time, not at build time: the default window is
         // relative to "now", so it has to move with the clock.
-        const today = new Date().toISOString().slice(0, 10);
+        const today = campusToday();
         const from = raw.from ?? today;
-        const to = raw.to ?? new Date(Date.now() + maxDays * 86_400_000).toISOString().slice(0, 10);
+        const to = raw.to ?? addCalendarDays(from, maxDays);
         return { from, to };
       }),
       maxDays,
@@ -79,11 +85,21 @@ export class PublicCalendarController {
     return unique;
   }
 
-  private range(query: Record<string, unknown>, locale: Locale): { from: Date; to: Date } {
+  /**
+   * `from` and `to` name Europe/Berlin days, so the instants run from local
+   * midnight of `from` to the last millisecond of `to` in Berlin — not the UTC
+   * day, which is one or two hours off at either edge.
+   */
+  private range(
+    query: Record<string, unknown>,
+    locale: Locale,
+  ): { from: Date; to: Date; fromDay: string; toDay: string } {
     const parsed = parseWith(this.dateRange, query, locale);
     return {
-      from: new Date(`${parsed.from}T00:00:00.000Z`),
-      to: new Date(`${parsed.to}T23:59:59.999Z`),
+      from: campusDayStart(parsed.from),
+      to: campusDayEnd(parsed.to),
+      fromDay: parsed.from,
+      toDay: parsed.to,
     };
   }
 
@@ -97,17 +113,15 @@ export class PublicCalendarController {
   @ApiOkResponse({ type: PublicCalendarListResponseDto })
   async list(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
     const { data, translationFallback } = await this.calendars.listCalendars(locale);
-    const now = Date.now();
+    const today = campusToday();
     return {
       data,
       meta: buildMeta({
         ...locale,
         translationFallback,
         featureEnabled: this.env.PUBLIC_CALENDAR_ENABLED,
-        from: new Date(now).toISOString().slice(0, 10),
-        to: new Date(now + this.env.PUBLIC_CALENDAR_LOOKAHEAD_DAYS * 86_400_000)
-          .toISOString()
-          .slice(0, 10),
+        from: today,
+        to: addCalendarDays(today, this.env.PUBLIC_CALENDAR_LOOKAHEAD_DAYS),
         maxRangeDays: this.env.PUBLIC_CALENDAR_API_MAX_RANGE_DAYS,
       }),
     };
@@ -120,8 +134,17 @@ export class PublicCalendarController {
       'Pass one `calendar` slug per selected calendar. An empty selection returns an empty list (never "all calendars"). Each event carries calendarId and calendarSlug. The result is capped server-side; `meta.truncated` reports a cut list rather than presenting it as complete.',
   })
   @ApiQuery({ name: 'calendar', required: false, isArray: true, type: String })
-  @ApiQuery({ name: 'from', required: false, description: 'YYYY-MM-DD' })
-  @ApiQuery({ name: 'to', required: false, description: 'YYYY-MM-DD' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'YYYY-MM-DD, a Europe/Berlin calendar day. Defaults to today.',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description:
+      'YYYY-MM-DD, a Europe/Berlin calendar day (inclusive). Defaults to from plus the maximum range.',
+  })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PublicCalendarEventsResponseDto })
   async aggregated(
@@ -140,8 +163,8 @@ export class PublicCalendarController {
       meta: buildMeta({
         ...locale,
         translationFallback: false,
-        from: range.from.toISOString().slice(0, 10),
-        to: range.to.toISOString().slice(0, 10),
+        from: range.fromDay,
+        to: range.toDay,
         truncated,
       }),
     };
@@ -170,8 +193,17 @@ export class PublicCalendarController {
     description:
       'The result is capped server-side; `meta.truncated` reports a cut list rather than presenting it as complete.',
   })
-  @ApiQuery({ name: 'from', required: false, description: 'YYYY-MM-DD' })
-  @ApiQuery({ name: 'to', required: false, description: 'YYYY-MM-DD' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'YYYY-MM-DD, a Europe/Berlin calendar day. Defaults to today.',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description:
+      'YYYY-MM-DD, a Europe/Berlin calendar day (inclusive). Defaults to from plus the maximum range.',
+  })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PublicCalendarEventsResponseDto })
   async single(
@@ -189,8 +221,8 @@ export class PublicCalendarController {
       meta: buildMeta({
         ...locale,
         translationFallback: false,
-        from: range.from.toISOString().slice(0, 10),
-        to: range.to.toISOString().slice(0, 10),
+        from: range.fromDay,
+        to: range.toDay,
         lastSuccessfulSyncAt: result.calendar.lastSuccessfulSyncAt,
         dataStale: result.calendar.dataStale,
         truncated: result.truncated,

@@ -33,6 +33,19 @@ void main() {
       ]);
     });
 
+    test('the timetable storage id remains pinnable after an upgrade', () {
+      final NavigationConfig config = NavigationConfig.fromStorage(<String>[
+        'timetable',
+        'news',
+        'canteen',
+        'mail',
+      ]);
+
+      expect(config.tabs.first, AppModule.timetable);
+      expect(config.toStorage().first, 'timetable');
+      expect(config.isValid, isTrue);
+    });
+
     test('unknown ids are dropped, not fatal', () {
       // A module removed in a later version, or a hand-edited preference.
       final NavigationConfig config = NavigationConfig.fromStorage(<String>[
@@ -91,6 +104,19 @@ void main() {
       ]);
       expect(config.tabs, isNot(contains(AppModule.settings)));
       expect(config.tabs, isNot(contains(AppModule.about)));
+      expect(config.isValid, isTrue);
+    });
+
+    test('a temporarily unavailable module is refused as a tab', () {
+      // HSA-GPT is greyed out in More; a tab must not bypass that.
+      final NavigationConfig config = NavigationConfig.fromStorage(<String>[
+        'hsaKi',
+        'news',
+        'calendar',
+        'canteen',
+      ]);
+      expect(config.tabs, isNot(contains(AppModule.hsaKi)));
+      expect(config.tabs, hasLength(NavigationConfig.tabCount));
       expect(config.isValid, isTrue);
     });
 

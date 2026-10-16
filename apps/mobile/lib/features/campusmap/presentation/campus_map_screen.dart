@@ -9,6 +9,7 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../core/network/loaded.dart';
 import '../../../core/prefs/settings_controller.dart';
+import '../../../core/site/campus_site.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/widgets/offline_notice.dart';
 import '../../../core/widgets/state_views.dart';
@@ -18,7 +19,9 @@ import '../../../l10n/l10n.dart';
 import '../application/campus_map_providers.dart';
 import '../application/room_search.dart';
 import '../domain/map_catalog.dart';
+import '../domain/visible_building.dart';
 import '../domain/room.dart';
+import 'campus_map_search_controller.dart';
 import 'floor_map_view.dart';
 import 'room_labels.dart';
 
@@ -51,14 +54,13 @@ const double kSearchBarHeight = 56;
 const double kDetailSheetHeight = 236;
 
 class _CampusMapScreenState extends ConsumerState<CampusMapScreen> {
-  final TextEditingController _search = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
+  late final CampusMapSearchController _searchState;
   final GlobalKey<FloorMapViewState> _mapKey = GlobalKey<FloorMapViewState>();
-  String _query = '';
 
   @override
   void initState() {
     super.initState();
+    _searchState = CampusMapSearchController()..addListener(_onSearchChanged);
     final String? initial = widget.initialRoomKey;
     if (initial != null && initial.isNotEmpty) {
       // Providers must not be written during initState.
@@ -70,9 +72,14 @@ class _CampusMapScreenState extends ConsumerState<CampusMapScreen> {
 
   @override
   void dispose() {
-    _search.dispose();
-    _searchFocus.dispose();
+    _searchState
+      ..removeListener(_onSearchChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    if (mounted) setState(() {});
   }
 
   void _select(Room room) {
@@ -80,9 +87,7 @@ class _CampusMapScreenState extends ConsumerState<CampusMapScreen> {
     ref.read(visibleFloorProvider.notifier).show(room.floorKey);
     // Picking a result closes the search, the way a map app hands the screen
     // back to the map once you have chosen a destination.
-    _search.clear();
-    setState(() => _query = '');
-    _searchFocus.unfocus();
+    _searchState.clearAfterSelection();
   }
 
   void _clearSelection() {
@@ -107,11 +112,11 @@ class _CampusMapScreenState extends ConsumerState<CampusMapScreen> {
         ),
         _ => _MapSurface(
           loaded: rooms.requireValue,
-          query: _query,
-          search: _search,
-          searchFocus: _searchFocus,
+          query: _searchState.query,
+          search: _searchState.textController,
+          searchFocus: _searchState.focusNode,
           mapKey: _mapKey,
-          onQueryChanged: (String value) => setState(() => _query = value),
+          onQueryChanged: _searchState.updateQuery,
           onSelect: _select,
           onClearSelection: _clearSelection,
         ),
@@ -167,16 +172,34 @@ class _MapSurface extends ConsumerWidget {
     // consistent when they are written, but the map must also survive a state
     // that never was: a floor from another building would otherwise draw a plan
     // that contradicts the building shown above it.
-    final String? buildingKey = _visibleBuildingKey(
+    final VisibleBuilding visible = resolveVisibleBuilding(
       map: map,
       explicitBuilding: explicitBuilding,
       explicitFloor: explicitFloor,
-      selectedRoom: selectedRoom,
-      rooms: allRooms,
+      roomBuilding: map == null
+          ? null
+          : (map.geometryFor(selectedRoom?.roomKey ?? '')?.buildingKey ??
+                map.buildingOfFloor(selectedRoom?.floorKey)),
       defaultBuildingKey: ref.watch(
         settingsProvider.select((AppSettings s) => s.defaultBuildingKey),
       ),
+      explicitSite: ref.watch(visibleSiteProvider),
+      preferredSite: ref.watch(
+        settingsProvider.select((AppSettings s) => s.campusSite),
+      ),
     );
+    final CampusSite site = visible.site;
+    // A bundle without any building (older, or in a test) still draws the
+    // floor of the first room, as it always did.
+    final String? buildingKey =
+        visible.buildingKey ??
+        (map != null && map.buildings.isEmpty
+            ? map.buildingOfFloor(
+                allRooms.isEmpty ? null : allRooms.first.floorKey,
+              )
+            : null);
+    final bool siteHasNoPlans =
+        map != null && map.buildings.isNotEmpty && buildingKey == null;
     final String? floorKey = _visibleFloorKey(
       map: map,
       buildingKey: buildingKey,
@@ -190,6 +213,8 @@ class _MapSurface extends ConsumerWidget {
         : map?.geometryFor(selectedKey);
 
     final bool mapUsable = floor != null && !versionMismatch;
+    // A site without plans is a state of its own, not a failure to load.
+    final bool showNoPlans = siteHasNoPlans && !versionMismatch;
     final EdgeInsets safe = MediaQuery.paddingOf(context);
 
     // What the overlays cover, so a selected room is centred in the part of the
@@ -225,7 +250,10 @@ class _MapSurface extends ConsumerWidget {
                   },
                   visiblePadding: covered,
                 )
-              : _MapUnavailable(versionMismatch: versionMismatch),
+              : _MapUnavailable(
+                  versionMismatch: versionMismatch,
+                  noPlansFor: showNoPlans ? site : null,
+                ),
         ),
 
         _TopOverlay(
@@ -239,19 +267,27 @@ class _MapSurface extends ConsumerWidget {
         ),
 
         // Hidden while searching so the results overlay keeps the screen.
-        if (mapUsable && map != null && buildingKey != null && query.isEmpty)
+        if (map != null &&
+            query.isEmpty &&
+            ((mapUsable && buildingKey != null) || showNoPlans))
           _MapControls(
             map: map,
+            site: site,
             buildingKey: buildingKey,
-            floorKey: floor.floorKey,
+            floorKey: floor?.floorKey,
             top: covered.top,
           ),
 
-        if (mapUsable && selectedRoom == null && query.isEmpty)
+        if (mapUsable && selectedRoom == null && query.isEmpty) ...<Widget>[
+          _InfoButton(
+            bottom: safe.bottom + AppSpacing.lg,
+            building: map?.building(buildingKey),
+          ),
           _ResetButton(
             bottom: safe.bottom + AppSpacing.lg,
             onPressed: () => mapKey.currentState?.resetView(),
           ),
+        ],
 
         if (selectedRoom != null)
           _RoomDetailSheet(
@@ -261,36 +297,6 @@ class _MapSurface extends ConsumerWidget {
           ),
       ],
     );
-  }
-
-  /// Which building the map is showing.
-  ///
-  /// An explicit choice wins; otherwise the selected room decides, so a deep
-  /// link lands on the right building even before anyone has touched the
-  /// picker — and even while the bundled catalogue is still loading.
-  static String? _visibleBuildingKey({
-    required MapCatalog? map,
-    required String? explicitBuilding,
-    required String? explicitFloor,
-    required Room? selectedRoom,
-    required List<Room> rooms,
-    required String? defaultBuildingKey,
-  }) {
-    if (map == null) return null;
-    if (map.building(explicitBuilding) != null) return explicitBuilding;
-    final String? fromFloor = map.buildingOfFloor(explicitFloor);
-    if (fromFloor != null) return fromFloor;
-    final String? fromRoom =
-        map.geometryFor(selectedRoom?.roomKey ?? '')?.buildingKey ??
-        map.buildingOfFloor(selectedRoom?.floorKey);
-    if (fromRoom != null) return fromRoom;
-    // The user's chosen building, before falling back to the first one in the
-    // catalogue. Without this the setting would be stored, offered in the
-    // onboarding and the settings — and never do anything.
-    if (map.building(defaultBuildingKey) != null) return defaultBuildingKey;
-    return map.buildings.isNotEmpty
-        ? map.buildings.first.buildingKey
-        : map.buildingOfFloor(rooms.isEmpty ? null : rooms.first.floorKey);
   }
 
   /// Which floor of that building the map is showing.
@@ -320,9 +326,12 @@ class _MapSurface extends ConsumerWidget {
 
 /// Shown instead of the plan when it cannot be drawn.
 class _MapUnavailable extends StatelessWidget {
-  const _MapUnavailable({required this.versionMismatch});
+  const _MapUnavailable({required this.versionMismatch, this.noPlansFor});
 
   final bool versionMismatch;
+
+  /// Set when the shown site simply has no plans yet.
+  final CampusSite? noPlansFor;
 
   @override
   Widget build(BuildContext context) {
@@ -336,8 +345,10 @@ class _MapUnavailable extends StatelessWidget {
             title: l10n.campusMapTitle,
             message: versionMismatch
                 ? l10n.campusMapVersionMismatch
+                : noPlansFor != null
+                ? l10n.campusMapNoPlansForSite(noPlansFor!.label(l10n))
                 : l10n.campusMapUnavailable,
-            tone: StatusTone.warning,
+            tone: noPlansFor != null ? StatusTone.info : StatusTone.warning,
             icon: AppIcons.map_outlined,
           ),
         ),
@@ -683,21 +694,27 @@ class _RoomDetailSheet extends StatelessWidget {
 class _MapControls extends ConsumerWidget {
   const _MapControls({
     required this.map,
+    required this.site,
     required this.buildingKey,
     required this.floorKey,
     required this.top,
   });
 
   final MapCatalog map;
-  final String buildingKey;
-  final String floorKey;
+  final CampusSite site;
+
+  /// `null` for a site that has no plans: only the site can be changed then.
+  final String? buildingKey;
+  final String? floorKey;
   final double top;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = context.l10n;
     final String locale = Localizations.localeOf(context).languageCode;
-    final List<MapFloor> floors = map.floorsOf(buildingKey);
+    final List<MapFloor> floors = buildingKey == null
+        ? const <MapFloor>[]
+        : map.floorsOf(buildingKey!);
     final MapBuilding? building = map.building(buildingKey);
     final MapFloor? current = floors.isEmpty
         ? null
@@ -706,10 +723,11 @@ class _MapControls extends ConsumerWidget {
             orElse: () => floors.first,
           );
 
-    final bool showBuilding = map.hasSeveralBuildings && building != null;
+    // The building segment is also where the site is chosen: its menu lists
+    // every site with its buildings. A third segment would not fit a 320 dp
+    // phone next to the floor.
+    final bool showBuilding = building != null || buildingKey == null;
     final bool showFloor = current != null;
-
-    if (!showBuilding && !showFloor) return const SizedBox.shrink();
 
     final double labelMax = _maxLabelWidthFor(context);
     final ColorScheme colors = Theme.of(context).colorScheme;
@@ -743,21 +761,27 @@ class _MapControls extends ConsumerWidget {
                   Flexible(
                     child: _MapSegment<String>(
                       icon: AppIcons.apartment_outlined,
-                      label: building.name.resolve(locale),
+                      label: building?.name.resolve(locale) ?? site.label(l10n),
                       tooltip: l10n.campusMapBuildingLabel,
-                      semanticLabel: l10n.campusMapBuildingSelectorSemantic(
-                        building.name.resolve(locale),
+                      semanticLabel: l10n.campusMapSiteAndBuildingSemantic(
+                        site.label(l10n),
+                        building?.name.resolve(locale) ??
+                            l10n.campusMapNoBuilding,
                       ),
-                      value: building.buildingKey,
-                      options: <({String value, String label})>[
-                        for (final MapBuilding candidate in map.buildings)
-                          (
-                            value: candidate.buildingKey,
-                            label: candidate.name.resolve(locale),
-                          ),
-                      ],
-                      onSelected: (String key) =>
-                          ref.read(visibleBuildingProvider.notifier).show(key),
+                      value:
+                          building?.buildingKey ??
+                          '$_siteValuePrefix${site.storageValue}',
+                      options: _siteMenuOptions(map, l10n, locale),
+                      entries: (BuildContext _) =>
+                          _siteMenuEntries(map, l10n, locale, site),
+                      onSelected: (String key) {
+                        final CampusSite? picked = _siteOfValue(key);
+                        if (picked != null) {
+                          ref.read(visibleSiteProvider.notifier).show(picked);
+                        } else {
+                          ref.read(visibleBuildingProvider.notifier).show(key);
+                        }
+                      },
                       maxLabelWidth: labelMax,
                       yieldsSpace: true,
                     ),
@@ -820,6 +844,82 @@ class _MapControls extends ConsumerWidget {
   static const double _tabletWidth = 600;
 }
 
+/// Menu values that name a site rather than a building. Building keys are
+/// catalogue keys, which cannot contain a colon (`KEY_PATTERN`).
+const String _siteValuePrefix = 'site:';
+
+CampusSite? _siteOfValue(String value) => value.startsWith(_siteValuePrefix)
+    ? CampusSite.fromStorage(value.substring(_siteValuePrefix.length))
+    : null;
+
+/// One choice per building plus one per site without plans, in menu order.
+List<({String value, String label})> _siteMenuOptions(
+  MapCatalog map,
+  AppLocalizations l10n,
+  String locale,
+) => <({String value, String label})>[
+  for (final CampusSite candidate in CampusSite.values)
+    if (map.buildingsOf(candidate).isEmpty)
+      (
+        value: '$_siteValuePrefix${candidate.storageValue}',
+        label: candidate.label(l10n),
+      )
+    else
+      for (final MapBuilding building in map.buildingsOf(candidate))
+        (value: building.buildingKey, label: building.name.resolve(locale)),
+];
+
+/// The grouped building menu: a heading per site, its buildings below, and
+/// for a site without plans one entry that says so.
+List<PopupMenuEntry<String>> _siteMenuEntries(
+  MapCatalog map,
+  AppLocalizations l10n,
+  String locale,
+  CampusSite current,
+) {
+  final List<PopupMenuEntry<String>> entries = <PopupMenuEntry<String>>[];
+  for (final CampusSite candidate in CampusSite.values) {
+    final List<MapBuilding> buildings = map.buildingsOf(candidate);
+    if (entries.isNotEmpty) entries.add(const PopupMenuDivider());
+    entries.add(
+      PopupMenuItem<String>(
+        enabled: false,
+        height: 32,
+        child: Semantics(
+          header: true,
+          child: Text(
+            candidate.label(l10n),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+    if (buildings.isEmpty) {
+      entries.add(
+        PopupMenuItem<String>(
+          value: '$_siteValuePrefix${candidate.storageValue}',
+          child: Text(
+            l10n.campusMapSiteNoPlansEntry,
+            style: candidate == current
+                ? const TextStyle(fontWeight: FontWeight.w600)
+                : null,
+          ),
+        ),
+      );
+    } else {
+      for (final MapBuilding building in buildings) {
+        entries.add(
+          PopupMenuItem<String>(
+            value: building.buildingKey,
+            child: Text(building.name.resolve(locale)),
+          ),
+        );
+      }
+    }
+  }
+  return entries;
+}
+
 /// One segment in the compact floating control that either opens a popup menu
 /// or, with a single option, simply states the current value.
 class _MapSegment<T> extends StatefulWidget {
@@ -833,7 +933,12 @@ class _MapSegment<T> extends StatefulWidget {
     required this.onSelected,
     required this.maxLabelWidth,
     this.yieldsSpace = false,
+    this.entries,
   });
+
+  /// A menu laid out by the caller (headings, grouping). The [options] still
+  /// say how many choices there are, which decides whether there is a menu.
+  final List<PopupMenuEntry<T>> Function(BuildContext context)? entries;
 
   final IconData icon;
   final String label;
@@ -860,6 +965,11 @@ class _MapSegmentState<T> extends State<_MapSegment<T>> {
   /// to the menu button's own `InkWell`, and taking it away from there would
   /// break activation by keyboard to gain a border.
   bool _focused = false;
+
+  /// Opens the menu from the merged semantics node: `excludeSemantics` below
+  /// drops the menu button's own tap action, so the node has to carry it.
+  final GlobalKey<PopupMenuButtonState<T>> _menu =
+      GlobalKey<PopupMenuButtonState<T>>();
 
   /// Below this a label is an abbreviation, not a word.
   ///
@@ -930,6 +1040,7 @@ class _MapSegmentState<T> extends State<_MapSegment<T>> {
       label: widget.semanticLabel,
       button: interactive,
       readOnly: !interactive,
+      onTap: interactive ? () => _menu.currentState?.showButtonMenu() : null,
       excludeSemantics: true,
       child: FocusRing(
         focused: _focused,
@@ -939,17 +1050,20 @@ class _MapSegmentState<T> extends State<_MapSegment<T>> {
                 skipTraversal: true,
                 onFocusChange: (bool value) => setState(() => _focused = value),
                 child: PopupMenuButton<T>(
+                  key: _menu,
                   tooltip: widget.tooltip,
                   initialValue: widget.value,
                   onSelected: widget.onSelected,
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<T>>[
-                    for (final ({T value, String label}) option
-                        in widget.options)
-                      PopupMenuItem<T>(
-                        value: option.value,
-                        child: Text(option.label),
-                      ),
-                  ],
+                  itemBuilder:
+                      widget.entries ??
+                      (BuildContext context) => <PopupMenuEntry<T>>[
+                        for (final ({T value, String label}) option
+                            in widget.options)
+                          PopupMenuItem<T>(
+                            value: option.value,
+                            child: Text(option.label),
+                          ),
+                      ],
                   child: body,
                 ),
               )
@@ -985,6 +1099,64 @@ class FocusRing extends StatelessWidget {
       child: child,
     );
   }
+}
+
+/// Opens what the plan is and where it comes from.
+///
+/// A dialog rather than a badge on the plan: the schematic notice and the
+/// source belong to every plan, and an overlay would cover rooms.
+class _InfoButton extends StatelessWidget {
+  const _InfoButton({required this.bottom, required this.building});
+
+  final double bottom;
+  final MapBuilding? building;
+
+  @override
+  Widget build(BuildContext context) {
+    return PositionedDirectional(
+      start: AppSpacing.lg,
+      bottom: bottom,
+      child: FloatingActionButton.small(
+        heroTag: 'campus-map-info',
+        tooltip: context.l10n.campusMapInfoTooltip,
+        onPressed: () => _showPlanInfo(context, building),
+        child: const Icon(AppIcons.info_outline),
+      ),
+    );
+  }
+}
+
+Future<void> _showPlanInfo(BuildContext context, MapBuilding? building) {
+  final String locale = Localizations.localeOf(context).languageCode;
+  final String? source = building?.resolvedSourceAttribution(locale);
+  return showDialog<void>(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      final AppLocalizations l10n = dialogContext.l10n;
+      return AlertDialog(
+        title: Text(l10n.campusMapInfoTooltip),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(l10n.campusMapSchematicNotice),
+            if (source != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.md),
+              Text(l10n.campusMapSourceAttribution(source)),
+            ],
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              MaterialLocalizations.of(dialogContext).closeButtonLabel,
+            ),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _ResetButton extends StatelessWidget {

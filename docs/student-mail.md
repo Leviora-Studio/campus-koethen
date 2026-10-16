@@ -1,4 +1,4 @@
-# Studentische E-Mail (IMAP/SMTP)
+# Studentische E-Mail und Exchange-Kalender
 
 Ein minimaler E-Mail-Client, der sich **direkt vom Gerät** mit dem Mailserver der
 Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Proxy.
@@ -9,12 +9,22 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
   - **IMAP** über `993` mit implizitem TLS (kein Fallback auf `143`/Klartext).
   - **SMTP-Submission** über `587` mit **verpflichtendem STARTTLS** (kein Fallback auf
     `25`/`465`/Klartext; Abbruch, wenn der Server STARTTLS nicht anbietet).
+  - **Exchange Web Services** ausschließlich lesend über exakt
+    `https://mail.hs-anhalt.de/EWS/Exchange.asmx`, ohne Redirects und erst nach einem
+    ausdrücklichen Opt-in. Angefordert werden nur ID, Betreff, Beginn, Ende,
+    Ganztags-/Absagestatus und Ort aus dem eigenen Standardkalender — keine Bodies,
+    Organisatoren oder Teilnehmerlisten.
 - Zertifikats- **und** Hostname-Prüfung sind aktiv. `allowBadCertificates` wird
   **nirgends** verwendet. Kein Certificate-Pinning.
 - Verbindungsaufbau, Protokollkommandos und das Aufräumen der Sitzung sind zeitlich begrenzt.
   Die kombinierte IMAP-/SMTP-Prüfung endet spätestens an ihrer Gesamtgrenze mit einem typisierten
   Timeout; der Setup-Screen bleibt dadurch nie unbegrenzt im Ladezustand und gibt das Formular
   für einen erneuten Versuch wieder frei.
+- Übertragungen mit Nachrichteninhalt sind größenabhängig begrenzt: Befehlstimeout plus die Zeit,
+  die die Datenmenge bei mindestens 64 KiB/s braucht. Bestätigt der SMTP-Server die übergebene
+  Nachricht nicht rechtzeitig, meldet die App „Ausgang unklar“ mit dem Hinweis, vor einem erneuten
+  Senden den Ordner „Gesendet“ zu prüfen, schließt die Verbindung ohne weiteres Protokollkommando
+  und sendet **nicht** automatisch erneut; der Entwurf bleibt erhalten.
 - Die Campus-Köthen-API, Strapi und der Worker sind **nie** an Mail beteiligt. Sie
   erhalten **weder Zugangsdaten noch E-Mails**.
 - Genau **zwei** Eingaben: E-Mail-Adresse + Passwort. Die Adresse ist zugleich
@@ -27,6 +37,9 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
   (`flutter_secure_storage`, iOS Keychain / Android Keystore). **Nie** in
   `SharedPreferences` oder Hive. Kein unsicherer Fallback: Ist der sichere Speicher nicht
   verfügbar, wird **nicht** gespeichert und ein klarer Fehler gezeigt.
+- Exchange-Termine werden nicht dauerhaft gespeichert. Sie bleiben nur im Arbeitsspeicher und
+  werden dort mit Stundenplan, öffentlichen Kalendern, Moodle-Fristen und lokalen Quellen
+  zusammengeführt. Nur der skalare Opt-in-Schalter liegt in `SharedPreferences`.
 - Das Passwort erscheint **nie** in Logs, Exceptions, Telemetrie, `toString()` oder
   Debug-Ausgaben. Das Protokoll-Debugging von `enough_mail` ist **aus**
   (`isLogEnabled: false`).
@@ -36,6 +49,15 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
   `campus_mail_cache_secure_v2` zwischengespeichert. Ihr gerätegebundener 256-Bit-Schlüssel
   `mail.cache.key.v2` liegt ausschließlich in iOS Keychain beziehungsweise Android Keystore.
   Adresse und Passwort bleiben getrennte Secure-Storage-Daten und liegen **nie** im Cache.
+  Der Cache ist auf 500 Header, 200 vollständige Nachrichten und 100 MiB Nachrichtendaten begrenzt;
+  Header älter als 365 Tage und Bodies älter als 180 Tage werden bei der Bereinigung entfernt.
+  Ausgenommen davon sind die Header des aktuellen Serverfensters (die 50 höchsten IMAP-UIDs):
+  Sie werden unabhängig von Alter und Header-Obergrenze behalten, damit die neuesten Mails
+  sichtbar bleiben und beim nächsten Sync nicht erneut als neu gelten. Bodies, die die
+  Altersgrenze sofort wieder entfernen würde, werden nicht vorgeladen.
+  Einstellungen → Studentische E-Mail zeigt Belegung und Anzahl und kann die vollständigen
+  Offline-Inhalte samt abgeleiteten Indizes löschen, ohne den Account oder die Headerliste zu
+  entfernen.
 - **Upgrade:** Der frühere unverschlüsselte Testcache `campus_mail_cache_v1` wird ungeöffnet und
   idempotent entfernt. Seine Inhalte werden weder gelesen noch in die neue Box migriert. Kann
   seine Abwesenheit nicht bestätigt werden oder ist der sichere Speicher nicht verfügbar, bleibt
@@ -43,13 +65,16 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
 - HTML-Mails werden zu **reinem Text** reduziert. Kein WebView, kein JavaScript, **keine**
   automatische Nachladung entfernter Bilder. Links laufen nur über den bestehenden
   sicheren URL-Launcher (`https`/`mailto`/`tel`).
-- Verbindungen werden je Aufruf geöffnet und geschlossen. „Account entfernen“ sperrt zuerst die
-  laufende Mailsitzung und entfernt dann logisch Adresse, Passwort, alten und neuen Cache,
+- Verbindungen werden je Aufruf geöffnet und geschlossen. „E-Mail-Verbindung und lokale Daten
+  löschen“ sperrt zuerst die laufende Mailsitzung und entfernt dann logisch die dienstbezogene
+  Adresse und Passwortkopie, alten und neuen Cache,
   Cache-Schlüssel sowie den zugehörigen In-Memory-/Riverpod-State. Erfolg wird erst nach
   bestätigter Abwesenheit der persistenten Artefakte gemeldet; ein Teilfehler bleibt gesperrt und
   wird per dauerhaftem Lösch-Intent beim Retry oder nächsten App-Start fortgesetzt. Die
   Servermails bleiben unverändert. Dateilöschung und verworfener Schlüssel sind keine Zusage eines
   forensischen Secure Erase für Flash-Zellen, Betriebssystem-Snapshots oder Backups.
+  Ein optionaler zentraler Hochschulzugang bleibt dabei erhalten; nur dessen separate Aktion
+  „Hochschulzugang vollständig löschen“ entfernt ihn nach den Dienst-Wipes.
 
 ## Offline & Synchronisierung
 
@@ -59,33 +84,89 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
 - **Ausgelöst** wird der Sync beim **App-Start**, bei **Anmeldung**, **alle 10 Minuten**
   (`kMailSyncInterval`, geplant im App-Shell) und **manuell** (Sync-Button /
   Pull-to-Refresh).
-- Der Sync holt die **50 neuesten** INBOX-Header, **akkumuliert** sie in den Cache
-  (nichts wird gelöscht — der Offline-Bestand wächst über 50 hinaus) und lädt die
-  vollständigen Inhalte **neuer** Nachrichten im Hintergrund nach.
+- Der Sync holt die **50 neuesten** INBOX-Header und führt sie mit dem lokalen Bestand zusammen.
+  Alters-, Anzahl- und Bytebudgets begrenzen diesen Bestand. Umfasst das Fenster laut
+  IMAP-`EXISTS` das ganze Postfach, entfernt der Sync jede gecachte Nachricht, die dort fehlt
+  (etwa im Webmail gelöscht); eine leere Serverantwort löscht nie. Der Cache merkt sich die
+  `UIDVALIDITY` der INBOX: Meldet der Server einen anderen Wert, verwirft der Sync Header, Inhalte
+  und Indizes und baut eine neue Basis auf, ohne die Mails als neu zu melden. Löschen und
+  „gelesen“ laufen für die INBOX nur, wenn der Server noch dieselbe `UIDVALIDITY` meldet; sonst
+  bricht die Aktion mit einem Hinweis zum Aktualisieren ab. Pro Lauf werden höchstens die
+  **20 neuesten** noch fehlenden Inhalte vorgeladen; ältere Inhalte lädt das Öffnen der Nachricht
+  bei Bedarf direkt vom IMAP-Server.
 - Am Ende der Nachrichtenliste lädt „100 ältere E-Mails laden“ die jeweils nächsten
   bis zu 100 Header vor der ältesten bereits sichtbaren IMAP-UID. Weitere Seiten werden
   mit demselben Button geladen. Die UID dient als stabiler Cursor; neue oder gelöschte
   Nachrichten verschieben die Seite daher nicht. INBOX-Header werden verschlüsselt lokal
-  ergänzt, der vollständige Inhalt einer älteren Nachricht erst beim Öffnen geladen.
+  ergänzt, der vollständige Inhalt einer älteren Nachricht erst beim Öffnen geladen. Header, die
+  die Cache-Grenzen (365 Tage, 500 Header) nicht aufnehmen, bleiben für die laufende Sitzung nur
+  im Arbeitsspeicher sichtbar; der Cursor setzt unter ihnen fort, statt dieselbe Seite erneut zu
+  laden.
 - **Anhänge herunterladen** ist optional und wird sowohl bei der Mail-Einrichtung als auch unter
   Einstellungen → Studentische E-Mail angeboten. Nur bei aktivierter Einstellung werden
   Nicht-Bild-Anhänge automatisch für die Offline-Nutzung geladen. Ist sie aus, lädt ein bewusster
   Tipp den fehlenden Anhang live vom Mailserver, legt ihn für die INBOX im verschlüsselten Cache
   ab und öffnet ihn anschließend. Bilder werden ohnehin inline aus dem Speicher angezeigt.
-- **Empfängervorschläge:** Beim Verfassen schlägt das An-/Cc-Feld Adressen aus der
-  gecachten Mailhistorie (From/To/Cc) vor.
+  Ist die Einstellung aus, lädt die App von einer mehrteiligen Mail nur die Textteile und Bilder
+  (vorab per `BODYSTRUCTURE` ermittelt); Dateianhänge bleiben bis zum Tipp auf dem Server.
+- **Große Mails:** Inhalte werden mit größenabhängigem Zeitlimit geladen (siehe oben). Ein
+  Vorladelauf beginnt mit den kleinsten Nachrichten; eine vom Server verweigerte oder nicht
+  lesbare Nachricht wird übersprungen und erst beim Öffnen geladen. Bricht die Verbindung bei
+  einer großen Nachricht ab, bleiben die bereits geladenen Inhalte erhalten.
+- **Empfängervorschläge:** Beim Verfassen durchsucht das An-/Cc-Feld nach 250 ms Debounce direkt
+  das authentifizierte Exchange-Adressbuch per EWS `ResolveNames` und mischt die Treffer mit
+  Adressen aus der verschlüsselt gecachten Mailhistorie (From/To/Cc). Schlägt EWS fehl oder ist
+  das Gerät offline, bleiben lokale Vorschläge und direkte Adresseingabe nutzbar. Lehnt Exchange
+  die Zugangsdaten ab (HTTP 401/403), stellt die App in dieser Mailsitzung keine weiteren
+  EWS-Anfragen für Vorschläge mehr — jede wäre ein weiterer Fehl-Login am zentralen
+  Hochschulkonto; erst eine erneute Anmeldung hebt die Sperre auf.
+- **Neue-Mail-Hinweis:** Ein IDLE-Signal allein genügt nicht. Erst wenn der anschließende
+  INBOX-Abgleich eine bisher unbekannte UID bestätigt, entsteht bei aktivem globalem Opt-in und
+  aktiver Kategorie eine lokale Benachrichtigung. Titel und Text nennen weder Absender noch
+  Betreff; der Payload enthält nur die IMAP-UID. Der erste Sync setzt ausschließlich die Basis und
+  meldet vorhandene Nachrichten nicht nachträglich.
+- **Live-Verbindung (IMAP IDLE):** Bricht sie ab, verbindet die App mit exponentiellem Backoff
+  neu (15 s, 30 s, 1 min … höchstens 30 min); erst eine Verbindung, die mindestens zwei Minuten
+  stabil war, setzt den Backoff zurück. Lehnt der Server das Passwort ab oder scheitert die
+  gesicherte Verbindung, verbindet die App **nicht** automatisch neu — jeder weitere Versuch wäre
+  ein Fehl-Login am zentralen Hochschulkonto. Der Posteingang zeigt dann „Live-Synchronisierung
+  angehalten“ mit dem Grund. Nach einem abgelehnten Passwort bleibt die Live-Verbindung bis zur
+  erneuten Anmeldung aus, auch über Pause/Resume hinweg.
+- **Gemeinsame Sperre nach abgelehntem Passwort:** Live-Verbindung und periodischer
+  10-Minuten-Sync teilen sich die Sperre. Wer sie zuerst auslöst, stoppt beide: automatische
+  Syncs melden sich danach nicht mehr an, sondern zeigen den Anmeldefehler. Nur ein bewusstes
+  Aktualisieren im Posteingang versucht es erneut; gelingt es, ist die Sperre aufgehoben. Eine
+  erneute Anmeldung hebt sie ebenfalls auf.
 
 > Anmerkung: Es gibt **kein** Sync, während die App vollständig geschlossen ist — dafür
 > wären native Hintergrunddienste (WorkManager/BGTaskScheduler) nötig, die dieses MVP
-> bewusst nicht einbindet. Sync läuft, solange die App läuft, plus beim nächsten Start.
+> bewusst nicht einbindet. Mobile Betriebssysteme erhalten auch eine offene IDLE-Verbindung im
+> Hintergrund nicht zuverlässig. „Live“ gilt deshalb für den Vordergrund; Start und Resume holen
+> verpasste Änderungen nach.
+
+## Optionaler Exchange-Kalender
+
+- Der Schalter ist standardmäßig aus und wird im Onboarding, in den Kalenderquellen sowie unter
+  Einstellungen → Studentische E-Mail angeboten. Eine Mailanmeldung allein aktiviert ihn nicht.
+- Der Client liest den Standardkalender in begrenzten Zeitfenstern. Eine als unvollständig
+  markierte EWS-Antwort wird als Fehler verworfen statt als vollständiger Kalender angezeigt.
+- Abmelden oder vollständiges Löschen des Mailzugangs invalidiert laufende EWS-Anfragen über
+  dieselbe Session-Generation wie IMAP. Eine verspätete Antwort kann danach keine Termine erneut
+  sichtbar machen.
+- Tages-, Wochen- und Listenansicht verwenden denselben lokalen Exchange-Opt-in. Der bewusst
+  ausgelöste ICS-Export fragt für Exchange ausdrücklich höchstens ein Jahr Vergangenheit und zwei
+  Jahre Zukunft ab, weil EWS keine Retentionsgrenze ausliefert. Homescreen-Widget und geplante
+  Benachrichtigungen erhalten keine Exchange-Inhalte, weil deren Betriebssystem-Payloads
+  persistiert werden.
 
 ## Suche
 
 - **Lokal zuerst:** Das Abschicken der Suche durchsucht ausschließlich den verschlüsselten
   Gerätecache des aktiven Kontos — Absender, Empfänger (To/Cc), Betreff und den bereits als
-  Text vorliegenden Nachrichtentext. Treffer erscheinen sofort und **ohne Netz**. Es wird
-  **kein** zusätzlicher Index angelegt; gesucht wird auf den Daten, die der Offline-Cache
-  ohnehin hält. Anhangbytes werden **nicht** durchsucht.
+  Text vorliegenden Nachrichtentext. Treffer erscheinen sofort und **ohne Netz**. Ein kompakter,
+  normalisierter und ebenfalls verschlüsselter Suchindex hält nur diese Suchfelder plus einen
+  kleinen Ergebnisheader. Dadurch muss eine Suche nicht jeden Body entschlüsseln und parsen;
+  Anhangbytes werden weder indexiert noch durchsucht.
 - **Robustheit:** Der Suchbegriff wird getrimmt und Unicode-korrekt kleingeschrieben, damit
   deutsche Groß-/Kleinschreibung (`Prüfung`/`PRÜFUNG`) und umgebende Leerzeichen keine Rolle
   spielen. `ß`/`ss` werden **nicht** aufeinander abgebildet — dafür bleibt die Serversuche.
@@ -105,23 +186,26 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
   gefunden“, solange der Server nicht gefragt wurde.
 - Ein Servertreffer öffnet sich wie jede andere Nachricht: fehlende Inhalte werden geladen und
   anschließend (INBOX) gecacht.
-- **Kontowechsel:** „Account entfernen“ verwirft Cache und Suchzustand (Begriff, lokale und
+- **Kontowechsel:** „E-Mail-Verbindung und lokale Daten löschen“ verwirft Cache und Suchzustand (Begriff, lokale und
   Servertreffer, Fehler) über dieselbe Session-Generation wie der übrige Mail-State.
 
 ## Schichten
 
 ```
 features/mail/
-  domain/         Reine Modelle + Ports: MailGateway, MailCredentialStore, MailCacheStore
+  domain/         Reine Modelle + Ports: MailGateway, ExchangeCalendarGateway,
+                  MailCredentialStore, MailCacheStore
                   (inkl. searchHeaders für die lokale Suche), MailCredentials,
                   MailMessage*, mail_search_match (Normalisierung + Feldabgleich),
                   MailFailure, HsaMailProfile
   data/           Adapter: EnoughMailGateway (kapselt enough_mail vollständig),
+                  EwsExchangeCalendarGateway + strikter XML-Parser,
                   mail_mime_builder (MIME-Aufbau inkl. Anhänge, von Send und
                   Sent-Kopie geteilt), MailAttachmentPicker (kapselt file_selector),
                   SecureMailCredentialStore, EncryptedMailCache, MailCacheManager,
                   MailLocalDataCoordinator, html_to_text
-  application/    Riverpod-Controller: Account, Inbox, Compose, Search (lokal + Server),
+  application/    Riverpod-Controller: Account, Inbox, Live-Sync, Compose,
+                  Suche (lokal + Server), Empfängervorschläge,
                   Provider
   presentation/   Screens: Setup, Inbox, Message, Compose + Fehler-Mapping
 ```
@@ -140,6 +224,15 @@ Artefaktlöschung.
 `MailLocalDataCoordinator` koordiniert diesen Adapter mit Credentials und Lösch-Intent vor der
 Kontowiederherstellung sowie beim Entfernen des Accounts.
 
+Beim Verfassen gelten standardmäßig höchstens 10 Anhänge, 20 MiB je Datei und 20 MiB insgesamt.
+Die Binärgrenze lässt Platz für die Base64-Vergrößerung einer üblichen 25-MiB-SMTP-Nachricht.
+Deployments können die drei Werte mit `MAIL_ATTACHMENT_MAX_COUNT`,
+`MAIL_ATTACHMENT_MAX_FILE_BYTES` und `MAIL_ATTACHMENT_MAX_TOTAL_BYTES` als `--dart-define`
+an die verifizierte Serverkonfiguration anpassen. Die App prüft Metadaten vor dem Lesen, liest
+dateibasiert nur bis zum verbleibenden Budget und validiert die tatsächlich gelesenen Bytes erneut.
+`enough_mail` benötigt für den abschließenden MIME-Aufbau weiterhin die begrenzten Binärdaten im
+Speicher; die Obergrenzen verhindern dabei unkontrollierte Mehrfachbelegung.
+
 ## Automatisierte Tests
 
 ```bash
@@ -148,28 +241,40 @@ flutter test test/features/mail/
 
 - `mail_domain_test.dart` — Profil-Endpunkte, Credentials-Redaction, E-Mail-Validierung,
   `OutgoingMessage.attachments` (Default leer, mehrere Anhänge).
+- `exchange_calendar_*_test.dart` — EWS-Requestvertrag und Host-/Redirect-Grenze, strikter
+  XML-Parser, Zeitfenster und Schutz gegen verspätete Antworten nach dem Abmelden.
 - `mail_mime_builder_test.dart` — MIME-Aufbau mit und ohne Anhänge: Dateiname, Media-Type und
   Bytes überleben byteidentisch den Roundtrip, mehrere Anhänge gleichzeitig, Text bleibt neben
   Anhängen erhalten, zweimaliger Aufbau aus derselben Nachricht liefert identischen Anhangsinhalt
   (Grundlage dafür, dass Sent-Kopie und SMTP-Versand exakt dieselben Bytes tragen).
 - `mail_cache_test.dart` — verschlüsselter Roundtrip einschließlich Anhängen und Adressindex,
   Altcache-Verwerfung, Schlüssel-/Speicherfehler, Restart-Recovery, idempotenter Wipe und die
-  lokale Suche über den verschlüsselten Cache (Betreff/Text/Empfänger, Reihenfolge, keine
-  Anhangbytes, Header-Rekonstruktion, nach dem Wipe keine Treffer mehr).
+  lokale Suche über den kompakten verschlüsselten Index (Betreff/Text/Empfänger, Reihenfolge,
+  keine Anhangbytes, Header-Rekonstruktion, keine Body-Entschlüsselung pro Suche), Retention nach
+  Anzahl/Bytes sowie die getrennte Offline-Bereinigung.
 - `mail_controller_test.dart` — Anmelden/Abmelden, unvollständigen Wipe erneut versuchen,
-  Write-Fence bei laufendem Sync, Inbox-Laden, typisierte Fehler, Doppel-Send-Schutz (auch mit
+  Write-Fence bei laufendem Sync, Inbox-Laden, Löschen erst serverseitig, Live-Sync ohne
+  Benachrichtigung beim ersten Basisabgleich, typisierte Fehler, Doppel-Send-Schutz (auch mit
   Anhängen), Sent-Kopie-Ergebnis, dass Anhänge unverändert bis zum Gateway durchgereicht werden,
   sowie die Suche: lokaler Treffer ohne IMAP-Aufruf, deutsche Groß-/Kleinschreibung und
   Leerzeichen, Nichttreffer, nicht gecachter Ordner, Deduplizierung Cache↔IMAP, IMAP-Fehler mit
-  erhaltenen lokalen Treffern und Retry, verworfene verspätete Antwort, Kontoentfernung.
+  erhaltenen lokalen Treffern und Retry, verworfene verspätete Antwort, Kontoentfernung sowie das
+  auf 20 Bodies begrenzte Hintergrund-Vorladen.
 - `mail_ui_test.dart` — Gate (Setup ↔ Inbox), Anmeldeformular-Validierung, Account
-  entfernen, Nachricht anzeigen (+ als gelesen markieren), Verfassen/Senden inkl. Anhänge:
+  entfernen, Nachricht anzeigen (+ als gelesen markieren und nach Bestätigung löschen),
+  Verfassen/Senden inkl. Anhänge:
   auswählen und mit Name/Größe anzeigen, vor dem Senden entfernen, abgebrochener Picker lässt
   den Entwurf unverändert, gesendete Nachricht enthält den Anhang, eine beim Senden nicht mehr
-  lesbare Datei zeigt einen verständlichen Fehler und lässt Screen/Entwurf unangetastet, Senden
+  lesbare oder zu große Datei zeigt einen verständlichen Fehler und lässt Screen/Entwurf
+  unangetastet; Anzahl, Einzel- und Gesamtgröße werden vor SMTP begrenzt und die Gesamtsumme wird
+  angezeigt; Senden
   deaktiviert Anhang-Auswahl und Entfernen-Buttons; Suche: gecachter Treffer ohne Serverkontakt,
   zusätzliche Servertreffer ohne Dubletten, IMAP-Fehler mit erhaltenen lokalen Treffern und
   Retry, klarer Leerzustand, Öffnen eines nur serverseitigen Treffers (wird dabei gecacht).
+- `enough_mail_gateway_test.dart` — reale IMAP-Kommandos gegen einen lokalen Testserver,
+  einschließlich UID-basiertem `MOVE` nach `\Trash` und erfolgreichem Eintritt in IMAP IDLE.
+- `exchange_directory_gateway_test.dart` — fester EWS-Endpunkt, Basic Auth ausschließlich über
+  TLS, XML-Escaping, Deduplizierung sowie geschlossene Fehlerabbildung.
 
 ## Manuelle Testcheckliste (echter Server, echtes Konto)
 
@@ -182,13 +287,19 @@ Einrichtung / Sicherheit
       Hinweis, dass Campus-Server keine Zugangsdaten/Mails erhalten, und den externen Link
       auf `https://mail.hs-anhalt.de/`.
 - [ ] Anmeldung mit korrekten Daten führt in den Posteingang.
+- [ ] „Exchange-Termine“ ist zunächst aus; Einschalten lädt reale Termine in Tag, Woche und Liste,
+      Ausschalten entfernt sie aus allen Ansichten und dem Export. Homescreen-Widget und geplante
+      Benachrichtigungen enthalten auch bei aktivem Opt-in keine Exchange-Inhalte.
+- [ ] Ein Termin mit Ort, ein Ganztagstermin und ein abgesagter Termin werden korrekt dargestellt;
+      E-Mail-Body und Teilnehmerdaten erscheinen nirgends.
+- [ ] Nach Abmelden während eines laufenden EWS-Abrufs taucht kein verspäteter Termin auf.
 - [ ] Falsches Passwort → verständliche Fehlermeldung, **keine** rohen Serverdaten,
       **kein** Speichern.
 - [ ] Ungültige Adresse → lokale Validierung, Server wird **nicht** kontaktiert.
 - [ ] Upgrade einer präparierten Testinstallation mit befülltem `campus_mail_cache_v1`: Start
       ohne Absturz, keine alten Nachrichten oder Empfängervorschläge, neuer Cache zunächst leer;
       nach erneutem App-Start bleibt der Altcache abwesend.
-- [ ] Nach erfolgreichem „Account entfernen“ ist wieder der Setup-Screen sichtbar; erneuter
+- [ ] Nach erfolgreichem „E-Mail-Verbindung und lokale Daten löschen“ ist wieder der Setup-Screen sichtbar; erneuter
       App-Start landet im Setup und zeigt weder alte Nachrichten/Details noch alte
       Empfängervorschläge.
 - [ ] Ein simulierter Teilfehler beim Entfernen meldet keinen Erfolg, hält Mail gesperrt und lässt
@@ -203,6 +314,11 @@ Posteingang / Detail
       Nachladen erscheint der Button erneut, solange eine volle Seite geliefert wurde.
 - [ ] Ungelesene sind nicht nur über Farbe erkennbar (Icon/Fettung).
 - [ ] Öffnen einer Nachricht zeigt reinen Text; sie wird als gelesen markiert.
+- [ ] Löschen fragt nach Bestätigung und verschiebt per UID in den serverseitigen Papierkorb;
+      aus dem Papierkorb wird UID-spezifisch endgültig gelöscht. Ohne sichere UIDPLUS-/MOVE-
+      Möglichkeit bricht die App ab, statt fremde als gelöscht markierte Nachrichten zu expungen.
+- [ ] Während die App sichtbar ist, erscheint „Live-Synchronisierung aktiv“; eine neue Testmail
+      taucht ohne manuelles Aktualisieren auf. Nach Pause/Resume wird die Verbindung neu aufgebaut.
 - [ ] HTML-Mail wird als Text dargestellt; entfernte Bilder werden **nicht** geladen.
 - [ ] Mail mit Anhang zeigt die Anhänge; empfangene Bild-Anhänge (mit lokalen Bytes)
       erscheinen unabhängig vom Absender automatisch inline; fehlerhafte Bilddaten
@@ -230,7 +346,7 @@ Suche
 - [ ] Ein Treffer öffnet die Nachricht (wird bei Bedarf nachgeladen und gecacht).
 - [ ] In einem anderen Ordner weist die Suche darauf hin, dass er nicht lokal vorliegt, und
       zeigt keine lokalen Treffer.
-- [ ] Nach „Account entfernen“ zeigt die Suche keine Ergebnisse des vorherigen Kontos.
+- [ ] Nach „E-Mail-Verbindung und lokale Daten löschen“ zeigt die Suche keine Ergebnisse des vorherigen Kontos.
 
 Ordner
 
@@ -249,6 +365,8 @@ Verfassen / Senden
       „Gesendet” wird im Hintergrund abgelegt, ein Hinweis erscheint nur, wenn das
       nicht klappt.
 - [ ] Mehrere Empfänger in „An”/„Cc” mit Komma getrennt werden alle adressiert.
+- [ ] Ab zwei Zeichen erscheinen Treffer aus Exchange-Kontakten/GAL und lokaler Mailhistorie;
+      Flugmodus lässt lokale Vorschläge und direkte Eingabe weiter funktionieren.
 - [ ] Schnelles Doppeltippen auf „Senden” verschickt **nur einmal**.
 - [ ] Ungültiger Empfänger → Validierung, kein Sendeversuch.
 - [ ] „Datei anhängen” öffnet den OS-Dateidialog **ohne** Typfilter; mehrere Dateien lassen
@@ -267,7 +385,8 @@ Verfassen / Senden
 Antworten
 
 - [ ] „Antworten” öffnet den Verfassen-Screen mit dem Absender als Empfänger,
-      „Re: …”-Betreff und zitiertem Originaltext.
+      „Re: …”-Betreff und zitiertem Originaltext. Trägt die Mail einen `Reply-To`-Header
+      (z. B. Verteiler, Sekretariate), ist stattdessen diese Adresse der Empfänger.
 - [ ] „Allen antworten” adressiert zusätzlich alle ursprünglichen Empfänger (Cc),
       **ohne** die eigene Adresse.
 
@@ -279,8 +398,9 @@ Barrierefreiheit / i18n
 
 ## Bekannte Grenzen (bewusst)
 
-Kein Hintergrund-Sync, kein IMAP IDLE, kein Verschieben/Löschen, keine Ordnerverwaltung
-(nur Lesen/Wechseln, kein Anlegen/Umbenennen), keine mehrfachen Konten. Empfangene Anhänge
+Kein zuverlässiger Live-Sync bei pausierter oder vollständig geschlossener App, keine
+Ordnerverwaltung (kein Anlegen/Umbenennen), keine mehrfachen Konten. IMAP IDLE läuft nur im
+Vordergrund; Start und Resume gleichen verpasste Änderungen ab. Empfangene Anhänge
 werden **angezeigt** und lassen sich **in der App öffnen** (Bilder, PDF, Text) sowie über das
 OS-Menü teilen/speichern. Beim Verfassen lassen sich beliebige Dateien über den OS-Dateidialog
 anhängen (kein Typfilter, kein Upload-Limit über die Gerätespeichergrenzen hinaus) — es gibt

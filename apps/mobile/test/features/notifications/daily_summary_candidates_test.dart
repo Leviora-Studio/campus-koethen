@@ -16,6 +16,7 @@ import 'dart:ui' show Locale;
 import 'package:campus_koethen/core/network/api_meta.dart';
 import 'package:campus_koethen/core/network/loaded.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/time/clock.dart';
@@ -99,23 +100,25 @@ class _FakeCanteenFilter extends CanteenFilterController {
 
 Loaded<T> loaded<T>(T value) => Loaded<T>(value: value, meta: const ApiMeta());
 
-Timetable timetableWith(List<DateTime> starts) => Timetable(
-  group: const TimetableGroup(id: kGroupId, shortName: 'INF 24'),
-  days: <TimetableDay>[
-    for (final DateTime start in starts)
-      TimetableDay(
-        date: DateTime(start.year, start.month, start.day),
-        entries: <TimetableEntry>[
-          TimetableEntry(
-            id: start.toIso8601String(),
-            start: start,
-            end: start.add(const Duration(minutes: 90)),
-            title: 'Analysis I',
+Timetable timetableWith(List<DateTime> starts, {String? lessonInfo}) =>
+    Timetable(
+      group: const TimetableGroup(id: kGroupId, shortName: 'INF 24'),
+      days: <TimetableDay>[
+        for (final DateTime start in starts)
+          TimetableDay(
+            date: DateTime(start.year, start.month, start.day),
+            entries: <TimetableEntry>[
+              TimetableEntry(
+                id: start.toIso8601String(),
+                start: start,
+                end: start.add(const Duration(minutes: 90)),
+                title: 'Analysis I',
+                lessonInfo: lessonInfo,
+              ),
+            ],
           ),
-        ],
-      ),
-  ],
-);
+      ],
+    );
 
 CalendarEntry publicEvent(DateTime start, {String id = 'pc1'}) => CalendarEntry(
   id: 'publicCalendar:campus:$id',
@@ -125,14 +128,21 @@ CalendarEntry publicEvent(DateTime start, {String id = 'pc1'}) => CalendarEntry(
   calendarSlug: 'campus',
 );
 
-SavedEventSnapshot savedEvent(DateTime start, {String ref = 'calendar:s1'}) =>
-    SavedEventSnapshot(
-      eventRef: ref,
-      kind: UnifiedEventKind.calendarEvent,
-      title: 'Gemerkter Vortrag',
-      start: start,
-      savedAt: kToday,
-    );
+SavedEventSnapshot savedEvent(
+  DateTime start, {
+  String ref = 'calendar:s1',
+  String title = 'Gemerkter Vortrag',
+  bool isOrphaned = false,
+  bool isCancelled = false,
+}) => SavedEventSnapshot(
+  eventRef: ref,
+  kind: UnifiedEventKind.calendarEvent,
+  title: title,
+  start: start,
+  savedAt: kToday,
+  isOrphaned: isOrphaned,
+  isCancelled: isCancelled,
+);
 
 CanteenMenu menuWith(Map<DateTime, List<String>> mealsByDay) => CanteenMenu(
   canteenSlug: 'fasanerieallee',
@@ -165,8 +175,20 @@ Future<ProviderContainer> harness({
   Set<String> favourites = const <String>{},
   Locale locale = const Locale('de'),
   DateTime? now,
+  Set<String> hiddenCourses = const <String>{},
+  Set<String> disabledLessonInfo = const <String>{},
 }) async {
-  final KeyValueStore store = InMemoryKeyValueStore();
+  final KeyValueStore store = InMemoryKeyValueStore(<String, Object>{
+    PreferenceKeys.preferredTimetableGroup: ?groupId,
+    if (groupId != null && hiddenCourses.isNotEmpty)
+      PreferenceKeys.timetableHiddenCourses(groupId): hiddenCourses.toList(),
+  });
+  if (groupId != null && disabledLessonInfo.isNotEmpty) {
+    await store.setStringList(
+      PreferenceKeys.timetableLessonInfoDisabled(groupId),
+      disabledLessonInfo.toList(growable: false),
+    );
+  }
   final ProviderContainer container = ProviderContainer(
     overrides: <Override>[
       keyValueStoreProvider.overrideWithValue(store),
@@ -347,6 +369,51 @@ void main() {
       expect(candidatesOf(container), isEmpty);
     });
 
+    test('a hidden timetable course is absent from the overview', () async {
+      final DateTime day = DateTime(2026, 8, 25);
+      final ProviderContainer container = await harness(
+        timetable: Timetable(
+          group: const TimetableGroup(id: kGroupId, shortName: 'INF 24'),
+          days: <TimetableDay>[
+            TimetableDay(
+              date: day,
+              entries: <TimetableEntry>[
+                TimetableEntry(
+                  id: 'analysis',
+                  start: DateTime(2026, 8, 25, 8, 30),
+                  end: DateTime(2026, 8, 25, 10),
+                  title: 'Analysis I',
+                ),
+                TimetableEntry(
+                  id: 'databases',
+                  start: DateTime(2026, 8, 25, 10, 15),
+                  end: DateTime(2026, 8, 25, 11, 45),
+                  title: 'Datenbanken II',
+                ),
+              ],
+            ),
+          ],
+        ),
+        hiddenCourses: const <String>{'Analysis I'},
+      );
+
+      expect(
+        candidatesOf(container).single.body,
+        'Heute 1 Vorlesung (erste um 10:15 Uhr).',
+      );
+    });
+
+    test('a hidden primary-group lesson stays out of the overview', () async {
+      final ProviderContainer container = await harness(
+        timetable: timetableWith(<DateTime>[
+          DateTime(2026, 8, 25, 8, 30),
+        ], lessonInfo: 'P1'),
+        disabledLessonInfo: const <String>{'P1'},
+      );
+
+      expect(candidatesOf(container), isEmpty);
+    });
+
     test('a saved event alone fills a day', () async {
       final ProviderContainer container = await harness(
         saved: <SavedEventSnapshot>[savedEvent(DateTime(2026, 8, 26, 18))],
@@ -356,6 +423,28 @@ void main() {
       expect(candidates, hasLength(1));
       expect(candidates.single.target, '2026-08-26');
       expect(candidates.single.body, contains('Gemerkter Vortrag'));
+    });
+
+    test('an orphaned or cancelled saved event fills nothing, as in N1 '
+        '(F-04)', () async {
+      final ProviderContainer container = await harness(
+        saved: <SavedEventSnapshot>[
+          savedEvent(
+            DateTime(2026, 8, 26, 18),
+            ref: 'calendar:gone',
+            title: 'Entfernter Vortrag',
+            isOrphaned: true,
+          ),
+          savedEvent(
+            DateTime(2026, 8, 27, 18),
+            ref: 'calendar:off',
+            title: 'Abgesagter Vortrag',
+            isCancelled: true,
+          ),
+        ],
+      );
+
+      expect(candidatesOf(container), isEmpty);
     });
 
     test('a bookmark of a live calendar entry is not counted twice', () async {

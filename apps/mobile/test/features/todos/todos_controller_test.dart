@@ -1,6 +1,8 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:campus_koethen/features/todos/application/todos_controller.dart';
 import 'package:campus_koethen/features/todos/domain/todo.dart';
 import 'package:campus_koethen/features/todos/domain/todo_folder.dart';
@@ -231,6 +233,101 @@ void main() {
     });
   });
 
+  test(
+    'a failed commit leaves the published and stored task unchanged',
+    () async {
+      final Todo original = Todo(
+        id: '1',
+        title: 'Wichtig',
+        createdAt: DateTime(2026),
+      );
+      final _FailingWriteTodoStore broken = _FailingWriteTodoStore(original);
+      final ProviderContainer c = ProviderContainer(
+        overrides: <Override>[todoStoreProvider.overrideWithValue(broken)],
+      );
+      addTearDown(c.dispose);
+      await c.read(todosControllerProvider.future);
+
+      await expectLater(
+        c.read(todosControllerProvider.notifier).toggle(original.id),
+        throwsA(
+          isA<TodoStoreFailure>().having(
+            (TodoStoreFailure failure) => failure.operation,
+            'operation',
+            TodoStoreOperation.write,
+          ),
+        ),
+      );
+
+      expect(c.read(todosControllerProvider).requireValue.single.done, isFalse);
+      expect(broken.stored.single.done, isFalse);
+    },
+  );
+
+  group('overlapping mutations never lose an update (F-09)', () {
+    test(
+      'a task deleted while another write is in flight stays deleted',
+      () async {
+        // `toggle(a)` computed its next list as [a', b] and then waited for the
+        // store; `remove(b)` meanwhile published [a]. When the toggle's write
+        // finished it published its stale [a', b] — b was back on screen
+        // although the store no longer had it.
+        final _GatedWriteTodoStore gated = _GatedWriteTodoStore();
+        await gated.writeAll(<Todo>[
+          Todo(id: 'a', title: 'Erste', createdAt: DateTime(2026)),
+          Todo(id: 'b', title: 'Zweite', createdAt: DateTime(2026)),
+        ]);
+        final ProviderContainer c = ProviderContainer(
+          overrides: <Override>[todoStoreProvider.overrideWithValue(gated)],
+        );
+        addTearDown(c.dispose);
+        await c.read(todosControllerProvider.future);
+        final TodosController todos = c.read(todosControllerProvider.notifier);
+
+        gated.holdUpserts();
+        final Future<void> toggling = todos.toggle('a');
+        final Future<void> removing = todos.remove('b');
+        await pumpEventQueue();
+        gated.releaseUpserts();
+        await Future.wait(<Future<void>>[toggling, removing]);
+
+        final List<Todo> shown = c.read(todosControllerProvider).requireValue;
+        expect(shown.map((Todo t) => t.id), <String>['a']);
+        expect(shown.single.done, isTrue);
+        expect((await gated.readAll()).map((Todo t) => t.id), <String>['a']);
+      },
+    );
+
+    test('two quick adds both survive', () async {
+      await build();
+      final Future<bool> first = controller().add('Eins');
+      final Future<bool> second = controller().add('Zwei');
+      await Future.wait(<Future<bool>>[first, second]);
+
+      expect(current().map((Todo t) => t.title), <String>['Eins', 'Zwei']);
+      expect(await store.readAll(), hasLength(2));
+    });
+
+    test('a failed write does not block the next mutation', () async {
+      final _GatedWriteTodoStore gated = _GatedWriteTodoStore();
+      final ProviderContainer c = ProviderContainer(
+        overrides: <Override>[todoStoreProvider.overrideWithValue(gated)],
+      );
+      addTearDown(c.dispose);
+      await c.read(todosControllerProvider.future);
+      final TodosController todos = c.read(todosControllerProvider.notifier);
+
+      gated.failNextUpsert = true;
+      await expectLater(todos.add('Kaputt'), throwsA(isA<TodoStoreFailure>()));
+      expect(await todos.add('Heil'), isTrue);
+
+      expect(
+        c.read(todosControllerProvider).requireValue.map((Todo t) => t.title),
+        <String>['Heil'],
+      );
+    });
+  });
+
   group('undo puts a task back where it was', () {
     test('restore inserts at the original index', () async {
       await store.writeAll(<Todo>[
@@ -289,8 +386,87 @@ class _UnreadableTodoStore implements TodoStore {
   }
 
   @override
+  Future<void> upsertTodo(Todo todo) async {
+    writes++;
+  }
+
+  @override
+  Future<void> upsertTodos(Iterable<Todo> todos) async {
+    writes++;
+  }
+
+  @override
+  Future<void> deleteTodo(String id) async {
+    writes++;
+  }
+
+  @override
+  Future<void> deleteTodos(Iterable<String> ids) async {
+    writes++;
+  }
+
+  @override
   Future<List<TodoFolder>> readFolders() async => folders;
 
   @override
   Future<void> writeFolders(List<TodoFolder> next) async => folders = next;
+}
+
+/// An in-memory store whose upserts can be held back, or fail once.
+class _GatedWriteTodoStore extends InMemoryTodoStore {
+  Completer<void>? _gate;
+  bool failNextUpsert = false;
+
+  void holdUpserts() => _gate = Completer<void>();
+
+  void releaseUpserts() {
+    _gate?.complete();
+    _gate = null;
+  }
+
+  @override
+  Future<void> upsertTodos(Iterable<Todo> todos) async {
+    final Completer<void>? gate = _gate;
+    if (gate != null) await gate.future;
+    if (failNextUpsert) {
+      failNextUpsert = false;
+      throw TodoStoreFailure(TodoStoreOperation.write, StateError('failed'));
+    }
+    await super.upsertTodos(todos);
+  }
+}
+
+class _FailingWriteTodoStore implements TodoStore {
+  _FailingWriteTodoStore(Todo todo) : stored = <Todo>[todo];
+
+  List<Todo> stored;
+
+  @override
+  Future<List<Todo>> readAll() async => List<Todo>.of(stored);
+
+  @override
+  Future<void> writeAll(List<Todo> todos) async =>
+      throw TodoStoreFailure(TodoStoreOperation.write, StateError('failed'));
+
+  @override
+  Future<void> upsertTodo(Todo todo) async =>
+      throw TodoStoreFailure(TodoStoreOperation.write, StateError('failed'));
+
+  @override
+  Future<void> upsertTodos(Iterable<Todo> todos) async =>
+      throw TodoStoreFailure(TodoStoreOperation.write, StateError('failed'));
+
+  @override
+  Future<void> deleteTodo(String id) async =>
+      throw TodoStoreFailure(TodoStoreOperation.write, StateError('failed'));
+
+  @override
+  Future<void> deleteTodos(Iterable<String> ids) async =>
+      throw TodoStoreFailure(TodoStoreOperation.write, StateError('failed'));
+
+  @override
+  Future<List<TodoFolder>> readFolders() async => const <TodoFolder>[];
+
+  @override
+  Future<void> writeFolders(List<TodoFolder> folders) async {}
 }

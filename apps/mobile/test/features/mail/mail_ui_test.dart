@@ -24,6 +24,8 @@ import 'package:campus_koethen/features/mail/presentation/mail_screen.dart';
 import 'package:campus_koethen/features/mail/presentation/mail_search_screen.dart';
 import 'package:campus_koethen/features/mail/presentation/mail_setup_screen.dart';
 import 'package:campus_koethen/features/more/presentation/more_screen.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity_store.dart';
 import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -46,7 +48,8 @@ List<Override> _mail(
   InMemoryMailCredentialStore store, {
   MailCacheStore? cache,
 }) {
-  final MailCacheStore resolvedCache = cache ?? MemoryMailCache();
+  final MailCacheStore resolvedCache =
+      cache ?? MemoryMailCache(now: _testClock);
   return <Override>[
     mailGatewayProvider.overrideWithValue(gateway),
     mailCredentialStoreProvider.overrideWithValue(store),
@@ -140,6 +143,23 @@ const List<int> _pngBytes = <int>[
   0x82,
 ];
 
+class _MemoryIdentityStore implements UniversityIdentityStore {
+  UniversityIdentity? value;
+  int writes = 0;
+
+  @override
+  Future<UniversityIdentity?> read() async => value;
+
+  @override
+  Future<void> write(UniversityIdentity identity) async {
+    writes++;
+    value = identity;
+  }
+
+  @override
+  Future<void> clear() async => value = null;
+}
+
 class _FakeLauncher implements SafeLinkLauncher {
   final List<String> opened = <String>[];
 
@@ -158,6 +178,10 @@ MailMessageHeader _header({String id = '1'}) => MailMessageHeader(
   isSeen: false,
   hasAttachments: false,
 );
+
+/// Mail fixtures here are dated mid-2026. Retention judges message age against
+/// the clock, so the caches read a fixed clock near the fixtures.
+DateTime _testClock() => DateTime.utc(2026, 7, 26);
 
 void main() {
   group('MoreScreen', () {
@@ -217,12 +241,38 @@ void main() {
       expect(container.read(settingsProvider).mailDownloadAttachments, isTrue);
     });
 
+    testWidgets('offers the Exchange calendar as an explicit opt-in', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      final container = await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(FakeMailGateway(), InMemoryMailCredentialStore()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exchange-Termine'), findsOneWidget);
+      expect(
+        container.read(settingsProvider).mailExchangeCalendarEnabled,
+        isFalse,
+      );
+
+      await tester.tap(find.text('Exchange-Termine'));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(settingsProvider).mailExchangeCalendarEnabled,
+        isTrue,
+      );
+    });
+
     testWidgets('shows the cached inbox when an account is stored', (
       WidgetTester tester,
     ) async {
       final store = InMemoryMailCredentialStore()..write(_creds);
       // The INBOX is served from the offline cache — pre-populate it.
-      final MemoryMailCache cache = MemoryMailCache();
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
       await cache.saveHeaders(<MailMessageHeader>[_header()]);
       await pumpScreen(
         tester,
@@ -236,12 +286,159 @@ void main() {
       expect(find.text('Hallo Welt'), findsOneWidget);
     });
 
+    testWidgets('a message can be deleted from the list with a long press, '
+        'after a confirmation', (WidgetTester tester) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
+      await cache.saveHeaders(<MailMessageHeader>[_header()]);
+      final FakeMailGateway gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Hallo Welt'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('E-Mail löschen'));
+      await tester.pumpAndSettle();
+      expect(find.text('E-Mail löschen?'), findsOneWidget);
+      expect(gateway.deletedMessages, isEmpty, reason: 'not before confirming');
+
+      await tester.tap(find.text('Löschen'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.deletedMessages, hasLength(1));
+      expect(find.text('Hallo Welt'), findsNothing);
+      expect(find.text('E-Mail gelöscht.'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the confirmation deletes nothing', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
+      await cache.saveHeaders(<MailMessageHeader>[_header()]);
+      final FakeMailGateway gateway = FakeMailGateway();
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Hallo Welt'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('E-Mail löschen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Abbrechen'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.deletedMessages, isEmpty);
+      expect(find.text('Hallo Welt'), findsOneWidget);
+    });
+
+    testWidgets('a failed server delete keeps the message and says why', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
+      await cache.saveHeaders(<MailMessageHeader>[_header()]);
+      final FakeMailGateway gateway = FakeMailGateway()
+        ..deleteError = const MailFailure(MailFailureKind.timeout);
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Hallo Welt'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('E-Mail löschen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Löschen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hallo Welt'), findsOneWidget);
+      expect(find.text('E-Mail gelöscht.'), findsNothing);
+    });
+
+    testWidgets('a long press offers moving a message into another folder', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
+      await cache.saveHeaders(<MailMessageHeader>[_header()]);
+      final FakeMailGateway gateway = FakeMailGateway()
+        ..folders = const <MailFolder>[
+          MailFolder.inbox(),
+          MailFolder(path: 'Archiv', name: 'Archiv'),
+        ];
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Hallo Welt'));
+      await tester.pumpAndSettle();
+      expect(find.text('Verschieben'), findsOneWidget);
+      expect(find.text('E-Mail löschen'), findsOneWidget);
+      await tester.tap(find.text('Verschieben'));
+      await tester.pumpAndSettle();
+      expect(find.text('Verschieben nach'), findsOneWidget);
+      await tester.tap(find.text('Archiv'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.movedMessages.single.targetPath, 'Archiv');
+      expect(find.text('Hallo Welt'), findsNothing);
+      expect(find.text('E-Mail verschoben.'), findsOneWidget);
+    });
+
+    testWidgets('a refused delete names the failing step', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
+      await cache.saveHeaders(<MailMessageHeader>[_header()]);
+      final FakeMailGateway gateway = FakeMailGateway()
+        ..deleteError = const MailFailure(
+          MailFailureKind.protocol,
+          step: 'copy',
+          detail: 'copy refused',
+        );
+      await pumpScreen(
+        tester,
+        const MailScreen(),
+        overrides: _mail(gateway, store, cache: cache),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Hallo Welt'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('E-Mail löschen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Löschen'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Unerwartete Antwort vom Mailserver (Schritt: copy, copy refused).',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Hallo Welt'), findsOneWidget);
+    });
+
     testWidgets('offers loading 100 older messages at the end of the inbox', (
       WidgetTester tester,
     ) async {
       _tallSurface(tester);
       final store = InMemoryMailCredentialStore()..write(_creds);
-      final MemoryMailCache cache = MemoryMailCache();
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
       await cache.saveHeaders(
         List<MailMessageHeader>.generate(
           50,
@@ -363,6 +560,34 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Verbindung wird geprüft …'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Verbindung wird geprüft …'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<IconButton>(
+              find.ancestor(
+                of: find.byTooltip('Passwort anzeigen'),
+                matching: find.byType(IconButton),
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText).at(2))
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
+      expect(
+        tester
+            .widgetList<PopScope>(find.byType(PopScope))
+            .any((PopScope scope) => !scope.canPop),
+        isTrue,
+      );
 
       gateway.verifyGate!.complete();
       await tester.pumpAndSettle();
@@ -488,6 +713,88 @@ void main() {
     );
   });
 
+  group('university identity reuse', () {
+    testWidgets(
+      'ticking "also use for other services" retains the identity centrally',
+      (WidgetTester tester) async {
+        _tallSurface(tester);
+        final store = InMemoryMailCredentialStore();
+        final gateway = FakeMailGateway();
+        final identityStore = _MemoryIdentityStore();
+        await pumpScreen(
+          tester,
+          const MailSetupScreen(),
+          overrides: _mail(gateway, store),
+          universityIdentityStore: identityStore,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byType(TextFormField).at(1),
+          'stud@hs-anhalt.de',
+        );
+        await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+        await tester.tap(find.byType(Checkbox));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Verbindung prüfen und anmelden'));
+        await tester.pumpAndSettle();
+
+        expect(identityStore.writes, 1);
+        expect(identityStore.value?.identifier, 'stud@hs-anhalt.de');
+        expect(identityStore.value?.password, 'pw');
+      },
+    );
+
+    testWidgets(
+      'does not retain centrally when the reuse box is left unticked',
+      (WidgetTester tester) async {
+        _tallSurface(tester);
+        final identityStore = _MemoryIdentityStore();
+        await pumpScreen(
+          tester,
+          const MailSetupScreen(),
+          overrides: _mail(FakeMailGateway(), InMemoryMailCredentialStore()),
+          universityIdentityStore: identityStore,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byType(TextFormField).at(1),
+          'stud@hs-anhalt.de',
+        );
+        await tester.enterText(find.byType(TextFormField).at(2), 'pw');
+        await tester.tap(find.text('Verbindung prüfen und anmelden'));
+        await tester.pumpAndSettle();
+
+        expect(identityStore.writes, 0);
+      },
+    );
+
+    testWidgets('hides the reuse offer once a central identity is stored', (
+      WidgetTester tester,
+    ) async {
+      _tallSurface(tester);
+      await pumpScreen(
+        tester,
+        const MailSetupScreen(),
+        overrides: _mail(FakeMailGateway(), InMemoryMailCredentialStore()),
+        universityIdentityStore: _MemoryIdentityStore()
+          ..value = const UniversityIdentity(
+            identifier: 'stud',
+            password: 'pw',
+          ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Diese Zugangsdaten auch für Mail, Moodle und Noten automatisch verwenden.',
+        ),
+        findsNothing,
+      );
+    });
+  });
+
   group('inbox actions', () {
     testWidgets('removing the account returns to the sign-in screen', (
       WidgetTester tester,
@@ -506,7 +813,7 @@ void main() {
 
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Account entfernen'));
+      await tester.tap(find.text('E-Mail-Verbindung und lokale Daten löschen'));
       await tester.pumpAndSettle();
       // Confirm in the dialog.
       await tester.tap(find.text('Entfernen'));
@@ -518,6 +825,36 @@ void main() {
   });
 
   group('message detail', () {
+    testWidgets('deletes only after confirmation', (WidgetTester tester) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway(
+        detail: MailMessageDetail(
+          id: '1',
+          subject: 'Betreff',
+          from: const MailAddress(email: 'alice@hs-anhalt.de', name: 'Alice'),
+          to: const <MailAddress>[MailAddress(email: 'stud@hs-anhalt.de')],
+          date: null,
+          body: 'Nachricht',
+        ),
+      );
+      await pumpScreen(
+        tester,
+        const MailMessageScreen(id: '1'),
+        overrides: _mail(gateway, store),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('E-Mail löschen'));
+      await tester.pumpAndSettle();
+      expect(gateway.deletedMessages, isEmpty);
+      await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.deletedMessages, <({String mailboxPath, String id})>[
+        (mailboxPath: 'INBOX', id: '1'),
+      ]);
+    });
+
     testWidgets('renders the plain-text body and marks it seen', (
       WidgetTester tester,
     ) async {
@@ -600,7 +937,7 @@ void main() {
       'downloads a missing attachment on demand, caches it and opens it',
       (WidgetTester tester) async {
         final store = InMemoryMailCredentialStore()..write(_creds);
-        final cache = MemoryMailCache();
+        final cache = MemoryMailCache(now: _testClock);
         await cache.saveMessage(
           const MailMessageDetail(
             id: '1',
@@ -851,7 +1188,7 @@ void main() {
         );
 
     Future<MemoryMailCache> cachedInbox() async {
-      final MemoryMailCache cache = MemoryMailCache();
+      final MemoryMailCache cache = MemoryMailCache(now: _testClock);
       await cache.saveHeaders(<MailMessageHeader>[
         hdr('1', 'Rechnung 2026', name: 'Buchhaltung'),
       ]);
@@ -888,7 +1225,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final store = InMemoryMailCredentialStore()..write(_creds);
-      final cache = MemoryMailCache();
+      final cache = MemoryMailCache(now: _testClock);
       await cache.saveHeaders(<MailMessageHeader>[
         for (int index = 0; index < 80; index++)
           hdr('$index', 'Rechnung $index'),
@@ -1049,7 +1386,7 @@ void main() {
             ),
           },
         );
-        final MemoryMailCache cache = MemoryMailCache();
+        final MemoryMailCache cache = MemoryMailCache(now: _testClock);
         await pumpScreen(
           tester,
           const MailMessageScreen(id: '9'),
@@ -1182,6 +1519,39 @@ void main() {
 
       expect(find.text('foto.png'), findsOneWidget);
       expect(picker.calls, 1);
+    });
+
+    testWidgets('rejects an oversized file before reading it', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final FakePickedMailFile file = FakePickedMailFile(
+        filename: 'too-large.bin',
+        mediaType: 'application/octet-stream',
+        bytes: Uint8List(1),
+        reportedSizeBytes: MailAttachmentLimits.maxFileBytes + 1,
+      );
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[file]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(FakeMailGateway(), store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      expect(find.text('too-large.bin'), findsNothing);
+      expect(find.textContaining('20 MB'), findsOneWidget);
+      expect(file.readCalls, 0);
     });
 
     testWidgets('removes a picked attachment before sending', (

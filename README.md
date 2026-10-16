@@ -3,7 +3,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 Monorepo für die **Campus Köthen** App — News, Kalender, Mensapläne, Kontakte sowie direkt
-angebundene persönliche Dienste (Studenten-E-Mail, Notenspiegel, Moodle) für den Campus Köthen.
+angebundene persönliche Dienste (Studenten-E-Mail, Notenspiegel, Moodle, Nextcloud) für den Campus Köthen.
 
 ---
 
@@ -27,26 +27,28 @@ Dieses Projekt verwendet **keine** Logos, Wappen, Markenassets oder Designsystem
 
 ## Umfang des MVP
 
-| Enthalten                                                | Nicht enthalten                                 |
-| -------------------------------------------------------- | ----------------------------------------------- |
-| News als endloser Inline-Feed, Kanäle frei wählbar       | Nutzerkonten für die App selbst                 |
-| Quellenübergreifender Kalender (Tag/Woche/Liste)         | Push-Nachrichten von einem Server               |
-| Gruppenstundenplan (WebUntis, serverseitig schaltbar)    | Persönlicher WebUntis-Login                     |
-| Öffentliche Google-Kalender (öffentlicher ICS-Feed)      | Nicht freigegebene reale Gebäudepläne           |
-| Mensapläne (Trait-/Allergenfilter, eine Preisgruppe)     | Analytics, Tracking, Crash-Reporting            |
-| Kontakte und Kontaktbereiche                             | Redis, SMTP                                     |
-| Studenten-E-Mail (IMAP/SMTP, direkt vom Gerät)           | Automatisches Deployment                        |
-| Notenspiegel HIS-QIS **und** HISinOne (direkt vom Gerät) | Globale Volltextsuche                           |
-| Moodle: Kurse, Materialien, Aufgaben, Ankündigungen      | Schreibzugriffe auf Moodle                      |
-| Lokale Aufgabenliste (rein auf dem Gerät)                | Serverseitige Synchronisierung der Aufgaben     |
-| Anträge & Feedback (direkt an das Gremiensystem)         | Serverseitige Ablage von Anträgen               |
-| Lageplan: Demo- und schematische Pläne, Raumsuche        | Indoor-Navigation, Wegberechnung, Live-Position |
-| Räume mit Kontaktbezug und Deep-Link in den Plan         | Raumbelegung und Buchung                        |
-| Lokale Einstellungen (Sprache, Theme, Abos)              | Mehrere Mail- oder Moodle-Konten                |
-| Lokale Erinnerungen, rein auf dem Gerät geplant          |                                                 |
-| Offline-/Cache-Verhalten                                 |                                                 |
-| About, vollständiges Impressum und Datenschutz           |                                                 |
-| Deutsch und Englisch                                     |                                                 |
+| Enthalten                                                                                                                                                    | Nicht enthalten                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| News als endloser Inline-Feed, Kanäle frei wählbar                                                                                                           | Nutzerkonten für die App selbst                            |
+| Quellenübergreifender Kalender (Tag/Woche/Liste)                                                                                                             | Push-Nachrichten von einem Server                          |
+| Gruppenstundenplan (WebUntis, serverseitig schaltbar)                                                                                                        | Persönlicher WebUntis-Login                                |
+| Öffentliche Google-Kalender (öffentlicher ICS-Feed)                                                                                                          | Nicht freigegebene reale Gebäudepläne                      |
+| Mensapläne und lokaler NFC-Guthabencheck (Android/iOS)                                                                                                       | Analytics, Tracking, Crash-Reporting                       |
+| Kontakte und Kontaktbereiche                                                                                                                                 | Redis, SMTP                                                |
+| Studenten-E-Mail (IMAP/SMTP und optional lesender Exchange-Kalender, direkt vom Gerät)                                                                       | Automatisches Deployment                                   |
+| Notenspiegel HIS-QIS **und** HISinOne, auf HISinOne zusätzlich nur lesend: Bescheinigungen, Personen-/Kontaktdaten, Studiengangsübersicht (direkt vom Gerät) | Globale Volltextsuche                                      |
+| Moodle: Kurse, Materialien, Aufgaben, Ankündigungen                                                                                                          | Schreibzugriffe auf Moodle                                 |
+| Nextcloud-Dateiexplorer: Browser-Login, Ordner, Download, Upload, Löschen und nur lesbare öffentliche Freigabelinks                                          | Umbenennen, Verschieben oder Hintergrund-Sync in Nextcloud |
+| Optionaler zentraler Hochschulzugang, nur lokal                                                                                                              | Gemeinsame SSO-Sitzung oder App-Konto                      |
+| Lokale Aufgabenliste (rein auf dem Gerät)                                                                                                                    | Serverseitige Synchronisierung der Aufgaben                |
+| Anträge & Feedback (direkt an das Gremiensystem)                                                                                                             | Serverseitige Ablage von Anträgen                          |
+| Lageplan: Demo- und schematische Pläne, Raumsuche                                                                                                            | Indoor-Navigation, Wegberechnung, Live-Position            |
+| Räume mit Kontaktbezug und Deep-Link in den Plan                                                                                                             | Raumbelegung und Buchung                                   |
+| Lokale Einstellungen (Sprache, Theme, Abos)                                                                                                                  | Mehrere Mail- oder Moodle-Konten                           |
+| Lokale Erinnerungen, rein auf dem Gerät geplant                                                                                                              |                                                            |
+| Offline-/Cache-Verhalten                                                                                                                                     |                                                            |
+| About, vollständiges Impressum und Datenschutz                                                                                                               |                                                            |
+| Deutsch und Englisch                                                                                                                                         |                                                            |
 
 Details: [docs/product/mvp.md](docs/product/mvp.md)
 
@@ -75,10 +77,15 @@ Flutter ──/v1──► Campus API (NestJS) ──► campus_app_* (PostgreSQ
 **Pfad 2 — persönliche oder besonders sensible Dienste: direkt vom Gerät, bewusst am Backend vorbei**
 
 ```text
-                 ┌──► mail.hs-anhalt.de           IMAPS 993 / SMTP 587 + STARTTLS
+                 ┌──► mail.hs-anhalt.de           IMAPS 993 / SMTP 587 + STARTTLS / EWS (lesend)
                  ├──► service.ssc.hs-anhalt.de    HIS-QIS-Notenspiegel (Bestandsportal)
-Flutter ─────────┼──► sscportal.ssc.hs-anhalt.de  HISinOne-Notenspiegel (neueres Portal)
+Flutter ─────────┼──► sscportal.ssc.hs-anhalt.de  HISinOne-Notenspiegel (neueres Portal);
+                 │       Bescheinigungs-Druck-Buttons (Notenübersicht + Studienservice) per
+                 │       Formular-POST, Abruf eng begrenzt auf
+                 │       `/qisserver/rds?state=docdownload`, das per Redirect
+                 │       weiter zu untrust-sscportal.ssc.hs-anhalt.de führt
                  ├──► moodle.hs-anhalt.de         Moodle-Webservice (nur lesend)
+                 ├──► cloud.hs-anhalt.de          Nextcloud Login Flow / OCS / WebDAV
                  └──► REQUESTS_BASE_URL           Anträge und Feedback (HTTPS)
 ```
 
@@ -87,13 +94,28 @@ Einrichtung ermittelt (`docs/grades.md`).
 
 Damit erhalten weder Campus API, Strapi noch Worker jemals Zugangsdaten oder persönliche Inhalte.
 Zugangsdaten liegen ausschließlich im Keychain/Keystore, zwischengespeicherte Inhalte nur
-verschlüsselt auf dem Gerät. Dies sind **genau vier** ausdrücklich beschlossene Ausnahmen — keine
+verschlüsselt auf dem Gerät. Dies sind **genau fünf** ausdrücklich beschlossene Ausnahmen — keine
 allgemeine Erlaubnis für beliebige Direktzugriffe (siehe [AGENTS.md](AGENTS.md) §2).
+
+Der optionale zentrale Hochschulzugang speichert genau eine Kennung (Benutzername oder vollständige
+Mailadresse) und ein Passwort erst nach ausdrücklicher Bestätigung und erfolgreicher Prüfung eines
+der Dienste ausschließlich im gerätegebundenen Keychain/Keystore. Er ist eine lokale Eingabehilfe,
+**kein** Projektkonto und keine
+gemeinsame SSO-Sitzung: `+` verbindet Mail, Moodle oder Noten jeweils separat; `−` löscht nur die
+gewählte Dienstverbindung. Für Mail wird ein reiner Benutzername lokal um `@hs-anhalt.de` ergänzt;
+eine vollständige Mailadresse sowie die Kennung für Moodle und Noten bleiben unverändert. Ein
+vorhandenes altes Drei-Feld-Schema wird beim Upgrade vollständig verworfen. Die Komplettlöschung
+trennt alle Dienste und entfernt die zentrale
+Identität zuletzt. Bei einem Teilfehler bleibt sie für einen sichtbaren Retry erhalten.
+Nextcloud verwendet unabhängig davon den offiziellen Login Flow v2 im Systembrowser; Campus
+Köthen erhält dabei nie das Hochschulpasswort und speichert nur das widerrufbare App-Passwort im
+Keychain/Keystore.
 
 Der verschlüsselte Mailcache umfasst Kopfzeilen, Inhalte, den Adressindex und optional
 Anhangbytes; sein gerätegebundener Schlüssel liegt im Keychain/Keystore. Ein vorhandener
 unverschlüsselter Testcache wird beim Upgrade entfernt und nicht inhaltlich migriert. Nach
-erfolgreichem „Account entfernen“ sind Credentials, alter und neuer Cache, Cache-Schlüssel und
+erfolgreichem „E-Mail-Verbindung und lokale Daten löschen“ sind die dienstbezogenen Credentials,
+alter und neuer Cache, Cache-Schlüssel und
 Mail-State logisch entfernt; die Servermails bleiben unverändert. Dies ist keine Zusage eines
 forensischen Secure Erase von Flash-Zellen oder Backups.
 
@@ -101,8 +123,14 @@ Harte Systemgrenzen:
 
 - Flutter spricht für alle öffentlichen und redaktionellen Daten **ausschließlich** mit der versionierten Campus API unter `/v1` — niemals direkt mit Strapi, meine-mensa.de, WebUntis oder dem Google-ICS-Feed.
 - Das Backend liest Strapi **ausschließlich** über dessen REST-API mit einem serverseitigen Read-only-Token — niemals direkt aus Strapi-Tabellen.
-- Für Mail, Noten, Moodle sowie Anträge und Feedback gibt es **keinen** Backend-Proxy, **keine** serverseitige Speicherung und **keinen** Analytics-/Logging-Umweg.
-- Der Kalender führt Stundenplan, öffentliche Kalender und Moodle-Deadlines **ausschließlich lokal auf dem Gerät** zusammen.
+- Für Mail, Noten, Moodle, Nextcloud sowie Anträge und Feedback gibt es **keinen** Backend-Proxy, **keine** serverseitige Speicherung und **keinen** Analytics-/Logging-Umweg. Das gilt auch für den optionalen zentralen Hochschulzugang.
+- Der Kalender führt Stundenplan, öffentliche Kalender, Moodle-Deadlines und nach ausdrücklichem
+  Opt-in persönliche Exchange-Termine **ausschließlich lokal auf dem Gerät** zusammen.
+- Akademische Hinweise bleiben ebenfalls lokal: Moodle-Fristen können mit wählbarem Vorlauf
+  vorausgeplant werden, neue Noten werden erst nach einem erfolgreichen Abruf neutral gemeldet und
+  Stundenplanänderungen nach dem nächsten erfolgreichen Laden im Stundenplan angezeigt.
+- Immatrikulationsbescheinigung und Leistungsübersicht können ausdrücklich in einer
+  verschlüsselten, kontogebundenen Offline-Dokumenten-Wallet gespeichert werden.
 - CMS und operative Daten nutzen **getrennte Datenbanken und Rollen**.
 - Umgebungsunterschiede entstehen ausschließlich durch Environment/Secrets, nicht durch Quellcode.
 
@@ -128,31 +156,34 @@ docs/                          Produkt-, Architektur- und Betriebsdokumentation
 
 ## Dokumentation
 
-| Dokument                                                          | Inhalt                                                     |
-| ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| [product/mvp.md](docs/product/mvp.md)                             | Umfang, fachliche Anforderungen, Akzeptanzkriterien        |
-| [architecture.md](docs/architecture.md)                           | Komponenten, Systemgrenzen, Datenhaltung, Betrieb          |
-| [api.md](docs/api.md)                                             | Verbindlicher Vertrag der Campus API                       |
-| [data-sources.md](docs/data-sources.md)                           | Alle Fremdquellen mit verifizierten Eigenheiten            |
-| [public-calendars.md](docs/public-calendars.md)                   | Öffentliche Google-Kalender über den öffentlichen ICS-Feed |
-| [student-mail.md](docs/student-mail.md)                           | Studenten-E-Mail-Client (IMAP/SMTP, direkt vom Gerät)      |
-| [grades.md](docs/grades.md)                                       | Notenspiegel HIS-QIS **und** HISinOne (direkt vom Gerät)   |
-| [moodle.md](docs/moodle.md)                                       | Moodle-Integration und quellenübergreifender Kalender      |
-| [requests.md](docs/requests.md)                                   | Anträge und Feedback ans Gremiensystem (direkt vom Gerät)  |
-| [local-development.md](docs/local-development.md)                 | Lokaler Stack, Schritt für Schritt                         |
-| [content-editor-guide.md](docs/content-editor-guide.md)           | Handbuch für die Redaktion in Strapi                       |
-| [legal/dependency-licenses.md](docs/legal/dependency-licenses.md) | Lizenzbewertung der Abhängigkeiten                         |
-| [adr/](docs/adr/)                                                 | Langlebige Architekturentscheidungen                       |
+| Dokument                                                          | Inhalt                                                          |
+| ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| [product/mvp.md](docs/product/mvp.md)                             | Umfang, fachliche Anforderungen, Akzeptanzkriterien             |
+| [architecture.md](docs/architecture.md)                           | Komponenten, Systemgrenzen, Datenhaltung, Betrieb               |
+| [api.md](docs/api.md)                                             | Verbindlicher Vertrag der Campus API                            |
+| [data-sources.md](docs/data-sources.md)                           | Alle Fremdquellen mit verifizierten Eigenheiten                 |
+| [public-calendars.md](docs/public-calendars.md)                   | Öffentliche Google-Kalender über den öffentlichen ICS-Feed      |
+| [sites.md](docs/sites.md)                                         | Campus-Standorte Köthen, Bernburg und Dessau: Wahl und Wirkung  |
+| [library.md](docs/library.md)                                     | Bibliothek: Linkliste zu Katalogen, Erweiterungsvoraussetzungen |
+| [student-mail.md](docs/student-mail.md)                           | Studenten-E-Mail und optionaler Exchange-Kalender               |
+| [grades.md](docs/grades.md)                                       | Notenspiegel HIS-QIS **und** HISinOne (direkt vom Gerät)        |
+| [moodle.md](docs/moodle.md)                                       | Moodle-Integration und quellenübergreifender Kalender           |
+| [nextcloud.md](docs/nextcloud.md)                                 | Nextcloud Login Flow v2 und lesender WebDAV-Dateiexplorer       |
+| [requests.md](docs/requests.md)                                   | Anträge und Feedback ans Gremiensystem (direkt vom Gerät)       |
+| [local-development.md](docs/local-development.md)                 | Lokaler Stack, Schritt für Schritt                              |
+| [content-editor-guide.md](docs/content-editor-guide.md)           | Handbuch für die Redaktion in Strapi                            |
+| [legal/dependency-licenses.md](docs/legal/dependency-licenses.md) | Lizenzbewertung der Abhängigkeiten                              |
+| [adr/](docs/adr/)                                                 | Langlebige Architekturentscheidungen                            |
 
 ## Voraussetzungen
 
-| Werkzeug         | Version                                      |
-| ---------------- | -------------------------------------------- |
-| Node.js          | 22.x (Strapi 5.52.1 unterstützt `>=20 <=26`) |
-| pnpm             | >= 10 (hier: 11.15.1, via Corepack)          |
-| Docker + Compose | Docker 29.x, Compose v5                      |
-| Flutter          | stable channel                               |
-| PostgreSQL       | 16 (über Compose)                            |
+| Werkzeug         | Version                                             |
+| ---------------- | --------------------------------------------------- |
+| Node.js          | 24.21.0 LTS (Strapi 5.56.0 unterstützt `>=20 <=26`) |
+| pnpm             | >= 10 (hier: 11.15.1, via Corepack)                 |
+| Docker + Compose | Docker 29.x, Compose v5                             |
+| Flutter          | stable channel                                      |
+| PostgreSQL       | 16 (über Compose)                                   |
 
 ## Schnellstart (lokal)
 
@@ -177,12 +208,21 @@ pnpm --filter @campus/cms develop            # http://localhost:1337/admin
 cd apps/mobile
 flutter pub get
 flutter gen-l10n
-flutter run --dart-define=API_BASE_URL=http://localhost:3000
+flutter run \
+  --dart-define=API_BASE_URL=http://localhost:3000 \
+  --dart-define=ALLOW_LOCAL_API=true
 ```
 
 Vollständige Anleitung: [docs/local-development.md](docs/local-development.md)
 
 ## Qualitätsgates
+
+Die Backend-Integrationstests enthalten absichtlich destruktive Tabellenresets.
+Sie starten nur, wenn `DATABASE_URL` und `TEST_DATABASE_URL` exakt dieselbe,
+eigens angelegte Datenbank `campus_app_test` beziehungsweise
+`campus_app_test_<run-id>` bezeichnen. Die normale lokale Datenbank
+`campus_app_local` wird geschlossen abgewiesen. Der sichere temporäre Ablauf
+steht in [docs/local-development.md](docs/local-development.md#31-isolierte-backend-testdatenbank).
 
 ```bash
 pnpm format:check
@@ -209,8 +249,10 @@ ein Dependency-Audit für Node **und** Dart sowie Greps gegen hartkodierte UI-Te
 Verwendung von `food.image_url`. Nach einem vollständig grünen Lauf auf `main` oder einem
 Version-Tag baut [`.github/workflows/images.yml`](.github/workflows/images.yml) die Backend- und
 CMS-Images für `linux/amd64`, prüft sie vor der Veröffentlichung mit Trivy und veröffentlicht sie
-mit SBOM und Provenance unter `ghcr.io/leviora-studio/campus-koethen/{backend,cms}`. Es findet kein
-automatisches Deployment statt.
+mit SBOM und Provenance unter `ghcr.io/leviora-studio/campus-koethen/{backend,cms}`. Zusätzlich
+lässt sich `images.yml` manuell (`workflow_dispatch`) für einen expliziten Rebuild starten. Ein
+manueller Start durchläuft die CI-Gates nicht selbst, scannt aber weiterhin mit Trivy und
+überschreibt auf `main` den Tag `main`. Es findet kein automatisches Deployment statt.
 
 ## Lizenz
 

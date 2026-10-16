@@ -4,6 +4,7 @@
 import 'package:meta/meta.dart';
 
 import 'notification_category.dart';
+import 'immediate_notification.dart';
 import 'notification_permission.dart';
 import 'planned_notification.dart';
 
@@ -76,16 +77,23 @@ abstract interface class NotificationGateway {
   /// exactly once per installation.
   Future<NotificationPermissionStatus> requestPermission();
 
-  /// Removes every pending entry. The first half of a full re-plan, and the
-  /// whole of switching notifications off.
+  /// Removes every **pending** entry. The first half of a full re-plan, and
+  /// the whole of switching notifications off.
+  ///
+  /// Notifications that have already been delivered stay where they are: a
+  /// re-plan runs on every resume, and an unread hint must not disappear from
+  /// the notification shade just because the reader opened the app (F-01).
   ///
   /// Returns `false` when the platform refused the cancellation. A scheduler
   /// must not register the replacement plan in that case, otherwise stale and
   /// new entries coexist and the reader receives duplicate notifications.
-  Future<bool> cancelAll();
+  Future<bool> cancelAllPending();
 
   /// Registers one entry with the operating system.
   Future<void> schedule(PlannedNotification notification);
+
+  /// Shows one already-gated, confirmed notification immediately.
+  Future<void> showNow(ImmediateNotification notification);
 
   /// How many entries the operating system currently holds for this app.
   /// Diagnostic only — a count, never the entries.
@@ -128,10 +136,13 @@ class NoopNotificationGateway implements NotificationGateway {
       NotificationPermissionStatus.notApplicable;
 
   @override
-  Future<bool> cancelAll() async => true;
+  Future<bool> cancelAllPending() async => true;
 
   @override
   Future<void> schedule(PlannedNotification notification) async {}
+
+  @override
+  Future<void> showNow(ImmediateNotification notification) async {}
 
   @override
   Future<int> pendingCount() async => 0;

@@ -3,6 +3,7 @@
 
 import 'package:campus_koethen/core/cache/content_cache.dart';
 import 'package:campus_koethen/core/network/api_failure.dart';
+import 'package:campus_koethen/core/network/api_meta.dart';
 import 'package:campus_koethen/core/network/loaded.dart';
 import 'package:campus_koethen/features/timetable/data/timetable_models.dart';
 import 'package:campus_koethen/features/timetable/data/timetable_repository.dart';
@@ -27,8 +28,45 @@ TimetableRepository buildRepository(
 
 FakeHttpAdapter workingApi({DateTime? monday, Map<String, dynamic>? meta}) {
   return FakeHttpAdapter((RequestOptions options) {
+    if (options.path.contains('/timetable/groups/')) {
+      return FakeHttpResponse(
+        envelope(timetableGroupsFixture.first, meta: timetableMeta()),
+      );
+    }
     if (options.path.endsWith('/timetable/groups')) {
-      return FakeHttpResponse(envelope(timetableGroupsFixture));
+      return FakeHttpResponse(
+        envelope(
+          timetableGroupsFixture,
+          meta: <String, dynamic>{
+            'pagination': <String, dynamic>{
+              'page': 1,
+              'pageSize': 50,
+              'total': 503,
+              'totalPages': 11,
+            },
+          },
+        ),
+      );
+    }
+    if (options.path.endsWith('/timetable/periods')) {
+      return FakeHttpResponse(
+        envelope(<Object>[
+          <String, Object>{
+            'id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'name': '2026/2027',
+            'validFrom': '2026-10-05',
+            'validTo': '2027-03-31',
+            'groups': timetableGroupsFixture,
+          },
+        ]),
+      );
+    }
+    if (options.path.endsWith('/timetable/modules')) {
+      return FakeHttpResponse(
+        envelope(<Object>[
+          <String, Object?>{'subjectCode': 'MATH2', 'title': 'Mathematik 2'},
+        ]),
+      );
     }
     return FakeHttpResponse(
       envelope(
@@ -52,6 +90,36 @@ void main() {
       expect(loaded.fromCache, isFalse);
       expect(adapter.requests.single.path, '/timetable/groups');
       expect(adapter.queries.single, contains('locale=en'));
+      expect(adapter.queries.single, contains('page=1'));
+      expect(adapter.queries.single, contains('pageSize=50'));
+      expect(loaded.meta.pagination?.total, 503);
+    });
+
+    test('sends server-side search and pagination parameters', () async {
+      final FakeHttpAdapter adapter = workingApi();
+
+      await buildRepository(
+        adapter,
+      ).fetchGroups(locale: 'de', query: ' informatik ', page: 4);
+
+      expect(adapter.queries.single, contains('query=informatik'));
+      expect(adapter.queries.single, contains('page=4'));
+      expect(adapter.queries.single, contains('pageSize=50'));
+    });
+
+    test('resolves one saved group through its Campus UUID', () async {
+      final FakeHttpAdapter adapter = workingApi();
+
+      final Loaded<TimetableGroup> loaded = await buildRepository(
+        adapter,
+      ).fetchGroup(locale: 'de', groupId: timetableGroupIdFixture);
+
+      expect(loaded.value.id, timetableGroupIdFixture);
+      expect(
+        adapter.requests.single.path,
+        '/timetable/groups/$timetableGroupIdFixture',
+      );
+      expect(adapter.queries.single, isNot(contains('untis')));
     });
 
     test('never sends an upstream identifier', () async {
@@ -61,6 +129,105 @@ void main() {
 
       expect(adapter.queries.single, isNot(contains('school')));
       expect(adapter.queries.single, isNot(contains('untis')));
+    });
+  });
+
+  group('fetchPeriods', () {
+    test('reads semester dates and Campus groups', () async {
+      final FakeHttpAdapter adapter = workingApi();
+      final Loaded<List<TimetablePeriod>> loaded = await buildRepository(
+        adapter,
+      ).fetchPeriods(locale: 'de');
+
+      expect(loaded.value.single.name, '2026/2027');
+      expect(loaded.value.single.validFrom, DateTime(2026, 10, 5));
+      expect(loaded.value.single.groups, hasLength(3));
+      expect(adapter.requests.single.path, '/timetable/periods');
+    });
+  });
+
+  group('fetchModules', () {
+    test('reads modules for exactly one Campus group', () async {
+      final FakeHttpAdapter adapter = workingApi();
+      final Loaded<List<TimetableModule>> loaded = await buildRepository(
+        adapter,
+      ).fetchModules(locale: 'de', groupId: timetableGroupIdFixture);
+
+      expect(loaded.value.single.moduleKey, 'code:MATH2');
+      expect(adapter.requests.single.path, '/timetable/modules');
+      expect(
+        adapter.queries.single,
+        contains('groupId=$timetableGroupIdFixture'),
+      );
+    });
+  });
+
+  group('fetchModules against a backend without the catalogue', () {
+    // A deployment older than the module catalogue answers the unknown route
+    // with a plain NOT_FOUND. The single-module choice must still work, so
+    // the modules are read from the group's own lessons.
+    FakeHttpAdapter oldBackend({String code = 'NOT_FOUND'}) =>
+        FakeHttpAdapter((RequestOptions options) {
+          if (options.path.endsWith('/timetable/modules')) {
+            return FakeHttpResponse(<String, dynamic>{
+              'error': <String, dynamic>{
+                'status': 404,
+                'code': code,
+                'message': 'nicht gefunden',
+              },
+            }, statusCode: 404);
+          }
+          return FakeHttpResponse(
+            envelope(timetableWeekFixture(_monday), meta: timetableMeta()),
+          );
+        });
+
+    test('derives the modules from the lessons of the group', () async {
+      final FakeHttpAdapter adapter = oldBackend();
+
+      final Loaded<List<TimetableModule>> loaded = await buildRepository(
+        adapter,
+      ).fetchModules(locale: 'de', groupId: timetableGroupIdFixture);
+
+      expect(loaded.value, isNotEmpty);
+      expect(
+        loaded.value.map((TimetableModule m) => m.moduleKey).toSet(),
+        hasLength(loaded.value.length),
+        reason: 'every module once',
+      );
+      final Iterable<RequestOptions> lessons = adapter.requests.where(
+        (RequestOptions r) => r.path.endsWith('/timetable/entries'),
+      );
+      expect(lessons, isNotEmpty);
+      expect(
+        lessons.first.uri.query,
+        contains('groupId=$timetableGroupIdFixture'),
+      );
+    });
+
+    test('the keys match the ones the lessons themselves carry', () async {
+      final Loaded<List<TimetableModule>> loaded = await buildRepository(
+        oldBackend(),
+      ).fetchModules(locale: 'de', groupId: timetableGroupIdFixture);
+      final Timetable week = Timetable.fromJson(timetableWeekFixture(_monday))!;
+      final Set<String> lessonKeys = <String>{
+        for (final TimetableDay day in week.days)
+          for (final TimetableEntry entry in day.entries) ?entry.moduleKey,
+      };
+
+      expect(
+        loaded.value.map((TimetableModule m) => m.moduleKey).toSet(),
+        lessonKeys,
+      );
+    });
+
+    test('an unknown group is still an error, not an empty list', () async {
+      await expectLater(
+        buildRepository(
+          oldBackend(code: 'TIMETABLE_GROUP_NOT_FOUND'),
+        ).fetchModules(locale: 'de', groupId: timetableGroupIdFixture),
+        throwsA(isA<ApiFailure>()),
+      );
     });
   });
 
@@ -329,5 +496,56 @@ void main() {
       expect(cached.fromCache, isTrue);
       expect(cached.value, hasLength(3));
     });
+
+    test('keeps the selected group metadata offline independently', () async {
+      bool offline = false;
+      final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+        if (offline) throw Exception('offline');
+        return FakeHttpResponse(
+          envelope(timetableGroupsFixture.first, meta: timetableMeta()),
+        );
+      });
+      final TimetableRepository repository = buildRepository(adapter);
+
+      await repository.fetchGroup(
+        locale: 'de',
+        groupId: timetableGroupIdFixture,
+      );
+      offline = true;
+      final Loaded<TimetableGroup> cached = await repository.fetchGroup(
+        locale: 'de',
+        groupId: timetableGroupIdFixture,
+      );
+
+      expect(cached.fromCache, isTrue);
+      expect(cached.value.shortName, 'AIN2 - BT');
+      expect(cached.meta.featureEnabled, isTrue);
+    });
+
+    test(
+      'persists a group selected from a server search immediately',
+      () async {
+        final TimetableRepository repository = buildRepository(
+          FakeHttpAdapter((RequestOptions _) => throw Exception('offline')),
+        );
+        final TimetableGroup group = TimetableGroup.fromJson(
+          timetableGroupsFixture.first,
+        )!;
+
+        await repository.rememberGroup(
+          locale: 'de',
+          group: group,
+          meta: const ApiMeta(featureEnabled: true),
+        );
+        final Loaded<TimetableGroup> cached = await repository.fetchGroup(
+          locale: 'de',
+          groupId: group.id,
+        );
+
+        expect(cached.fromCache, isTrue);
+        expect(cached.value.shortName, group.shortName);
+        expect(cached.meta.featureEnabled, isTrue);
+      },
+    );
   });
 }

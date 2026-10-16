@@ -27,6 +27,7 @@ class StatusBanner extends StatelessWidget {
     this.tone = StatusTone.info,
     this.icon,
     this.action,
+    this.liveRegion = false,
     super.key,
   });
 
@@ -37,6 +38,7 @@ class StatusBanner extends StatelessWidget {
 
   /// What to do about it, where there is something to do.
   final Widget? action;
+  final bool liveRegion;
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +57,20 @@ class StatusBanner extends StatelessWidget {
           StatusTone.positive => AppIcons.check_circle_outline,
         };
     final BorderRadius radius = BorderRadius.circular(10);
+    final double outlineWidth = colors.highContrast
+        ? AppSizes.rule
+        : AppSizes.hairline;
+    final double beamWidth = colors.highContrast
+        ? AppSizes.beam + AppSizes.rule
+        : AppSizes.beam;
 
     return Semantics(
       container: true,
+      liveRegion: liveRegion,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.surface,
-          border: Border.all(color: colors.outline, width: AppSizes.hairline),
+          border: Border.all(color: colors.outline, width: outlineWidth),
           borderRadius: radius,
         ),
         child: ClipRRect(
@@ -130,7 +139,7 @@ class StatusBanner extends StatelessWidget {
                 start: 0,
                 top: 0,
                 bottom: 0,
-                width: AppSizes.beam,
+                width: beamWidth,
                 child: ColoredBox(color: accent),
               ),
             ],

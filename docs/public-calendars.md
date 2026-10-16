@@ -92,18 +92,54 @@ nie**; erst ein vollständig erfolgreicher Abruf fügt hinzu/aktualisiert/deakti
 
 - Getrennte Jobs `catalog` und `events`, per `PUBLIC_CALENDAR_ENABLED` schaltbar, eigener
   Overlap-Guard, unabhängig von Canteen/Timetable.
+- Der Event-Job verarbeitet höchstens **vier Feeds gleichzeitig**. Die Katalogreihenfolge bleibt
+  in den Ergebnissen erhalten; ein unerwarteter Fehler vor oder außerhalb eines normalen
+  Feed-Laufs wird als isoliertes Fehlerergebnis erfasst und stoppt die übrigen Feeds nicht.
 - Pro Kalender: SyncRun `running` → ICS laden (bytebegrenzt) → validieren → parsen → im Zielfenster
   expandieren → **Transaktion**: upsert + Löschen **nur** im bestätigten Fenster für nicht mehr
   gesehene `occurrenceKey` → Status/`lastSuccessfulSyncAt` setzen.
 - **Gültiger leerer** Feed = erfolgreicher leerer Snapshot (kein Fehler).
 - **Unveränderter Hash/304** = teure Parse-/Persistenzphase überspringen, Status/Zeitstempel trotzdem
-  aktualisieren.
+  aktualisieren. Diese Abkürzung gilt nur für Kalender im Status `ready`/`stale`, deren gespeicherte
+  Expansion (`lastExpandedTo`) höchstens einen Tag hinter dem aktuellen Fensterende liegt. Sonst
+  wird der Feed ohne `If-None-Match`/`If-Modified-Since` geladen und vollständig neu expandiert,
+  damit Serientermine am wandernden Fensterende erscheinen.
+- **Aufbewahrung vergangener Termine: ein Jahr.** Zu Beginn jedes Event-Laufs entfernt der Worker
+  alle Termine, deren Ende mehr als ein Kalenderjahr zurückliegt (`PUBLIC_CALENDAR_RETENTION_YEARS`).
+  Die Regel hängt nur am Alter, nie an einer Feed-Antwort; ein fehlgeschlagener Download löscht
+  also weiterhin nichts. Da `PUBLIC_CALENDAR_LOOKBACK_DAYS` höchstens 365 beträgt, holt das
+  Sync-Fenster entfernte Termine nie zurück. Ein Fehler beim Aufräumen blockiert den Feed-Sync nicht
+  und wird beim nächsten Lauf wiederholt.
+- **Katalogänderungen:** Ändern sich `includeEventDescription`/`includeEventLocation`, verwirft der
+  Katalog-Sync ETag, Last-Modified und `lastContentHash`; der nächste Lauf parst neu. Die API gibt
+  Beschreibung/Ort ohnehin nur bei gesetztem Flag aus. Zeigt ein Slug auf eine **andere**
+  Google-Kalender-ID, werden alle Sync-Felder zurückgesetzt (Status `pending`), und alle Termine
+  des alten Feeds werden gelöscht. Ein Feed-Lauf schreibt nur, solange ID und Flags noch dem Stand
+  bei Laufbeginn entsprechen.
+- **Kanalzuordnung:** `channelSlug` ist eindeutig. Wechselt ein Kanal den Kalender (auch von einem
+  stillgelegten Kalender oder als Tausch zweier Kalender), gibt der Katalog-Sync in derselben
+  Transaktion zuerst alle im Lauf vergebenen Kanäle frei und weist sie danach genau dem Kalender zu,
+  den Strapi nennt. Schlägt das Schreiben fehl, protokolliert der Lauf `databaseError`, nicht
+  `strapiUnavailable`.
+- **Verworfene Einträge:** Ein Strapi-Eintrag, der die Validierung nicht besteht (z. B. ein
+  vertippter Freigabelink), gilt nicht als zurückgezogen. Sein Kalender behält den letzten gültigen
+  Stand und wird nicht stillgelegt. Nennt ein verworfener Eintrag nicht einmal einen Slug, legt der
+  Lauf gar keinen Kalender still.
 - **Temporärer Fehler** (Timeout/Netz/5xx/429): letzten Stand behalten, Kalender `stale`, weiter
   ausliefern.
 - **Beschädigt/zu groß/Recurrence-Limit:** keine destruktive Übernahme; `stale` (mit Vorstand) bzw.
   `invalid` (ohne) — bei erstem Sync nicht öffentlich.
 - **Freigabe entzogen** (404/410/403): Status `revoked`/`unavailable`, Termine gelöscht, aus dem
-  öffentlichen Katalog entfernt.
+  öffentlichen Katalog entfernt. Status, Löschung und das Zurücksetzen von ETag/Last-Modified/Hash
+  geschehen in einer Transaktion, sodass ein unverändert zurückkehrender Feed wieder vollständig
+  importiert wird.
+- **Synthetische Kalender:** Nur Zeilen mit `source = strapi` werden vom Katalog-Sync stillgelegt
+  oder vom Event-Sync abgerufen. Die Nutzertest-Daten (`source = user-test`) bleiben unberührt, und
+  Kalender-IDs unter der reservierten TLD `.invalid` werden nie bei Google angefragt.
+- Jeder Feed-Lauf schreibt genau eine strukturierte Betriebsmetrik mit `status`, `durationMs`,
+  UTF-8-genauen `responseBytes`, `errorClass` und Ergebniszählern. URL, Google-Kalender-ID,
+  Kalender-Slug und Feed-Inhalte erscheinen nicht in diesen Logs. Die interne Zuordnung bleibt
+  ausschließlich im geschützten `PublicCalendarSyncRun` der operativen Datenbank.
 
 ## 7. Campus API
 
@@ -125,6 +161,9 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
 - **Kalender-Tab:** dynamische Quelle neben Stundenplan und Moodle. Öffentliche Termine erhalten
   einen Farbpunkt **plus** Kalendername/Icon (Farbe nie alleiniges Merkmal). Ein Fehler der
   öffentlichen Quelle blendet Stundenplan/Moodle **nicht** aus.
+- **Lokale Farbwahl:** Die redaktionelle `colorHex` bleibt der Standard. Eine gerätelokale
+  Einstellung kann sie pro Kalender überschreiben; Name und Icon bleiben erhalten, und kein
+  Farbwert wird an Campus API oder Strapi zurückgeschrieben.
 - **„Kalender verwalten“:** Y-aus-X-Auswahl lokal (SharedPreferences). `defaultSubscribed` greift
   **genau einmal** pro Slug (seen-Ledger); bewusst deaktivierte bleiben aus; verschwundene Slugs
   werden tolerant bereinigt; ein Backend-Update überschreibt die Auswahl nie; keine Auswahl ⇒ keine
@@ -142,6 +181,32 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
   Google Kalender öffnen“ (kombinierte Embed-URL vom Backend), extern via `url_launcher`
   (HTTPS, Browser-Fallback). Kein automatisches Hinzufügen zum persönlichen Google-Konto; Stundenplan
   und Moodle sind keine Google-Quellen und nicht Teil der kombinierten Ansicht.
+
+- **Eventübersicht:** führt Event-Beiträge (`/v1/posts/events`) und öffentliche Kalendertermine
+  (`/v1/calendars/events`) zusammen (`features/events`). Laufende und anstehende Events kommen aus
+  dem Server-Standardfenster; die Sichtbarkeit regelt `domain/event_visibility.dart`
+  (`eventEnd <= jetzt` blendet aus, auch für ein Event, das heute früher geendet hat).
+  - **„Ältere anzeigen“** (am Listenende und im Empty State) lädt erst auf Nutzeraktion die
+    letzten 180 Tage (`kPastEventsWindowDays`) beider Quellen — stets mit **expliziten** `from`
+    _und_ `to`, weil ein älteres Backend ein fehlendes `to` als `from` plus Maximalbereich
+    auflöst. Der Abschnitt „Vergangene Events“ enthält jedes bereits beendete Event beider
+    Fenster (dedupliziert, das aktuelle Fenster gewinnt), mit Textmarke „Vergangen“, eigenem
+    Lade- und Fehlerzustand je Quelle und demselben Quellenfilter. Ein Fehler hier blendet die
+    aktuellen Events nie aus. Der Schalter wird nicht gespeichert.
+  - **Caching:** wie bei den aktuellen Abfragen — Seite 1 der Event-Beiträge und die
+    Kalendertermine liegen unter dem expliziten Fenster im Inhaltscache und dienen offline als
+    Rückfall; eine fehlgeschlagene Abfrage löscht nie einen Cache-Eintrag.
+  - **Gemerkte Events:** Die Vergangenheitsabfrage gleicht die Verwaist-Markierung **nicht** ab.
+    Abgelaufene Event-Beiträge (`validUntil`) fehlen in `/v1/posts/events`, ohne zurückgezogen zu
+    sein, und der Kalendersync reicht nur `PUBLIC_CALENDAR_LOOKBACK_DAYS` zurück; ein Abgleich
+    würde gemerkte, tatsächlich stattgefundene Events fälschlich als „Nicht mehr verfügbar“
+    markieren. Abgeglichen wird weiterhin nur nach vollständigen Live-Ladevorgängen des aktuellen
+    Fensters.
+  - **Sortierung** (im Sheet „Quellen filtern“, gespeichert unter `events.sort.v1`):
+    „Chronologisch“ (Standard: aktuelle Events nach Beginn aufsteigend, vergangene zuletzt
+    stattgefundene zuerst) oder „Neueste zuerst“ (Event-Beiträge nach `publishedAt` absteigend,
+    Kalendertermine ohne Veröffentlichungsdatum nach Beginn; Gleichstände deterministisch nach
+    Beginn, Ganztägigkeit, Titel und Referenz). Gilt für beide Abschnitte.
 
 ## 9. Strapi-Redaktionshandbuch
 

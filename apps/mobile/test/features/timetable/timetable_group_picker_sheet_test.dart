@@ -3,18 +3,61 @@
 
 import 'package:campus_koethen/core/network/api_meta.dart';
 import 'package:campus_koethen/core/network/loaded.dart';
+import 'package:campus_koethen/core/network/network_providers.dart';
+import 'package:campus_koethen/core/prefs/key_value_store.dart';
+import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
 import 'package:campus_koethen/features/timetable/data/timetable_models.dart';
 import 'package:campus_koethen/features/timetable/presentation/timetable_group_picker_sheet.dart';
+import 'package:campus_koethen/features/timetable/presentation/timetable_subscriptions_sheet.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/fake_http_adapter.dart';
 import '../../support/pump_app.dart';
+import '../../support/fake_timetable.dart';
 
 void main() {
   group('the timetable group picker sheet', () {
+    testWidgets(
+      'distinguishes same-name courses by public metadata without exposing ids',
+      (WidgetTester tester) async {
+        await pumpScreen(
+          tester,
+          const Scaffold(body: TimetableGroupPickerList()),
+          overrides: <Override>[
+            timetableGroupSearchProvider('').overrideWith(
+              () => FixedTimetableGroupSearchController(
+                fixedTimetableGroupSearch(const <TimetableGroup>[
+                  TimetableGroup(
+                    id: 'private-campus-uuid-1',
+                    shortName: 'MER2',
+                    longName: 'Ernährungstherapie',
+                    department: 'FB1',
+                  ),
+                  TimetableGroup(
+                    id: 'private-campus-uuid-2',
+                    shortName: 'MER2',
+                    longName: 'Ernährungstherapie dual',
+                    department: 'FB1',
+                  ),
+                ]),
+              ),
+            ),
+          ],
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('MER2'), findsNWidgets(2));
+        expect(find.text('Ernährungstherapie'), findsOneWidget);
+        expect(find.text('Ernährungstherapie dual'), findsOneWidget);
+        expect(find.textContaining('private-campus-uuid'), findsNothing);
+      },
+    );
+
     testWidgets('never overflows and keeps the search field reachable, at the '
         'smallest supported viewport, a large Android keyboard and 200% '
         'text scale', (WidgetTester tester) async {
@@ -40,10 +83,9 @@ void main() {
           ),
         ),
         overrides: <Override>[
-          timetableGroupsProvider.overrideWith(
-            (Ref ref) async => const Loaded<List<TimetableGroup>>(
-              value: <TimetableGroup>[],
-              meta: ApiMeta.empty,
+          timetableGroupSearchProvider('').overrideWith(
+            () => FixedTimetableGroupSearchController(
+              fixedTimetableGroupSearch(const []),
             ),
           ),
         ],
@@ -76,5 +118,144 @@ void main() {
             'not lost behind it with no way to scroll it into view',
       );
     });
+  });
+
+  testWidgets('additional group and module sheets survive 200 percent text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    const TimetableGroup primary = TimetableGroup(
+      id: 'primary',
+      shortName: 'AIN4',
+    );
+    const TimetableGroup other = TimetableGroup(
+      id: 'other',
+      shortName: 'AIN2',
+      longName: 'Angewandte Informatik zweites Semester',
+    );
+    await pumpScreen(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () => showAdditionalTimetableGroupsSheet(context),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+      overrides: <Override>[
+        timetableGroupSearchProvider('').overrideWith(
+          () => FixedTimetableGroupSearchController(
+            fixedTimetableGroupSearch(const <TimetableGroup>[primary, other]),
+          ),
+        ),
+        timetableModulesProvider.overrideWith(
+          (Ref ref, String groupId) async =>
+              const Loaded<List<TimetableModule>>(
+                value: <TimetableModule>[
+                  TimetableModule(
+                    title: 'Mathematik 2',
+                    subjectCode: 'MATH2',
+                    moduleKey: 'code:MATH2',
+                  ),
+                ],
+                meta: ApiMeta.empty,
+              ),
+        ),
+      ],
+      keyValueStore: InMemoryKeyValueStore(<String, Object>{
+        PreferenceKeys.preferredTimetableGroup: primary.id,
+      }),
+      textScaler: const TextScaler.linear(2),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final Finder moduleAction = find.text('Einzelne Module auswählen');
+    await tester.ensureVisible(moduleAction);
+    await tester.pumpAndSettle();
+    await tester.tap(moduleAction);
+    await tester.pumpAndSettle();
+    expect(find.text('Module aus AIN2'), findsOneWidget);
+    expect(find.text('Mathematik 2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('additional group sheet reaches groups beyond the first page '
+      'and searches on the server', (WidgetTester tester) async {
+    final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
+      final int page = options.queryParameters['page'] as int;
+      final String query = (options.queryParameters['query'] as String?) ?? '';
+      final List<Map<String, dynamic>> groups = query.isNotEmpty
+          ? <Map<String, dynamic>>[
+              <String, dynamic>{'id': 'late', 'shortName': 'ZZZ9'},
+            ]
+          : <Map<String, dynamic>>[
+              page == 1
+                  ? <String, dynamic>{'id': 'early', 'shortName': 'AAA1'}
+                  : <String, dynamic>{'id': 'late', 'shortName': 'ZZZ9'},
+            ];
+      final int totalPages = query.isNotEmpty ? 1 : 2;
+      return FakeHttpResponse(
+        envelope(
+          groups,
+          meta: <String, dynamic>{
+            'pagination': <String, dynamic>{
+              'page': page,
+              'pageSize': 50,
+              'total': totalPages,
+              'totalPages': totalPages,
+            },
+          },
+        ),
+      );
+    });
+    await pumpScreen(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () => showAdditionalTimetableGroupsSheet(context),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+      overrides: <Override>[
+        apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
+      ],
+      keyValueStore: InMemoryKeyValueStore(<String, Object>{
+        PreferenceKeys.preferredTimetableGroup: 'primary',
+      }),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('AAA1'), findsOneWidget);
+    expect(
+      find.text('ZZZ9'),
+      findsOneWidget,
+      reason: 'the second page is appended instead of being unreachable',
+    );
+
+    await tester.enterText(find.byType(TextField), 'zzz');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(
+      adapter.queries.any((String query) => query.contains('query=zzz')),
+      isTrue,
+      reason: 'the search is evaluated by the server, not on page 1 only',
+    );
+    expect(find.text('ZZZ9'), findsOneWidget);
+    expect(find.text('AAA1'), findsNothing);
   });
 }

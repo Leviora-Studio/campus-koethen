@@ -13,13 +13,15 @@
 # ---------------------------------------------------------------------------
 # Stage 1 — install workspace dependencies
 # ---------------------------------------------------------------------------
-FROM node:22.23.2-slim AS deps
+FROM node:24.21.0-slim AS deps
 
 RUN corepack enable
 WORKDIR /repo
 
 # Only the manifests, so a source-only change does not bust the install cache.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY .node-version ./
+COPY scripts/check-node-version.mjs scripts/
 COPY patches/braces@3.0.3.patch patches/
 COPY apps/cms/package.json apps/cms/
 COPY apps/backend/package.json apps/backend/
@@ -63,11 +65,17 @@ RUN pnpm --filter @campus/cms deploy --prod --legacy /opt/deploy
 # ---------------------------------------------------------------------------
 # Stage 3 — runtime
 # ---------------------------------------------------------------------------
-FROM node:22.23.2-slim AS runtime
+FROM node:24.21.0-slim AS runtime
 
 # tini gives correct signal handling so Strapi shuts down cleanly.
+#
+# perl-base is part of the Debian base and cannot be removed. The node image
+# shipped 5.36.0-7+deb12u3 with three critical and four high CVEs that Debian
+# fixed in deb12u4, so the blocking Trivy scan refused to publish the image.
+# Upgrading only this package keeps the rest of the base unchanged.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
+ && apt-get install -y --no-install-recommends --only-upgrade perl-base \
  && rm -rf /var/lib/apt/lists/*
 
 # Remove npm, npx and corepack from the RUNTIME image.
@@ -91,7 +99,12 @@ ENV NODE_ENV=production \
 WORKDIR /opt/app
 
 # The node:* images already ship an unprivileged `node` user (uid 1000).
-COPY --from=build --chown=node:node /opt/deploy ./
+#
+# Code, dependencies and the admin bundle are copied ROOT-owned (world-readable,
+# not writable by `node`): the running process must not be able to rewrite its
+# own code. Only the directories Strapi really writes at runtime are handed to
+# `node` below.
+COPY --from=build /opt/deploy ./
 
 # `pnpm deploy` packs the package the way `npm pack` would, so it skips
 # git-ignored paths — which is exactly where `strapi build` puts its output.
@@ -99,18 +112,24 @@ COPY --from=build --chown=node:node /opt/deploy ./
 # Vite client entry (.strapi/client) are therefore copied explicitly. Without
 # these the container would have no admin UI and would try to rebuild at
 # startup.
-COPY --from=build --chown=node:node /repo/apps/cms/dist ./dist
-COPY --from=build --chown=node:node /repo/apps/cms/.strapi ./.strapi
+COPY --from=build /repo/apps/cms/dist ./dist
+COPY --from=build /repo/apps/cms/.strapi ./.strapi
 
-# Uploads live on a persistent volume; the directory must exist and be owned by
-# the runtime user before the volume is mounted over it.
+# The ONLY runtime-writable paths inside /opt/app:
 #
-# `.tmp` is created for the same reason: /opt/app itself stays root-owned so the
-# application cannot rewrite its own code, but Strapi needs a scratch directory
-# when it boots programmatically — which is exactly how `rooms-sync` starts it.
-# Without this the documented production command dies with EACCES.
+#  - public/uploads: media uploads, on a persistent volume. The directory must
+#    exist and be owned by the runtime user before the volume is mounted over
+#    it. The rest of public/ (robots.txt) stays root-owned.
+#  - .tmp: Strapi's scratch directory when it boots programmatically — which is
+#    exactly how `rooms-sync` starts it. Without it the documented production
+#    command dies with EACCES.
+#
+# Everything else Strapi writes at runtime goes outside /opt/app: upload
+# processing uses os.tmpdir() (/tmp) and the update notifier keeps its state in
+# the `node` user's home. database/migrations ships with the image, so Strapi's
+# ensureDir on it does not need to create anything.
 RUN mkdir -p /opt/app/public/uploads /opt/app/.tmp \
- && chown -R node:node /opt/app/public /opt/app/.tmp
+ && chown -R node:node /opt/app/public/uploads /opt/app/.tmp
 
 # Room-sync runtime contract.
 #

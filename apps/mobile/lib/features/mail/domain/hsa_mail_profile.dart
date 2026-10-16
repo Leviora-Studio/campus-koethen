@@ -23,6 +23,26 @@ class HsaMailProfile {
   int get smtpPort => 587;
   bool get smtpStartTlsRequired => true;
 
+  /// Read-only Exchange Web Services endpoint for the optional calendar
+  /// aggregation. It is pinned to the same university-operated mail host as
+  /// IMAP and SMTP; callers must reject redirects rather than replay the
+  /// account password to another origin.
+  Uri get exchangeCalendarUri =>
+      Uri.parse('https://mail.hs-anhalt.de/EWS/Exchange.asmx');
+
+  bool allowsExchangeCalendar(Uri uri) =>
+      uri.scheme == 'https' &&
+      uri.host == exchangeCalendarUri.host &&
+      uri.port == exchangeCalendarUri.port &&
+      uri.path == exchangeCalendarUri.path &&
+      uri.query.isEmpty &&
+      uri.fragment.isEmpty;
+
+  /// Pinned Exchange Web Services endpoint used only for ResolveNames against
+  /// the user's contacts and the university Global Address List. Same pinned
+  /// mail host as [exchangeCalendarUri].
+  Uri get ewsUri => Uri.https(imapHost, '/EWS/Exchange.asmx');
+
   /// Official HSA webmail, opened externally through the safe launcher only.
   String get webmailUrl => 'https://mail.hs-anhalt.de/';
 }

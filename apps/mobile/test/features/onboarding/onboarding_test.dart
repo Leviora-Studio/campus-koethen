@@ -1,6 +1,8 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:campus_koethen/app/app_router.dart';
 import 'package:campus_koethen/core/cache/cache_providers.dart';
 import 'package:campus_koethen/core/cache/content_cache.dart';
@@ -13,11 +15,22 @@ import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/theme/app_theme.dart';
 import 'package:campus_koethen/features/campusmap/application/campus_map_providers.dart';
 import 'package:campus_koethen/features/campusmap/domain/map_catalog.dart';
+import 'package:campus_koethen/features/hsa_ki/application/hsa_ki_providers.dart';
+import 'package:campus_koethen/features/hsa_ki/presentation/hsa_ki_onboarding_screen.dart';
 import 'package:campus_koethen/features/notifications/application/notification_providers.dart';
 import 'package:campus_koethen/features/notifications/application/notification_settings_controller.dart';
 import 'package:campus_koethen/features/notifications/domain/notification_permission.dart';
+import 'package:campus_koethen/features/nextcloud/application/nextcloud_account_controller.dart';
+import 'package:campus_koethen/features/nextcloud/application/nextcloud_providers.dart';
+import 'package:campus_koethen/features/nextcloud/domain/nextcloud_account.dart';
 import 'package:campus_koethen/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:campus_koethen/features/news/presentation/news_list_screen.dart';
+import 'package:campus_koethen/features/settings/application/sign_out_everywhere_controller.dart';
+import 'package:campus_koethen/features/settings/domain/direct_service.dart';
+import 'package:campus_koethen/features/university_account/application/university_account_controller.dart';
+import 'package:campus_koethen/features/university_account/application/university_service_connector.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity_store.dart';
 import 'package:campus_koethen/l10n/l10n.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -27,10 +40,59 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_http_adapter.dart';
 import '../../support/fake_notification_gateway.dart';
+import '../../support/fake_nextcloud.dart';
 
 ApiClient _emptyApi() => fakeApiClient(
   FakeHttpAdapter((RequestOptions _) => FakeHttpResponse(envelope(<Object>[]))),
 );
+
+class _MemoryIdentityStore implements UniversityIdentityStore {
+  UniversityIdentity? value;
+
+  @override
+  Future<UniversityIdentity?> read() async => value;
+
+  @override
+  Future<void> write(UniversityIdentity identity) async => value = identity;
+
+  @override
+  Future<void> clear() async => value = null;
+}
+
+class _RecordingServiceAdapter implements UniversityServiceAdapter {
+  _RecordingServiceAdapter({this.connectGate, this.connectStarted});
+
+  final Completer<void>? connectGate;
+  final Completer<void>? connectStarted;
+  UniversityIdentity? connectedWith;
+  String? connectedWithDisplayName;
+
+  @override
+  Future<void> connect(
+    UniversityIdentity identity, {
+    String? displayName,
+  }) async {
+    connectedWith = identity;
+    connectedWithDisplayName = displayName;
+    if (connectStarted != null && !connectStarted!.isCompleted) {
+      connectStarted!.complete();
+    }
+    await connectGate?.future;
+  }
+
+  @override
+  Future<void> disconnect() async {}
+}
+
+class _NextcloudLauncher implements NextcloudLoginLauncher {
+  var opened = false;
+
+  @override
+  Future<bool> open(Uri uri) async {
+    opened = true;
+    return true;
+  }
+}
 
 /// Pumps the real app — router, redirect and all — on a phone-sized surface.
 Future<ProviderContainer> pumpApp(
@@ -38,6 +100,10 @@ Future<ProviderContainer> pumpApp(
   KeyValueStore? store,
   Locale locale = AppLocales.german,
   FakeNotificationGateway? notificationGateway,
+  UniversityIdentityStore? identityStore,
+  Map<DirectService, UniversityServiceAdapter> serviceAdapters =
+      const <DirectService, UniversityServiceAdapter>{},
+  List<Override> additionalOverrides = const <Override>[],
 }) async {
   tester.view.physicalSize = const Size(390, 1400);
   tester.view.devicePixelRatio = 1;
@@ -79,6 +145,18 @@ Future<ProviderContainer> pumpApp(
       notificationGatewayProvider.overrideWithValue(
         notificationGateway ?? FakeNotificationGateway(),
       ),
+      universityIdentityStoreProvider.overrideWithValue(
+        identityStore ?? _MemoryIdentityStore(),
+      ),
+      connectedDirectServicesProvider.overrideWithValue(
+        const <DirectService>[],
+      ),
+      for (final MapEntry<DirectService, UniversityServiceAdapter> entry
+          in serviceAdapters.entries)
+        universityServiceAdapterProvider(
+          entry.key,
+        ).overrideWithValue(entry.value),
+      ...additionalOverrides,
     ],
   );
   addTearDown(container.dispose);
@@ -117,7 +195,7 @@ void main() {
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(find.byType(NewsListScreen), findsNothing);
     expect(find.text('Sprache auswählen'), findsOneWidget);
-    expect(find.text('Schritt 1 von 5'), findsOneWidget);
+    expect(find.text('Schritt 1 von 9'), findsOneWidget);
   });
 
   testWidgets(
@@ -131,7 +209,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Choose your language'), findsOneWidget);
-      expect(find.text('Step 1 of 5'), findsOneWidget);
+      expect(find.text('Step 1 of 9'), findsOneWidget);
       expect(find.text('Skip all'), findsOneWidget);
       expect(container.read(settingsProvider).localeMode, LocaleMode.english);
       expect(
@@ -205,16 +283,55 @@ void main() {
     WidgetTester tester,
   ) async {
     await pumpApp(tester);
-    expect(find.text('Schritt 1 von 5'), findsOneWidget);
+    expect(find.text('Schritt 1 von 9'), findsOneWidget);
 
     await tester.tap(find.text('Überspringen'));
     await tester.pumpAndSettle();
-    expect(find.text('Schritt 2 von 5'), findsOneWidget);
+    expect(find.text('Schritt 2 von 9'), findsOneWidget);
     expect(find.text('Willkommen'), findsOneWidget);
 
     await tester.tap(find.text('Zurück'));
     await tester.pumpAndSettle();
-    expect(find.text('Schritt 1 von 5'), findsOneWidget);
+    expect(find.text('Schritt 1 von 9'), findsOneWidget);
+  });
+
+  testWidgets('the site is asked right after the welcome, before anything it '
+      'pre-selects', (WidgetTester tester) async {
+    final InMemoryKeyValueStore store = InMemoryKeyValueStore();
+    await pumpApp(tester, store: store);
+
+    for (int i = 0; i < 2; i++) {
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Schritt 3 von 9'), findsOneWidget);
+    expect(find.text('Dein Standort'), findsOneWidget);
+    expect(find.text('Dessau'), findsOneWidget);
+    await tester.tap(find.text('Dessau'));
+    await tester.pumpAndSettle();
+    expect(store.getString(PreferenceKeys.campusSite), 'dessau');
+
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dein Campus'), findsOneWidget);
+  });
+
+  testWidgets('the site step can be passed without an answer', (
+    WidgetTester tester,
+  ) async {
+    final InMemoryKeyValueStore store = InMemoryKeyValueStore();
+    await pumpApp(tester, store: store);
+    for (int i = 0; i < 2; i++) {
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dein Campus'), findsOneWidget);
+    expect(store.getString(PreferenceKeys.campusSite), isNull);
   });
 
   testWidgets('asks only for what the app actually needs', (
@@ -224,7 +341,7 @@ void main() {
     // app needs before it is usable. They live in the settings.
     await pumpApp(tester);
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
@@ -239,9 +356,11 @@ void main() {
     final InMemoryKeyValueStore store = InMemoryKeyValueStore();
     final ProviderContainer container = await pumpApp(tester, store: store);
 
-    // Step 3 is the campus step. What is asserted here is that a choice made
+    // Step 4 is the campus step. What is asserted here is that a choice made
     // during setup is persisted — the controller is the thing under test, not
     // whether a bundled asset happened to load within this frame budget.
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Weiter'));
@@ -277,17 +396,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
 
     expect(
-      find.text('Schritt 4 von 5'),
+      find.text('Schritt 5 von 9'),
       findsOneWidget,
       reason: 'the content step',
     );
     // The pickers are here, in the step — not behind a route that the
     // redirect would bounce straight back to step one.
     expect(find.text('News-Kanäle wählen'), findsOneWidget);
-    expect(find.text('Öffentliche Kalender wählen'), findsOneWidget);
-    expect(find.text('Schritt 1 von 5'), findsNothing);
+    expect(find.text('Schritt 1 von 9'), findsNothing);
   });
 
   testWidgets('an unavailable source is stated instead of blocking', (
@@ -301,26 +421,393 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Dein Campus'), findsOneWidget);
     expect(find.text('Es sind noch keine Mensen hinterlegt.'), findsOneWidget);
     // …and moving on still works.
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
-    expect(find.text('Schritt 4 von 5'), findsOneWidget);
+    expect(find.text('Schritt 5 von 9'), findsOneWidget);
   });
 
-  testWidgets('the notification step is fifth and enabled by default', (
+  testWidgets('calendar sources are configured in their own sixth step', (
     WidgetTester tester,
   ) async {
     await pumpApp(tester);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Schritt 5 von 5'), findsOneWidget);
+    expect(find.text('Schritt 6 von 9'), findsOneWidget);
+    expect(find.text('Dein Kalender'), findsOneWidget);
+    expect(find.text('Stundenplan'), findsOneWidget);
+    expect(find.text('Exchange-Termine'), findsOneWidget);
+    expect(find.text('Events'), findsOneWidget);
+    expect(find.text('Lieblingsspeisen im Kalender'), findsOneWidget);
+    expect(find.text('Öffentliche Kalender wählen'), findsOneWidget);
+  });
+
+  testWidgets(
+    'credentials stay transient until selected services validate them',
+    (WidgetTester tester) async {
+      final _MemoryIdentityStore identityStore = _MemoryIdentityStore();
+      final _RecordingServiceAdapter mail = _RecordingServiceAdapter();
+      final _RecordingServiceAdapter grades = _RecordingServiceAdapter();
+      await pumpApp(
+        tester,
+        identityStore: identityStore,
+        serviceAdapters: <DirectService, UniversityServiceAdapter>{
+          DirectService.mail: mail,
+          DirectService.grades: grades,
+        },
+      );
+
+      for (int i = 0; i < 6; i++) {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Schritt 7 von 9'), findsOneWidget);
+      expect(find.text('Hochschulzugang'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('onboarding-university-identifier')),
+        'student42',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('onboarding-university-password')),
+        'secret-password',
+      );
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+      expect(identityStore.value, isNull, reason: 'not validated yet');
+
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Schritt 8 von 9'), findsOneWidget);
+      expect(find.text('Dienste verknüpfen'), findsOneWidget);
+
+      await tester.tap(find.text('Studentische E-Mail'));
+      await tester.tap(find.text('Noten (HISinOne / HIS-QIS)'));
+      await tester.pump();
+      await tester.tap(find.text('Ausgewählte Dienste verbinden'));
+      await tester.pumpAndSettle();
+
+      const UniversityIdentity expected = UniversityIdentity(
+        identifier: 'student42',
+        password: 'secret-password',
+      );
+      expect(mail.connectedWith, expected);
+      expect(grades.connectedWith, expected);
+      expect(identityStore.value, expected);
+    },
+  );
+
+  testWidgets(
+    'HSA-GPT is no checkbox in the wizard but goes through its own consent '
+    'screen before the draft is used',
+    (WidgetTester tester) async {
+      final _MemoryIdentityStore identityStore = _MemoryIdentityStore();
+      final _RecordingServiceAdapter hsaKi = _RecordingServiceAdapter();
+      await pumpApp(
+        tester,
+        identityStore: identityStore,
+        serviceAdapters: <DirectService, UniversityServiceAdapter>{
+          DirectService.hsaKi: hsaKi,
+        },
+        // The consent flow itself, as it behaves once HSA-GPT is available.
+        additionalOverrides: <Override>[
+          hsaKiTemporarilyUnavailableProvider.overrideWithValue(false),
+        ],
+      );
+
+      for (int i = 0; i < 6; i++) {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('onboarding-university-identifier')),
+        'student42',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('onboarding-university-password')),
+        'secret-password',
+      );
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dienste verknüpfen'), findsOneWidget);
+
+      expect(find.widgetWithText(CheckboxListTile, 'HSA-GPT'), findsNothing);
+      final Finder connectHsaKi = find.widgetWithText(
+        OutlinedButton,
+        'HSA-GPT verbinden',
+      );
+      expect(connectHsaKi, findsOneWidget);
+
+      await tester.ensureVisible(connectHsaKi);
+      await tester.tap(connectHsaKi);
+      await tester.pumpAndSettle();
+      expect(find.byType(HsaKiOnboardingScreen), findsOneWidget);
+      expect(hsaKi.connectedWith, isNull, reason: 'no consent yet');
+
+      await tester.tap(find.text('Abbrechen'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HsaKiOnboardingScreen), findsNothing);
+      expect(hsaKi.connectedWith, isNull);
+      expect(identityStore.value, isNull);
+
+      await tester.ensureVisible(connectHsaKi);
+      await tester.tap(connectHsaKi);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Verstanden, verbinden'));
+      await tester.pumpAndSettle();
+
+      const UniversityIdentity expected = UniversityIdentity(
+        identifier: 'student42',
+        password: 'secret-password',
+      );
+      expect(hsaKi.connectedWith, expected);
+      expect(identityStore.value, expected);
+    },
+  );
+
+  testWidgets(
+    'a temporarily unavailable HSA-GPT is not offered in the wizard, so no '
+    'useless HAWKI token is minted',
+    (WidgetTester tester) async {
+      await pumpApp(tester);
+
+      for (int i = 0; i < 6; i++) {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.widgetWithText(TextButton, 'Überspringen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dienste verknüpfen'), findsOneWidget);
+
+      expect(find.text('HSA-GPT verbinden'), findsNothing);
+      expect(find.text('HSA-GPT'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Nextcloud can be connected in onboarding without sharing the password',
+    (WidgetTester tester) async {
+      const NextcloudCredential credential = NextcloudCredential(
+        server: 'https://cloud.hs-anhalt.de',
+        loginName: 'student-login',
+        userId: 'student-id',
+        appPassword: 'issued-app-password',
+      );
+      final InMemoryNextcloudCredentialStore nextcloudStore =
+          InMemoryNextcloudCredentialStore();
+      final FakeNextcloudGateway nextcloudGateway = FakeNextcloudGateway()
+        ..loginCredential = credential;
+      final _NextcloudLauncher launcher = _NextcloudLauncher();
+      await pumpApp(
+        tester,
+        additionalOverrides: <Override>[
+          nextcloudCredentialStoreProvider.overrideWithValue(nextcloudStore),
+          nextcloudGatewayProvider.overrideWithValue(nextcloudGateway),
+          nextcloudLoginLauncherProvider.overrideWithValue(launcher),
+        ],
+      );
+
+      for (var index = 0; index < 6; index++) {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.widgetWithText(TextButton, 'Überspringen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Schritt 8 von 9'), findsOneWidget);
+      final CheckboxListTile nextcloud = tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Nextcloud'),
+      );
+      expect(nextcloud.enabled, isTrue);
+
+      await tester.tap(find.text('Nextcloud'));
+      await tester.pump();
+      await tester.tap(find.text('Ausgewählte Dienste verbinden'));
+      await tester.pumpAndSettle();
+
+      expect(launcher.opened, isTrue);
+      expect(await nextcloudStore.read(), credential);
+      expect(find.text('Verbunden'), findsOneWidget);
+    },
+  );
+
+  testWidgets('selecting mail offers a display name field and forwards it', (
+    WidgetTester tester,
+  ) async {
+    final _MemoryIdentityStore identityStore = _MemoryIdentityStore();
+    final _RecordingServiceAdapter mail = _RecordingServiceAdapter();
+    final _RecordingServiceAdapter moodle = _RecordingServiceAdapter();
+    await pumpApp(
+      tester,
+      identityStore: identityStore,
+      serviceAdapters: <DirectService, UniversityServiceAdapter>{
+        DirectService.mail: mail,
+        DirectService.moodle: moodle,
+      },
+    );
+
+    for (int i = 0; i < 6; i++) {
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+    }
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('onboarding-university-identifier')),
+      'student42',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('onboarding-university-password')),
+      'secret-password',
+    );
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dienste verknüpfen'), findsOneWidget);
+
+    // The name field is mail-specific and only appears once mail is
+    // selected — ticking Moodle alone must not reveal it.
+    expect(find.text('Anzeigename (optional)'), findsNothing);
+    await tester.tap(find.text('Moodle'));
+    await tester.pump();
+    expect(find.text('Anzeigename (optional)'), findsNothing);
+
+    await tester.tap(find.text('Studentische E-Mail'));
+    await tester.pump();
+    expect(find.text('Anzeigename (optional)'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Anzeigename (optional)'),
+      'Max Mustermensch',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Ausgewählte Dienste verbinden'));
+    await tester.pumpAndSettle();
+
+    expect(mail.connectedWithDisplayName, 'Max Mustermensch');
+    expect(moodle.connectedWithDisplayName, isNull);
+  });
+
+  testWidgets(
+    'an embedded connection locks every onboarding exit until it finishes',
+    (WidgetTester tester) async {
+      final Completer<void> connectGate = Completer<void>();
+      final Completer<void> connectStarted = Completer<void>();
+      final _RecordingServiceAdapter mail = _RecordingServiceAdapter(
+        connectGate: connectGate,
+        connectStarted: connectStarted,
+      );
+      await pumpApp(
+        tester,
+        serviceAdapters: <DirectService, UniversityServiceAdapter>{
+          DirectService.mail: mail,
+        },
+      );
+
+      for (int i = 0; i < 6; i++) {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('onboarding-university-identifier')),
+        'student42',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('onboarding-university-password')),
+        'secret-password',
+      );
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Studentische E-Mail'));
+      await tester.pump();
+
+      await tester.tap(find.text('Ausgewählte Dienste verbinden'));
+      await connectStarted.future;
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'Alles überspringen'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Zurück'))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Überspringen'))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Weiter'))
+            .onPressed,
+        isNull,
+      );
+      expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isFalse);
+      expect(
+        find.bySemanticsLabel('Ausgewählte Dienste werden verbunden'),
+        findsOneWidget,
+      );
+
+      connectGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Zurück'))
+            .onPressed,
+        isNotNull,
+      );
+      expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
+    },
+  );
+
+  test('reuse consent explicitly covers secure storage and later use', () {
+    final String de = lookupAppLocalizations(
+      AppLocales.german,
+    ).universityAccountReuseConsent;
+    final String en = lookupAppLocalizations(
+      AppLocales.english,
+    ).universityAccountReuseConsent;
+
+    expect(de, contains('sicheren Gerätespeicher'));
+    expect(de, contains('später'));
+    expect(de, contains('dienstbezogen'));
+    expect(en, contains('secure device storage'));
+    expect(en, contains('later'));
+    expect(en, contains('per service'));
+  });
+
+  testWidgets('the notification step is ninth and enabled by default', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    for (int i = 0; i < 8; i++) {
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Schritt 9 von 9'), findsOneWidget);
     expect(find.text('Benachrichtigungen'), findsOneWidget);
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
@@ -340,11 +827,11 @@ void main() {
       notificationGateway: gateway,
     );
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 8; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
-    expect(find.text('Schritt 5 von 5'), findsOneWidget);
+    expect(find.text('Schritt 9 von 9'), findsOneWidget);
 
     await tester.tap(find.text('Weiter'));
     await tester.pumpAndSettle();
@@ -367,7 +854,7 @@ void main() {
       notificationGateway: gateway,
     );
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 8; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
@@ -386,7 +873,7 @@ void main() {
     await pumpApp(tester, locale: AppLocales.english);
     expect(find.text('Choose your language'), findsOneWidget);
     expect(find.text('Skip all'), findsOneWidget);
-    expect(find.text('Step 1 of 5'), findsOneWidget);
+    expect(find.text('Step 1 of 9'), findsOneWidget);
   });
 
   testWidgets('survives a small phone with doubled text', (
@@ -418,6 +905,12 @@ void main() {
         notificationGatewayProvider.overrideWithValue(
           FakeNotificationGateway(),
         ),
+        universityIdentityStoreProvider.overrideWithValue(
+          _MemoryIdentityStore(),
+        ),
+        connectedDirectServicesProvider.overrideWithValue(
+          const <DirectService>[],
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -442,12 +935,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 8; i++) {
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Schritt 5 von 5'), findsOneWidget);
+    expect(find.text('Schritt 9 von 9'), findsOneWidget);
     expect(find.text('Benachrichtigungen'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

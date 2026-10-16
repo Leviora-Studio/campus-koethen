@@ -19,9 +19,13 @@ abstract final class AppRoutes {
   static const String newsEventsName = 'news-events';
   static const String newsEventsPath = 'events';
 
-  /// The second top-level destination is the cross-source calendar. The
-  /// timetable is no longer a tab of its own — it is the calendar's first source.
+  /// The cross-source calendar combines timetable, public calendars and
+  /// Moodle deadlines locally on the device.
   static const String calendar = '/calendar';
+
+  /// Focused, pinnable timetable module. It shares its data providers and
+  /// selected course group with the timetable source in [calendar].
+  static const String timetable = '/timetable';
 
   /// "Manage calendars" (Y-of-X public calendar selection + Google buttons).
   static const String calendarManagePath = 'manage';
@@ -30,6 +34,20 @@ abstract final class AppRoutes {
   static const String canteen = '/canteen';
   static const String canteenFavouritesPath = 'favourites';
   static const String canteenFavourites = '/canteen/favourites';
+
+  /// Non-sensitive Android NFC dispatch marker. It contains neither a card
+  /// identifier nor a balance; the changing launch token merely retriggers
+  /// the sheet when two tags arrive while the canteen route is already open.
+  static const String canteenBalanceParam = 'balance';
+  static const String canteenBalanceLaunchParam = 'launch';
+
+  static String canteenExternalBalanceLocation(int launch) => Uri(
+    path: canteen,
+    queryParameters: <String, String>{
+      canteenBalanceParam: 'external',
+      canteenBalanceLaunchParam: '$launch',
+    },
+  ).toString();
 
   static const String contacts = '/contacts';
   static const String contactAreaName = 'contact-area';
@@ -49,14 +67,29 @@ abstract final class AppRoutes {
   // Student grades (HIS-QIS), nested under More.
   static const String grades = '/more/grades';
 
+  /// Read-only HISinOne functions (Bescheinigungen, Personen-/Kontaktdaten,
+  /// Studiengangsübersicht). Rides on the grades connection — no sign-in of
+  /// its own, see `AGENTS.md` §2.
+  static const String studentService = '/more/student-service';
+
+  /// Encrypted, device-local PDFs saved explicitly from HISinOne.
+  static const String documentWallet = '/more/document-wallet';
+
   // Moodle (direct integration), nested under More.
   static const String moodle = '/more/moodle';
   static const String moodleCourseName = 'moodle-course';
   static const String moodleCoursePath = 'course/:id';
 
+  // Hochschule Anhalt Nextcloud file explorer (direct WebDAV integration).
+  static const String nextcloud = '/more/nextcloud';
+
   // Local, on-device to-do list, nested under More.
   static const String todosPath = 'todos';
   static const String todos = '/more/todos';
+
+  /// HSA-GPT (HAWKI) chat, nested under More. Direct integration, see
+  /// `AGENTS.md` §2.
+  static const String hsaKi = '/more/hsa-ki';
 
   // Campus map, nested under More.
   static const String campusMapPath = 'campus-map';
@@ -71,6 +104,9 @@ abstract final class AppRoutes {
   /// and the map is a perfectly valid destination without one.
   static String campusMapForRoom(String roomKey) =>
       '$campusMap?$campusMapRoomParam=${Uri.encodeQueryComponent(roomKey)}';
+
+  // The library's catalogues, nested under More.
+  static const String library = '/more/library';
 
   // Applications and feedback, nested under More.
   static const String requestsPath = 'requests';
@@ -106,4 +142,5 @@ abstract final class AppRoutes {
   /// Local notification settings — the global opt-in, the three category
   /// switches and the permission banner.
   static const String settingsNotifications = '/more/settings/notifications';
+  static const String settingsCalendarWidget = '/more/settings/calendar-widget';
 }

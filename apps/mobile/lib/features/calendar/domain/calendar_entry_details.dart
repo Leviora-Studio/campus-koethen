@@ -101,6 +101,26 @@ class MoodleCalendarDetails extends CalendarEntryDetails {
   int get hashCode => Object.hash(courseName, moduleName, eventType);
 }
 
+/// A personal appointment from the university Exchange calendar. Location is
+/// user-authored prose, not a trusted room field: a value such as "202" must
+/// not unexpectedly turn into a campus-map link.
+@immutable
+class ExchangeCalendarDetails extends CalendarEntryDetails {
+  const ExchangeCalendarDetails({this.location});
+
+  final String? location;
+
+  @override
+  List<String> get roomProse => <String>[?location];
+
+  @override
+  bool operator ==(Object other) =>
+      other is ExchangeCalendarDetails && other.location == location;
+
+  @override
+  int get hashCode => location.hashCode;
+}
+
 /// An event from a public calendar — written by whoever maintains that calendar.
 @immutable
 class PublicCalendarDetails extends CalendarEntryDetails {
@@ -129,6 +149,22 @@ class PublicCalendarDetails extends CalendarEntryDetails {
 
   @override
   int get hashCode => Object.hash(calendarName, location, description);
+}
+
+/// A favourited dish on the preferred canteen's menu for one day.
+@immutable
+class CanteenFavouriteMealCalendarDetails extends CalendarEntryDetails {
+  const CanteenFavouriteMealCalendarDetails({required this.canteenName});
+
+  final String canteenName;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CanteenFavouriteMealCalendarDetails &&
+      other.canteenName == canteenName;
+
+  @override
+  int get hashCode => canteenName.hashCode;
 }
 
 bool _sameList(List<String> a, List<String> b) {

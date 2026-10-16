@@ -4,6 +4,9 @@
 import 'package:campus_koethen/features/calendar/application/calendar_merge.dart';
 import 'package:campus_koethen/features/calendar/application/calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
+import 'package:campus_koethen/features/calendar/domain/calendar_entry_details.dart';
+import 'package:campus_koethen/features/mail/domain/exchange_calendar_event.dart';
+import 'package:campus_koethen/features/canteen/data/canteen_models.dart';
 import 'package:campus_koethen/features/moodle/domain/moodle_deadline.dart';
 import 'package:campus_koethen/features/timetable/data/timetable_models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +47,43 @@ MoodleDeadline _deadline() => MoodleDeadline(
 );
 
 void main() {
+  test('maps Exchange appointments without exposing account data', () {
+    final List<CalendarEntry> entries =
+        exchangeEventsToCalendarEntries(<ExchangeCalendarEvent>[
+          ExchangeCalendarEvent(
+            id: 'opaque-id',
+            subject: 'Sprechstunde',
+            start: DateTime.utc(2026, 10, 5, 8),
+            end: DateTime.utc(2026, 10, 5, 9),
+            isAllDay: false,
+            isCancelled: false,
+            location: 'B.202',
+          ),
+        ], untitledTitle: 'Termin ohne Betreff');
+
+    expect(entries.single.source, CalendarSource.exchangeCalendar);
+    expect(entries.single.id, 'exchange:opaque-id');
+    expect(entries.single.title, 'Sprechstunde');
+    expect(entries.single.location, 'B.202');
+    expect(entries.single.details, isA<ExchangeCalendarDetails>());
+  });
+
+  test('uses a localized fallback for an Exchange item without a subject', () {
+    final List<CalendarEntry> entries =
+        exchangeEventsToCalendarEntries(<ExchangeCalendarEvent>[
+          ExchangeCalendarEvent(
+            id: 'untitled',
+            subject: '',
+            start: DateTime.utc(2026, 10, 5, 8),
+            end: DateTime.utc(2026, 10, 5, 9),
+            isAllDay: false,
+            isCancelled: false,
+          ),
+        ], untitledTitle: 'Termin ohne Betreff');
+
+    expect(entries.single.title, 'Termin ohne Betreff');
+  });
+
   group('timetable mapping', () {
     test('maps entries to calendar entries and flags cancellation', () {
       final List<CalendarEntry> entries = timetableToCalendarEntries(
@@ -184,6 +224,62 @@ void main() {
       expect(second, first);
       expect(data.eventDays, data.eventDays);
       expect(data.eventDays, contains(DateTime(2026, 7, 27)));
+    });
+  });
+
+  group('canteen favourite meal mapping', () {
+    CanteenMenu menu() => CanteenMenu(
+      canteenSlug: 'mensa-koethen',
+      displayName: 'Mensa Köthen',
+      days: <MenuDay>[
+        MenuDay(
+          date: DateTime.utc(2026, 7, 27),
+          meals: const <Meal>[
+            Meal(id: '1', name: 'Bulgur-Pfanne'),
+            Meal(id: '2', name: 'Schnitzel'),
+          ],
+        ),
+        MenuDay(
+          date: DateTime.utc(2026, 7, 28),
+          meals: const <Meal>[Meal(id: '3', name: 'Schnitzel')],
+        ),
+      ],
+    );
+
+    test('maps only the dishes that are favourited, one entry per day', () {
+      final List<CalendarEntry> entries =
+          canteenFavouriteMealsToCalendarEntries(menu(), <String>{
+            'Bulgur-Pfanne',
+          });
+
+      expect(entries, hasLength(1));
+      final CalendarEntry entry = entries.single;
+      expect(entry.title, 'Bulgur-Pfanne');
+      expect(entry.source, CalendarSource.canteenFavourite);
+      expect(entry.allDay, isTrue);
+      expect(entry.day, DateTime(2026, 7, 27));
+      expect(
+        entry.details,
+        const CanteenFavouriteMealCalendarDetails(canteenName: 'Mensa Köthen'),
+      );
+    });
+
+    test('a dish served on several days gets one entry per day', () {
+      final List<CalendarEntry> entries =
+          canteenFavouriteMealsToCalendarEntries(menu(), <String>{'Schnitzel'});
+
+      expect(entries, hasLength(2));
+      expect(entries.map((CalendarEntry e) => e.day), <DateTime>[
+        DateTime(2026, 7, 27),
+        DateTime(2026, 7, 28),
+      ]);
+    });
+
+    test('no favourites means no entries, never a guess', () {
+      expect(
+        canteenFavouriteMealsToCalendarEntries(menu(), const <String>{}),
+        isEmpty,
+      );
     });
   });
 

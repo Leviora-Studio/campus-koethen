@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/app_router.dart';
 import '../../../app/app_routes.dart';
@@ -15,13 +16,24 @@ import '../../calendar/domain/calendar_entry.dart';
 import '../../calendar/presentation/calendar_entry_sheet.dart';
 import '../../canteen/application/canteen_providers.dart';
 import '../../canteen/domain/meal_highlight.dart';
+import '../../mail/application/mail_folders.dart';
+import '../../mail/application/mail_providers.dart';
+import '../../mail/application/mail_sync_controller.dart';
+import '../../mail/domain/mail_folder.dart';
 import '../application/daily_summary_providers.dart';
 import '../application/event_reminder_candidates.dart';
+import '../application/moodle_deadline_candidates.dart';
+import '../application/new_mail_notification.dart';
+import '../application/notification_channels.dart';
 import '../application/notification_providers.dart';
+import '../application/notification_settings_controller.dart';
 import '../application/notification_tap_router.dart';
 import '../domain/notification_category.dart';
+import '../domain/immediate_notification.dart';
 import '../domain/notification_gateway.dart';
+import '../domain/notification_payload.dart';
 import '../domain/notification_plan.dart';
+import '../domain/notification_permission.dart';
 
 /// Keeps the operating system's pending notifications equal to the current
 /// plan, and turns a tap on one of them into navigation.
@@ -58,6 +70,8 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
   DateTime? _plannedForDay;
   bool _launchPayloadHandled = false;
   bool _gatewayReady = false;
+  int _lastMailEventSerial = 0;
+  MailNewMessageEvent? _pendingMailEvent;
   Future<void> _channelSetup = Future<void>.value();
 
   @override
@@ -77,6 +91,7 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
   Future<void> _initializeGateway() async {
     try {
       final NotificationGateway gateway = ref.read(notificationGatewayProvider);
+      final timeZoneResolver = ref.read(timeZoneResolverProvider);
       await gateway.initialize(onNotificationTapped: _handlePayload);
       // A cold start from a notification: the tap happened before this widget
       // existed, so the platform kept the payload for exactly this question.
@@ -84,12 +99,14 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
         _launchPayloadHandled = true;
         _handlePayload(await gateway.takeLaunchPayload());
       }
-      _timeZoneName = await ref
-          .read(timeZoneResolverProvider)
-          .deviceTimeZoneName();
+      _timeZoneName = await timeZoneResolver.deviceTimeZoneName();
+      if (!mounted) return;
       _timeZoneOffset = DateTime.now().timeZoneOffset;
       _scheduleDayRollover();
-      if (mounted) setState(() => _gatewayReady = true);
+      setState(() => _gatewayReady = true);
+      final MailNewMessageEvent? pending = _pendingMailEvent;
+      _pendingMailEvent = null;
+      if (pending != null) unawaited(_showNewMailNotification(pending));
     } catch (error) {
       // Some devices reject plugin startup transiently. Keep the plan pending;
       // the next resume retries initialization instead of cancelling entries.
@@ -145,6 +162,48 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
     await ref.read(notificationSchedulerProvider).apply(plan);
   }
 
+  Future<void> _showNewMailNotification(MailNewMessageEvent event) async {
+    if (event.serial <= _lastMailEventSerial) return;
+    if (event.sessionGeneration != ref.read(mailSessionGenerationProvider)) {
+      return;
+    }
+    if (!_gatewayReady) {
+      final MailNewMessageEvent? pending = _pendingMailEvent;
+      if (pending == null || event.serial > pending.serial) {
+        _pendingMailEvent = event;
+      }
+      return;
+    }
+    _lastMailEventSerial = event.serial;
+    final preferences = ref.read(notificationSettingsProvider);
+    if (!preferences.optedIn ||
+        !preferences.isCategoryEnabled(NotificationCategory.newMail)) {
+      return;
+    }
+    final NotificationPermissionStatus permission = await ref.read(
+      notificationPermissionProvider.future,
+    );
+    if (!mounted ||
+        event.sessionGeneration != ref.read(mailSessionGenerationProvider) ||
+        !permission.allowsDelivery) {
+      return;
+    }
+    await _channelSetup;
+    // Channel creation crosses an asynchronous platform boundary. The mail
+    // account may have been signed out or replaced while it was pending, so
+    // fence the event once more before exposing anything.
+    if (!mounted ||
+        event.sessionGeneration != ref.read(mailSessionGenerationProvider)) {
+      return;
+    }
+    final ImmediateNotification? notification = buildNewMailNotification(
+      l10n: context.l10n,
+      event: event,
+    );
+    if (notification == null) return;
+    await ref.read(notificationGatewayProvider).showNow(notification);
+  }
+
   /// Re-plans when the calendar day has moved on.
   ///
   /// Two things depend on the date and neither notices it changing on its own:
@@ -184,6 +243,37 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
 
   void _handlePayload(String? payload) {
     if (payload == null) return;
+    unawaited(_routePayload(payload));
+  }
+
+  Future<void> _routePayload(String payload) async {
+    // An event reminder names a `CalendarEntry.id`, and resolving it needs
+    // the saved events and public calendars. On a cold start from the
+    // notification none of them has loaded yet, and a synchronous lookup
+    // would call a live event "no longer available" (F-08). So the lookup
+    // waits for its sources first — bounded, see
+    // `kNotificationTapSourceTimeout`.
+    final NotificationPayload? parsed = NotificationPayload.tryParse(payload);
+    CalendarEntry? eventEntry;
+    if (parsed != null &&
+        parsed.category == NotificationCategory.eventReminder) {
+      eventEntry = await loadCalendarEntryForNotification(
+        ProviderScope.containerOf(context, listen: false),
+        parsed.target,
+      );
+      if (!mounted) return;
+    }
+    // The same for a Moodle deadline: its opaque key is resolved against the
+    // local deadline cache, which a cold start has not read yet.
+    DateTime? moodleDeadlineDay;
+    if (parsed != null &&
+        parsed.category == NotificationCategory.moodleDeadline) {
+      moodleDeadlineDay = await loadMoodleDeadlineDayForNotification(
+        ProviderScope.containerOf(context, listen: false),
+        parsed.target,
+      );
+      if (!mounted) return;
+    }
     // Deferred to the next frame: a cold start resolves the launch payload
     // before the router has built its first route, and pushing into a
     // navigator that does not exist yet is how a notification tap turns into
@@ -193,7 +283,8 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
       final NotificationTapTarget? target = NotificationTapRouter(
         preferredCanteenSlug: ref.read(settingsProvider).preferredCanteenSlug,
         findCalendarEntry: (String id) =>
-            ref.read(calendarEntryForNotificationProvider(id)),
+            eventEntry ?? ref.read(calendarEntryForNotificationProvider(id)),
+        findMoodleDeadlineDay: (String _) => moodleDeadlineDay,
       ).resolve(payload);
       if (target == null) return;
 
@@ -225,7 +316,13 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
           }
         }
       }
-      ref.read(appRouterProvider).go(target.location);
+      if (target.location == AppRoutes.mail) {
+        ref
+            .read(selectedMailboxProvider.notifier)
+            .select(const MailFolder.inbox());
+      }
+      final GoRouter router = ref.read(appRouterProvider);
+      router.go(target.location);
 
       if (!target.resolved) {
         final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(
@@ -242,11 +339,21 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
       // One more frame: `go` has been called but the calendar has not built
       // yet, and a sheet pushed onto the navigator before it does would sit
       // above the previous screen.
+      //
+      // The sheet goes onto the router's root navigator. This host sits in
+      // the `MaterialApp.router` builder, above that navigator, so its own
+      // context has none to push onto (F-08).
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        unawaited(showCalendarEntrySheet(context, entry));
+        final BuildContext? navigatorContext =
+            router.routerDelegate.navigatorKey.currentContext;
+        if (navigatorContext == null || !navigatorContext.mounted) return;
+        unawaited(showCalendarEntrySheet(navigatorContext, entry));
       });
     });
+    // After the wait above the app may be idle with no frame pending; make
+    // sure the post-frame callback actually gets one.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -257,23 +364,9 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
     // so they follow the app language. Re-registering a channel under the same
     // id is how Android takes over a new name; the reader's own sound and
     // importance choices survive it.
-    final List<NotificationChannelSpec> channels = <NotificationChannelSpec>[
-      NotificationChannelSpec(
-        category: NotificationCategory.dailySummary,
-        name: l10n.notificationChannelDailySummaryName,
-        description: l10n.notificationChannelDailySummaryDescription,
-      ),
-      NotificationChannelSpec(
-        category: NotificationCategory.eventReminder,
-        name: l10n.notificationChannelEventsName,
-        description: l10n.notificationChannelEventsDescription,
-      ),
-      NotificationChannelSpec(
-        category: NotificationCategory.canteenFavourite,
-        name: l10n.notificationChannelCanteenName,
-        description: l10n.notificationChannelCanteenDescription,
-      ),
-    ];
+    final List<NotificationChannelSpec> channels = notificationChannelSpecs(
+      l10n,
+    );
     final String signature = channels
         .map((NotificationChannelSpec c) => '${c.category.channelId}:${c.name}')
         .join('|');
@@ -290,6 +383,17 @@ class _NotificationHostState extends ConsumerState<NotificationHost>
     ) {
       if (previous == next) return;
       unawaited(_applyPlan(next));
+    });
+    ref.listen<MailNewMessageEvent?>(mailNewMessageEventProvider, (
+      MailNewMessageEvent? previous,
+      MailNewMessageEvent? next,
+    ) {
+      if (next == null) {
+        _pendingMailEvent = null;
+        _lastMailEventSerial = 0;
+      } else if (next.serial != previous?.serial) {
+        unawaited(_showNewMailNotification(next));
+      }
     });
     // The first plan too: `listen` only fires on a change, and the very first
     // value of an app start is not one.

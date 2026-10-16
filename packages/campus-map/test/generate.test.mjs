@@ -4,7 +4,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildOutputs, generatedFileDrift } from '../src/generate.mjs';
+import {
+  buildOutputs,
+  generatedAssetLayoutProblems,
+  generatedFileDrift,
+} from '../src/generate.mjs';
 import { findRooms, findUnsafe, parseSvgDocument, walkElements } from '../src/svg-reader.mjs';
 import { loadCanonical } from '../src/validate.mjs';
 
@@ -80,6 +84,7 @@ test('the mobile catalogue carries the mapping Flutter needs', () => {
   assert.equal(ratke.nameDe, 'Ratke-Gebäude');
   assert.equal(ratke.nameEn, 'Ratke Building');
   assert.equal(ratke.planKind, 'schematic');
+  assert.equal(ratke.siteKey, 'koethen');
   assert.equal(ratke.sourceAttributionDe, 'Hochschule Anhalt');
   assert.equal(ratke.sourceAttributionEn, 'Hochschule Anhalt');
 
@@ -94,6 +99,7 @@ test('the mobile catalogue carries the mapping Flutter needs', () => {
     assert.equal(building.nameDe, nameDe);
     assert.equal(building.nameEn, nameEn);
     assert.equal(building.planKind, 'schematic');
+    assert.equal(building.siteKey, 'koethen', 'every current plan belongs to Köthen');
     assert.equal(building.sourceAttributionDe, 'Hochschule Anhalt');
     assert.equal(building.sourceAttributionEn, 'Hochschule Anhalt');
   }
@@ -363,9 +369,72 @@ test('drift check passes for the committed generated assets', () => {
   assert.deepEqual(drift, [], `generated assets are stale:\n${drift.join('\n')}`);
 });
 
+test('drift check ignores checkout-only CRLF conversion', () => {
+  const { files } = outputs();
+  const drift = generatedFileDrift({
+    readFile: (path) => files.get(path)?.replaceAll('\n', '\r\n'),
+  });
+  assert.deepEqual(drift, []);
+});
+
 test('drift check reports a tampered generated asset', () => {
   const drift = generatedFileDrift({
     readFile: (path) => (path.endsWith('.svg') ? '<svg/>' : undefined),
   });
   assert.ok(drift.length > 0);
+});
+
+// --- asset layout -------------------------------------------------------------
+
+const PUBSPEC_MAP_ASSETS = `
+flutter:
+  assets:
+    - assets/fonts/AlbertSans-OFL.txt
+    - assets/maps/map_catalog.json
+    - assets/maps/ratke-gebaeude/
+    - assets/maps/koethen-01/
+    - assets/maps/koethen-02/
+    - assets/maps/koethen-03/
+`;
+
+function generatedPaths() {
+  return [...outputs().files.keys()];
+}
+
+test('asset layout check passes for the committed assets and pubspec.yaml', () => {
+  const problems = generatedAssetLayoutProblems();
+  assert.deepEqual(problems, [], problems.join('\n'));
+});
+
+test('asset layout check reports an orphaned SVG that no floor generates', () => {
+  const problems = generatedAssetLayoutProblems({
+    listFiles: () => [...generatedPaths(), 'apps/mobile/assets/maps/koethen-01/old-floor.svg'],
+    readPubspec: () => PUBSPEC_MAP_ASSETS,
+  });
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /koethen-01\/old-floor\.svg/);
+});
+
+test('asset layout check reports a building folder missing from pubspec.yaml', () => {
+  const problems = generatedAssetLayoutProblems({
+    listFiles: generatedPaths,
+    readPubspec: () => PUBSPEC_MAP_ASSETS.replace('    - assets/maps/koethen-02/\n', ''),
+  });
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /assets\/maps\/koethen-02\//);
+  assert.match(problems[0], /pubspec\.yaml/);
+});
+
+test('asset layout check reports a missing catalogue entry and a stale pubspec entry', () => {
+  const problems = generatedAssetLayoutProblems({
+    listFiles: generatedPaths,
+    readPubspec: () =>
+      PUBSPEC_MAP_ASSETS.replace(
+        '    - assets/maps/map_catalog.json\n',
+        '    - assets/maps/old-building/\n',
+      ),
+  });
+  assert.equal(problems.length, 2, problems.join('\n'));
+  assert.ok(problems.some((p) => p.includes('assets/maps/map_catalog.json')));
+  assert.ok(problems.some((p) => p.includes('assets/maps/old-building/')));
 });

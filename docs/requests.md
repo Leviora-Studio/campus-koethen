@@ -1,7 +1,7 @@
 # Anträge & Feedback
 
 Finanzanträge und Feedback an das Gremiensystem des Studierendenrats. Der Bereich ist eine der
-**vier** in [`AGENTS.md`](../AGENTS.md) §2 festgehaltenen direkten Geräteanbindungen: Die App spricht
+**sechs** in [`AGENTS.md`](../AGENTS.md) §2 festgehaltenen direkten Geräteanbindungen: Die App spricht
 ohne Umweg mit dem Gremiensystem.
 
 ---
@@ -15,8 +15,9 @@ Studierendenausweises**. Genau solche Daten sollen kein Campus-Köthen-Backend e
 - ein **eigener** `dio`-Client ohne `LogInterceptor` und ohne Campus-API-Interceptor;
 - die Adresse ist **nie** eine Quellcode-Konstante, sondern kommt aus `REQUESTS_BASE_URL`.
 
-Anders als Mail, HIS-QIS und Moodle ist dieser Dienst **nicht nutzerauthentifiziert**. Ausschlaggebend
-ist der Inhalt, nicht die Anmeldung.
+Anders als Mail, Notenspiegel (HISinOne als Standardportal, HIS-QIS als Bestandsportal), Moodle,
+Nextcloud und HSA-GPT ist dieser Dienst **nicht nutzerauthentifiziert**. Ausschlaggebend ist der
+Inhalt, nicht die Anmeldung.
 
 ## 2. Konfiguration
 
@@ -27,7 +28,9 @@ flutter run --dart-define=REQUESTS_BASE_URL=https://gremio.example
 - Ohne den Wert ist der Bereich **nicht angebunden**: Entwürfe lassen sich schreiben, eingereicht wird
   nichts, und die Oberfläche sagt das. Eine Adresse wird nie geraten.
 - **HTTPS ist Pflicht.** Ein `http://`-Wert gilt als nicht konfiguriert und wird nicht stillschweigend
-  hochgestuft — über diese Verbindung laufen ein Ausweis und ein bearer-äquivalenter Link.
+  hochgestuft — über diese Verbindung laufen ein Ausweis und ein bearer-äquivalenter Link. Das gilt
+  auch für die Auswahllisten (Standorte, Feedback-Bereiche): Sie werden ohne gültige HTTPS-Adresse
+  gar nicht abgerufen.
 - DEV und PROD unterscheiden sich **ausschließlich** über diesen Wert (AGENTS.md §2.5).
 
 Aus der Basisadresse entsteht eine exakte **Origin-Allowlist** (`GremioOrigin`): Schema, Host und Port
@@ -50,6 +53,10 @@ Gesendet werden **genau** diese Felder:
 
 `locationId`, `title` (max. 200), `applicant` (max. 200), `finance_request` (PDF), `student_card`
 (PDF/PNG/JPEG) sowie optional `annex_a` und `annex_b` (PDF). Höchstens 25 MB je Datei.
+
+Längengrenzen zählt die App in vom Menschen wahrgenommenen Zeichen (Graphem-Clustern), genau wie das
+Eingabefeld selbst; ein Emoji zählt also als ein Zeichen. Wie das Gremiensystem zählt, legt die
+Schnittstelle nicht fest — lehnt es eine Länge ab, erscheint das als feldbezogene `400`-Meldung.
 
 Es gibt **keinen** Betrag, keine Kategorie, keinen Verwendungszweck, keine Beschreibung und keine
 Kontaktadresse: Die Schnittstelle nimmt sie nicht entgegen, und die Zahlen stehen im angehängten PDF.
@@ -88,6 +95,15 @@ angekommen ist. Dann gilt:
 - Nach **30 Tagen** verfällt der Schlüssel serverseitig. Danach behauptet die App **nicht**, ein Retry
   sei duplikatfrei: Sie warnt, sendet nicht von selbst und erzeugt auch nicht stillschweigend einen
   neuen Schlüssel. Weiterzugehen ist eine ausdrückliche Entscheidung der Person.
+- Lehnt der Endpunkt den unveränderten Retry **eindeutig** ab (`400`, `404`, `413`, `415`), bleibt der
+  Entwurf zunächst eingefroren. Weil sich die Aufforderung der Meldung (etwa „andere Stelle wählen“)
+  im eingefrorenen Formular nicht befolgen lässt, bietet das Formular dieselbe ausdrückliche Freigabe
+  an wie nach Ablauf der 30 Tage.
+- „Als neuen Vorgang senden“ ist diese Freigabe: Erst nach Bestätigung wird der Entwurf aufgetaut und
+  bekommt dabei einen **neuen** Schlüssel. Der alte gehört zu einem Versuch, der bereits ein Vorgang
+  geworden sein kann; ein geänderter Entwurf unter ihm bekäme nur `409`.
+- Wird abgebrochen, **bevor** die Anfrage abgeschickt wurde, oder lassen sich die verschlüsselten
+  Anhänge nicht lesen, ist nichts gesendet worden: Der Entwurf wird **nicht** eingefroren.
 
 ## 5. Erfolgreiche Einreichungen
 
@@ -101,7 +117,24 @@ Die Antwort enthält `statusUrl`, `receiptPdfUrl` und optional `number`. Danach 
 5. Sofort versuchen, den Status zu laden; scheitert das, bleibt die Einreichung trotzdem gespeichert.
 
 Scheitert Schritt 2, bleibt der Entwurf **mit seinem Schlüssel** erhalten und die App sagt deutlich,
-dass der Vorgang existiert, der Zugang aber verloren gehen könnte.
+dass der Vorgang existiert, der Zugang aber verloren gehen könnte. Der Entwurf wird dabei
+**eingefroren**: Der Server kennt den Schlüssel jetzt, also darf nur noch ein unveränderter Retry
+folgen, der den Link als Replay erneut abholt — ein geänderter bekäme `409`.
+
+Besteht Schritt 1 nicht — `200`/`201`, aber ein Link fehlt, ist kein HTTPS oder gehört zu einem
+fremden Origin —, gilt der Ausgang als **unbekannt**, nicht als gescheitert: Der Vorgang existiert
+sehr wahrscheinlich. Ohne verwendbaren Link wird nichts gespeichert, und der Entwurf wird wie nach
+einem Timeout eingefroren.
+
+Vor dem Senden prüft die App, ob die gespeicherten Vorgänge lesbar sind. Ist das nicht der Fall,
+wird **nichts** gesendet — sonst ginge der Statuslink der Antwort mangels Speicherziel verloren.
+Solange ein Entwurf gesendet wird, lässt er sich weder ändern noch löschen, seine Dateien nicht
+ersetzen und kein zweiter Versand starten — auch nicht aus einer zweiten Instanz des Formulars; die
+Liste kennzeichnet ihn als „Wird übermittelt …“.
+
+Werden die lokalen Antragsdaten gelöscht, während ein Versand läuft, wird dieser abgebrochen und sein
+Ergebnis verworfen: Weder ein Statuslink noch ein eingefrorener Entwurf wird in den gerade geleerten
+Speicher zurückgeschrieben.
 
 ## 6. Der Statuslink ist ein Bearer-Credential
 
@@ -162,10 +195,24 @@ daraus eine Löschung abzuleiten würde einen Vorgang unerreichbar machen.
 Der AES-Schlüssel liegt ausschließlich im Keychain/Keystore. **Nichts** davon landet in
 SharedPreferences oder einer unverschlüsselten Hive-Box.
 
-Anhänge werden als Bytes verschlüsselt abgelegt und für den Upload direkt in den Prozessspeicher
-gelesen — es entsteht zu **keinem** Zeitpunkt eine entschlüsselte Datei auf der Platte, also auch
-keine, die ein Absturz zurücklassen könnte. Die Originaldatei der Person wird nie verändert oder
-gelöscht.
+**Lesefehler sind keine leere Liste.** Lässt sich die Box nicht öffnen oder eine gespeicherte Liste
+nicht dekodieren, zeigt die App einen Fehler mit „Erneut laden“ und schreibt **nichts** — sonst
+würde der nächste Schreibvorgang alle Statuslinks überschreiben. Eine Box, die ihr gültiger
+Schlüssel nicht öffnen kann, wird für diese Daten nicht wie ein Cache gelöscht, sondern bleibt bis
+zum nächsten Versuch oder zur ausdrücklichen Löschung liegen. Das gilt für **beide** Boxen, also
+auch für die Anhänge mit dem Studierendenausweis. Ein Anhang, dessen Box sich nicht lesen lässt,
+gilt nicht als fehlende Datei: Gesendet wird nichts, und die App meldet einen Speicherfehler statt
+eines Fehlers am Dateifeld. Einzelne Einträge, die dieser Build nicht versteht, werden bei jedem
+Schreiben unverändert mitgeführt. Lässt sich eine Änderung, ein Löschen oder das Entfernen eines
+Vorgangs nicht speichern, sagt die App das.
+
+Die Dateigröße wird über die Picker-Metadaten geprüft, **bevor** Inhalt gelesen wird. Neue Anhänge
+werden in verschlüsselten Blöcken von 256 KiB abgelegt und beim Multipart-Upload blockweise wieder
+entschlüsselt; Einzel-, Anzahl- und Gesamtbudget werden vor und während dieses Pfads erneut geprüft.
+Es entsteht zu **keinem** Zeitpunkt eine entschlüsselte Datei auf der Platte, also auch keine, die
+ein Absturz zurücklassen könnte. Die Originaldatei der Person wird nie verändert oder gelöscht.
+Bereits vorhandene Ganzdatei-Einträge der ersten verschlüsselten Fassung bleiben lesbar und werden
+beim nächsten Ersetzen automatisch im Blockformat gespeichert.
 
 **Migration:** Entwürfe der ersten Fassung lagen in einer Klartext-Box (`campus_requests_v1`). Sie
 werden gelesen, verschlüsselt geschrieben, zurückgelesen — und **erst dann** wird die alte Box von der

@@ -3,6 +3,8 @@
 //
 // In-memory fakes for Moodle tests. No real network, no real credentials.
 
+import 'dart:async';
+
 import 'package:campus_koethen/core/time/clock.dart';
 import 'package:campus_koethen/features/moodle/domain/moodle_account.dart';
 import 'package:campus_koethen/features/moodle/domain/moodle_announcement.dart';
@@ -43,6 +45,13 @@ class FakeMoodleApiClient implements MoodleApiClient {
   /// Optional artificial latency for the overview calls (concurrency tests).
   Duration? delay;
 
+  /// Optional deterministic gate for logout-race tests.
+  Completer<List<MoodleCourse>>? pendingCourses;
+
+  /// Optional deterministic gate for setup accessibility and race tests.
+  Completer<String>? pendingToken;
+  Completer<void>? tokenRequested;
+
   int courseCalls = 0;
   int deadlineCalls = 0;
   final List<int> statusRequestedFor = <int>[];
@@ -73,6 +82,10 @@ class FakeMoodleApiClient implements MoodleApiClient {
     required String username,
     required String password,
   }) async {
+    if (tokenRequested != null && !tokenRequested!.isCompleted) {
+      tokenRequested!.complete();
+    }
+    if (pendingToken != null) return pendingToken!.future;
     if (throwOnRequestToken != null) throw throwOnRequestToken!;
     return tokenToReturn;
   }
@@ -87,6 +100,7 @@ class FakeMoodleApiClient implements MoodleApiClient {
   Future<List<MoodleCourse>> getCourses({required String token}) async {
     courseCalls++;
     return _read(() async {
+      if (pendingCourses != null) return pendingCourses!.future;
       if (delay != null) await Future<void>.delayed(delay!);
       if (throwOnCourses != null) throw throwOnCourses!;
       return courses;
@@ -147,6 +161,7 @@ class InMemoryMoodleTokenStore implements MoodleTokenStore {
   MoodleToken? token;
   int writes = 0;
   int clears = 0;
+  Object? clearError;
 
   @override
   Future<MoodleToken?> read() async => token;
@@ -160,6 +175,7 @@ class InMemoryMoodleTokenStore implements MoodleTokenStore {
   @override
   Future<void> clear() async {
     clears++;
+    if (clearError != null) throw clearError!;
     token = null;
   }
 }
@@ -174,6 +190,7 @@ class InMemoryMoodleCacheStore implements MoodleCacheStore {
       <int, List<MoodleAnnouncement>>{};
   MoodleSyncMarks marks = const MoodleSyncMarks();
   int clears = 0;
+  Object? clearError;
 
   @override
   Future<List<MoodleCourse>?> readCourses() async => courses;
@@ -226,6 +243,7 @@ class InMemoryMoodleCacheStore implements MoodleCacheStore {
   @override
   Future<void> clear() async {
     clears++;
+    if (clearError != null) throw clearError!;
     courses = null;
     deadlines = null;
     sections.clear();

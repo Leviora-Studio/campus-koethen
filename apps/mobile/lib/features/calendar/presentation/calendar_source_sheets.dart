@@ -8,17 +8,22 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_routes.dart';
 import '../../../core/network/loaded.dart';
+import '../../../core/prefs/settings_controller.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../l10n/l10n.dart';
 import '../../moodle/application/moodle_account_controller.dart';
 import '../../moodle/domain/moodle_account.dart';
+import '../../mail/application/mail_account_controller.dart';
 import '../../timetable/application/timetable_providers.dart';
 import '../../timetable/data/timetable_models.dart';
 import '../../timetable/presentation/timetable_group_picker_sheet.dart';
 import '../../timetable/presentation/timetable_lesson_info_filter_sheet.dart';
+import '../../timetable/presentation/timetable_subscriptions_sheet.dart';
 import '../application/calendar_providers.dart';
+import '../application/calendar_color_preferences.dart';
 import '../domain/calendar_entry.dart';
 import 'public_calendar_list.dart';
+import 'calendar_color_picker.dart';
 
 /// Opens the list of everything the calendar is merged from.
 ///
@@ -28,17 +33,26 @@ import 'public_calendar_list.dart';
 /// actually needs. Which calendars you are looking at is a question answered
 /// once; which day you are looking at is the one asked all day, and only the
 /// second one deserves standing room on the screen.
-Future<void> showCalendarSourcesSheet(BuildContext context) {
+///
+/// [context] and [ref] belong to the caller (a screen) and outlive every sheet
+/// opened from here. Follow-up sheets are opened from them, because a sheet's
+/// own context is gone once it has been replaced — and with it any follow-up
+/// that runs after the next sheet closes, such as the notification opt-in.
+Future<void> showCalendarSourcesSheet(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (BuildContext context) => const _SourcesSheet(),
+    builder: (BuildContext _) =>
+        _SourcesSheet(hostContext: context, hostRef: ref),
   );
 }
 
 class _SourcesSheet extends ConsumerWidget {
-  const _SourcesSheet();
+  const _SourcesSheet({required this.hostContext, required this.hostRef});
+
+  final BuildContext hostContext;
+  final WidgetRef hostRef;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -79,15 +93,33 @@ class _SourcesSheet extends ConsumerWidget {
             title: Text(calendarSourceLabel(l10n, source)),
             // The state is part of the row, not a tint on it.
             subtitle: Text(stateOf(source)),
-            trailing: const Icon(AppIcons.chevron_right),
+            trailing: Semantics(
+              label: calendarSourceLabel(l10n, source),
+              value: enabled.contains(source)
+                  ? l10n.calendarSourceVisible
+                  : l10n.calendarSourceHidden,
+              child: Switch.adaptive(
+                key: ValueKey<String>('calendar-source-${source.storageValue}'),
+                value: enabled.contains(source),
+                onChanged: (_) => ref
+                    .read(calendarEnabledSourcesProvider.notifier)
+                    .toggle(source),
+              ),
+            ),
             onTap: () {
               // Replaces this sheet rather than stacking on it.
               Navigator.of(context).pop();
-              showCalendarSourceSheet(context, source);
+              showCalendarSourceSheet(hostContext, hostRef, source);
             },
           ),
         const Divider(),
-        const _SavedEventsSwitch(),
+        const ExchangeCalendarSwitch(),
+        const SavedEventsCalendarSwitch(),
+        CalendarColorTile(
+          styleKey: CalendarColorKeys.source(CalendarSource.savedEvents),
+          label: l10n.calendarSourceSavedEvents,
+        ),
+        const CanteenFavouriteMealsSwitch(),
       ],
     );
   }
@@ -102,22 +134,60 @@ class _SourcesSheet extends ConsumerWidget {
 /// control.
 Future<void> showCalendarSourceSheet(
   BuildContext context,
+  WidgetRef ref,
   CalendarSource source,
 ) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (BuildContext context) => switch (source) {
-      CalendarSource.timetable => const _TimetableSourceSheet(),
+    builder: (BuildContext _) => switch (source) {
+      CalendarSource.timetable => _TimetableSourceSheet(
+        hostContext: context,
+        hostRef: ref,
+      ),
       CalendarSource.moodle => const _MoodleSourceSheet(),
       CalendarSource.publicCalendar => const _EventsSourceSheet(),
+      CalendarSource.exchangeCalendar ||
       CalendarSource.postEvent ||
-      CalendarSource.savedEvents => throw UnsupportedError(
+      CalendarSource.savedEvents ||
+      CalendarSource.canteenFavourite => throw UnsupportedError(
         '$source is not a toggleable calendar source sheet',
       ),
     },
   );
+}
+
+/// Explicit opt-in for personal Exchange appointments. This is a mail
+/// preference rather than a classic public calendar source, so connecting the
+/// mailbox alone never enables it.
+class ExchangeCalendarSwitch extends ConsumerWidget {
+  const ExchangeCalendarSwitch({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final bool enabled = ref.watch(
+      settingsProvider.select(
+        (AppSettings settings) => settings.mailExchangeCalendarEnabled,
+      ),
+    );
+    final bool connected =
+        ref.watch(mailAccountControllerProvider).value?.isSignedIn ?? false;
+    return SwitchListTile.adaptive(
+      value: enabled,
+      title: Text(l10n.calendarSourceExchange),
+      subtitle: Text(
+        connected
+            ? l10n.calendarExchangeSettingSubtitle
+            : l10n.calendarExchangeNeedsMail,
+      ),
+      secondary: const Icon(AppIcons.event_outlined),
+      onChanged: (bool value) => ref
+          .read(settingsProvider.notifier)
+          .setMailExchangeCalendarEnabled(value),
+    );
+  }
 }
 
 /// The shell every source sheet shares: a title and a scrollable body.
@@ -168,10 +238,15 @@ class _SourceSheet extends StatelessWidget {
 }
 
 /// "Show this source in the calendar" — the one control every sheet has.
-class _VisibilitySwitch extends ConsumerWidget {
-  const _VisibilitySwitch({required this.source});
+class CalendarSourceVisibilitySwitch extends ConsumerWidget {
+  const CalendarSourceVisibilitySwitch({
+    required this.source,
+    this.sourceAsTitle = false,
+    super.key,
+  });
 
   final CalendarSource source;
+  final bool sourceAsTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -184,7 +259,11 @@ class _VisibilitySwitch extends ConsumerWidget {
       value: visible,
       // The state is spelled out underneath, so the switch position is never
       // the only thing carrying it.
-      title: Text(l10n.calendarSourceShowInCalendar),
+      title: Text(
+        sourceAsTitle
+            ? calendarSourceLabel(l10n, source)
+            : l10n.calendarSourceShowInCalendar,
+      ),
       subtitle: Text(
         visible ? l10n.calendarSourceVisible : l10n.calendarSourceHidden,
       ),
@@ -199,8 +278,8 @@ class _VisibilitySwitch extends ConsumerWidget {
 /// default and entirely separate from the three mergeable sources above: it
 /// needs no configuration of its own, so it lives directly in this sheet
 /// instead of opening a further one.
-class _SavedEventsSwitch extends ConsumerWidget {
-  const _SavedEventsSwitch();
+class SavedEventsCalendarSwitch extends ConsumerWidget {
+  const SavedEventsCalendarSwitch({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -220,19 +299,48 @@ class _SavedEventsSwitch extends ConsumerWidget {
   }
 }
 
+/// "Lieblingsspeisen im Kalender" — the same off-by-default, standalone
+/// switch as [SavedEventsCalendarSwitch], and the exact same provider the canteen
+/// favourites screen's own toggle reads (public for that reason), so there
+/// is one setting, reachable from two places, never two that could disagree.
+class CanteenFavouriteMealsSwitch extends ConsumerWidget {
+  const CanteenFavouriteMealsSwitch({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = context.l10n;
+    final bool enabled = ref.watch(calendarShowFavouriteMealsProvider);
+
+    return SwitchListTile.adaptive(
+      value: enabled,
+      title: Text(l10n.calendarSourceCanteenFavourite),
+      subtitle: Text(
+        enabled ? l10n.calendarSourceVisible : l10n.calendarSourceHidden,
+      ),
+      secondary: const Icon(AppIcons.soup),
+      onChanged: (bool _) =>
+          ref.read(calendarShowFavouriteMealsProvider.notifier).toggle(),
+    );
+  }
+}
+
 class _TimetableSourceSheet extends ConsumerWidget {
-  const _TimetableSourceSheet();
+  const _TimetableSourceSheet({
+    required this.hostContext,
+    required this.hostRef,
+  });
+
+  final BuildContext hostContext;
+  final WidgetRef hostRef;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = context.l10n;
     final String? groupId = ref.watch(selectedTimetableGroupIdProvider);
-    final List<TimetableGroup> groups =
-        ref.watch(timetableGroupsProvider).value?.value ??
-        const <TimetableGroup>[];
-    final TimetableGroup? group = groupId == null
-        ? null
-        : groups.where((TimetableGroup g) => g.id == groupId).firstOrNull;
+    final TimetableGroup? group = ref
+        .watch(selectedTimetableGroupProvider)
+        .value
+        ?.value;
 
     return _SourceSheet(
       title: l10n.calendarSourceTimetable,
@@ -246,19 +354,35 @@ class _TimetableSourceSheet extends ConsumerWidget {
           ),
           subtitle: Text(l10n.calendarTimetableGroupLabel),
         ),
-        const _VisibilitySwitch(source: CalendarSource.timetable),
+        const CalendarSourceVisibilitySwitch(source: CalendarSource.timetable),
+        CalendarColorTile(
+          styleKey: CalendarColorKeys.source(CalendarSource.timetable),
+          label: l10n.calendarSourceTimetable,
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: OutlinedButton.icon(
             onPressed: () {
-              // The picker replaces this sheet instead of stacking on it.
+              // The picker replaces this sheet instead of stacking on it. It
+              // runs on the host so the first-course notification opt-in
+              // (entry point C) can still be offered once it closes.
               Navigator.of(context).pop();
-              showTimetableGroupPickerSheet(context, ref);
+              showTimetableGroupPickerSheet(hostContext, hostRef);
             },
             icon: const Icon(AppIcons.search),
             label: Text(l10n.timetableGroupPickerTitle),
           ),
         ),
+        if (groupId != null)
+          ListTile(
+            leading: const Icon(AppIcons.add_circle_outline),
+            title: Text(l10n.timetableSubscriptionsTitle),
+            trailing: const Icon(AppIcons.chevron_right),
+            onTap: () {
+              Navigator.of(context).pop();
+              showAdditionalTimetableGroupsSheet(context);
+            },
+          ),
         if (groupId != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -327,7 +451,11 @@ class _MoodleSourceSheet extends ConsumerWidget {
               ),
             ),
           ),
-          const _VisibilitySwitch(source: CalendarSource.moodle),
+          const CalendarSourceVisibilitySwitch(source: CalendarSource.moodle),
+          CalendarColorTile(
+            styleKey: CalendarColorKeys.source(CalendarSource.moodle),
+            label: l10n.calendarSourceMoodle,
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: OutlinedButton.icon(
@@ -351,8 +479,10 @@ class _EventsSourceSheet extends ConsumerWidget {
     return _SourceSheet(
       title: l10n.calendarSectionPublic,
       children: const <Widget>[
+        CalendarSourceVisibilitySwitch(source: CalendarSource.publicCalendar),
         // The same list the manage screen shows, writing the same selection.
         PublicCalendarList(shrinkWrap: true),
+        PublicCalendarGoogleFooter(),
       ],
     );
   }
@@ -364,8 +494,12 @@ String calendarSourceLabel(AppLocalizations l10n, CalendarSource source) =>
       CalendarSource.timetable => l10n.calendarSourceTimetable,
       CalendarSource.moodle => l10n.calendarSourceMoodle,
       CalendarSource.publicCalendar => l10n.calendarSourceEvents,
-      CalendarSource.postEvent || CalendarSource.savedEvents =>
-        throw UnsupportedError('$source has no calendar-source label'),
+      CalendarSource.exchangeCalendar => l10n.calendarSourceExchange,
+      CalendarSource.postEvent ||
+      CalendarSource.savedEvents ||
+      CalendarSource.canteenFavourite => throw UnsupportedError(
+        '$source has no calendar-source label',
+      ),
     };
 
 /// Whether [source] is loaded from a [Loaded] response at all — kept next to
@@ -374,6 +508,10 @@ IconData calendarSourceIcon(CalendarSource source) => switch (source) {
   CalendarSource.timetable => AppIcons.schedule_outlined,
   CalendarSource.moodle => AppIcons.cast_for_education_outlined,
   CalendarSource.publicCalendar => AppIcons.public_outlined,
-  CalendarSource.postEvent || CalendarSource.savedEvents =>
-    throw UnsupportedError('$source has no calendar-source icon'),
+  CalendarSource.exchangeCalendar => AppIcons.event_outlined,
+  CalendarSource.postEvent ||
+  CalendarSource.savedEvents ||
+  CalendarSource.canteenFavourite => throw UnsupportedError(
+    '$source has no calendar-source icon',
+  ),
 };

@@ -1,7 +1,11 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:campus_koethen/features/grades/domain/clock.dart';
+import 'package:campus_koethen/features/grades/domain/exam_report.dart';
+import 'package:campus_koethen/features/grades/domain/exam_report_gateway.dart';
 import 'package:campus_koethen/features/grades/domain/grade.dart';
 import 'package:campus_koethen/features/grades/domain/grade_cache_store.dart';
 import 'package:campus_koethen/features/grades/domain/grade_credential_store.dart';
@@ -29,11 +33,19 @@ class InMemoryGradeCredentialStore implements GradeCredentialStore {
   GradeCredentials? _stored;
   int writes = 0;
   int clears = 0;
+  Object? clearError;
+
+  /// When set, [read] throws — a keystore that failed to open, which is not
+  /// the same as "no credentials stored".
+  Object? readError;
 
   GradeCredentials? get lastWritten => _stored;
 
   @override
-  Future<GradeCredentials?> read() async => _stored;
+  Future<GradeCredentials?> read() async {
+    if (readError != null) throw readError!;
+    return _stored;
+  }
 
   @override
   Future<void> write(GradeCredentials credentials) async {
@@ -46,8 +58,9 @@ class InMemoryGradeCredentialStore implements GradeCredentialStore {
 
   @override
   Future<void> clear() async {
-    _stored = null;
     clears++;
+    if (clearError != null) throw clearError!;
+    _stored = null;
   }
 }
 
@@ -57,13 +70,24 @@ class InMemoryGradePortalStore implements GradePortalStore {
   int writes = 0;
   int clears = 0;
 
+  /// When set, [read] throws — a keystore that failed to open, which is not
+  /// the same as "no portal choice stored".
+  Object? readError;
+
+  /// When set, [write] throws without storing anything.
+  Object? writeError;
+
   GradePortal? get lastWritten => _stored;
 
   @override
-  Future<GradePortal?> read() async => _stored;
+  Future<GradePortal?> read() async {
+    if (readError != null) throw readError!;
+    return _stored;
+  }
 
   @override
   Future<void> write(GradePortal portal) async {
+    if (writeError != null) throw writeError!;
     _stored = portal;
     writes++;
   }
@@ -126,7 +150,7 @@ class InMemoryGradeCacheStore implements GradeCacheStore {
 }
 
 /// Scriptable gateway. Records how often the portal was hit.
-class FakeGradesGateway implements GradesGateway {
+class FakeGradesGateway implements GradesGateway, ExamReportGateway {
   FakeGradesGateway({this.report, this.error, this.delay});
 
   GradeReport? report;
@@ -135,14 +159,33 @@ class FakeGradesGateway implements GradesGateway {
   /// Optional delay so tests can overlap concurrent syncs.
   Duration? delay;
 
+  /// Optional deterministic gate for logout-race tests.
+  Completer<GradeReport>? pendingReport;
+
   int fetchCalls = 0;
 
   @override
   Future<GradeReport> fetchGrades(GradeCredentials credentials) async {
     fetchCalls++;
+    if (pendingReport != null) return pendingReport!.future;
     if (delay != null) await Future<void>.delayed(delay!);
     if (error != null) throw error!;
     return report ?? const GradeReport(<GradeEntry>[]);
+  }
+
+  /// Scripted answer for `downloadExamReport`.
+  ExamReportDownloadResult? examReportResult;
+  int downloadExamReportCalls = 0;
+  ExamReportOffer? lastRequestedOffer;
+
+  @override
+  Future<ExamReportDownloadResult> downloadExamReport(
+    GradeCredentials credentials,
+    ExamReportOffer offer,
+  ) async {
+    downloadExamReportCalls++;
+    lastRequestedOffer = offer;
+    return examReportResult ?? const ExamReportUnavailable('not-scripted');
   }
 }
 

@@ -2,10 +2,12 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import '../../../core/theme/hex_color.dart';
+import '../../canteen/data/canteen_models.dart';
 import '../../events/domain/event_dedup.dart';
 import '../../events/domain/event_source_label.dart';
 import '../../events/domain/saved_event_snapshot.dart';
 import '../../events/domain/unified_event.dart';
+import '../../mail/domain/exchange_calendar_event.dart';
 import '../../moodle/domain/moodle_deadline.dart';
 import '../../timetable/data/timetable_models.dart';
 import '../domain/calendar_entry.dart';
@@ -72,6 +74,37 @@ CalendarEntry timetableEntryToCalendarEntry(TimetableEntry entry) {
   );
 }
 
+/// Maps the favourited dishes on one canteen's menu to calendar entries — one
+/// per day the dish is served, so a reader who starred "Bulgur-Pfanne" sees it
+/// land on their calendar the day it is actually on the board, not every day.
+///
+/// The exact-name match is the same stability trade-off the canteen feature's
+/// own favourites already make (`CanteenFilter.isFavourite`): a dish has no
+/// stable id across republishes, only its name.
+List<CalendarEntry> canteenFavouriteMealsToCalendarEntries(
+  CanteenMenu menu,
+  Set<String> favouriteNames,
+) => <CalendarEntry>[
+  if (favouriteNames.isNotEmpty)
+    for (final MenuDay day in menu.days)
+      for (final Meal meal in day.meals)
+        if (favouriteNames.contains(meal.name))
+          CalendarEntry(
+            id:
+                'canteenFavourite:${menu.canteenSlug}:'
+                '${day.date.toIso8601String()}:${meal.name}',
+            source: CalendarSource.canteenFavourite,
+            title: meal.name,
+            start: day.date,
+            allDay: true,
+            subtitle: menu.displayName,
+            sourceLabel: menu.displayName,
+            details: CanteenFavouriteMealCalendarDetails(
+              canteenName: menu.displayName,
+            ),
+          ),
+];
+
 /// Maps direct-from-Moodle deadlines to calendar entries.
 List<CalendarEntry> moodleDeadlinesToCalendarEntries(
   List<MoodleDeadline> deadlines,
@@ -92,6 +125,46 @@ List<CalendarEntry> moodleDeadlinesToCalendarEntries(
         ),
       )
       .toList();
+}
+
+/// Maps personal Exchange appointments into the local merged calendar. The
+/// opaque EWS item id is namespaced and kept on-device; account identifiers,
+/// attendees and bodies are never requested or copied into [CalendarEntry].
+List<CalendarEntry> exchangeEventsToCalendarEntries(
+  List<ExchangeCalendarEvent> events, {
+  required String untitledTitle,
+}) => events
+    .map(
+      (ExchangeCalendarEvent event) => CalendarEntry(
+        id: 'exchange:${event.id}',
+        source: CalendarSource.exchangeCalendar,
+        title: event.subject.isEmpty ? untitledTitle : event.subject,
+        start: event.isAllDay ? _exchangeAllDayDate(event.start) : event.start,
+        end: event.isAllDay ? _exchangeAllDayDate(event.end) : event.end,
+        allDay: event.isAllDay,
+        location: event.location,
+        isCancelled: event.isCancelled,
+        details: ExchangeCalendarDetails(location: event.location),
+      ),
+    )
+    .toList(growable: false);
+
+/// The UTC-midnight date marker (see [calendarDayOf]) for one bound of an
+/// all-day Exchange appointment.
+///
+/// Exchange stores an all-day appointment as the midnight that starts its
+/// date in the calendar's own zone, and the gateway pins the response zone to
+/// UTC — so a mailbox in Köthen answers with 22:00Z (summer) or 23:00Z
+/// (winter) the evening before. Read as a date marker that was a day early
+/// (F-06). The nearest UTC midnight is that zone's date for every zone from
+/// UTC−11 to UTC+12, whatever zone the device is in, and leaves a server that
+/// already sends 00:00Z unchanged.
+DateTime _exchangeAllDayDate(DateTime value) {
+  final DateTime utc = value.toUtc();
+  final DateTime midnight = DateTime.utc(utc.year, utc.month, utc.day);
+  return utc.difference(midnight) >= const Duration(hours: 12)
+      ? DateTime.utc(utc.year, utc.month, utc.day + 1)
+      : midnight;
 }
 
 /// Maps aggregated public-calendar events to calendar entries, resolving each
@@ -130,6 +203,11 @@ List<CalendarEntry> publicCalendarEventsToCalendarEntries(
 /// Maps a saved snapshot ("Meine gemerkten Events") to its calendar entry, so
 /// a bookmarked event shows up in the cross-source calendar with its own
 /// source and a bookmark to mark it apart from a live entry.
+///
+/// Location, description and the cancelled flag were copied into the
+/// snapshot precisely so it still says where and whether the event happens;
+/// they are carried over the same way the public-calendar mapper flattens
+/// them (F-04).
 CalendarEntry savedEventSnapshotToCalendarEntry(SavedEventSnapshot snapshot) =>
     CalendarEntry(
       id: 'savedEvent:${snapshot.eventRef}',
@@ -138,6 +216,9 @@ CalendarEntry savedEventSnapshotToCalendarEntry(SavedEventSnapshot snapshot) =>
       start: snapshot.start,
       end: snapshot.end,
       allDay: snapshot.allDay,
+      subtitle: snapshot.description,
+      location: snapshot.location,
+      isCancelled: snapshot.isCancelled,
       calendarSlug: snapshot.calendarSlug,
       colorArgb: snapshot.colorArgb,
       sourceLabel: snapshot.sourceLabel == null

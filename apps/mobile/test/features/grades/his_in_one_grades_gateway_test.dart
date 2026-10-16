@@ -2,6 +2,7 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:campus_koethen/features/grades/data/his_in_one_grades_gateway.dart';
+import 'package:campus_koethen/features/grades/domain/exam_report.dart';
 import 'package:campus_koethen/features/grades/domain/grade.dart';
 import 'package:campus_koethen/features/grades/domain/grade_credentials.dart';
 import 'package:campus_koethen/features/grades/domain/grade_failure.dart';
@@ -293,6 +294,143 @@ void main() {
       );
     },
   );
+
+  group('downloadExamReport', () {
+    final ExamReportOffer offer = const ExamReportOffer(
+      buttonId: 'examsReadonly:exaReports:fieldset_exaReports:printReport_0',
+      label:
+          'Leistungsübersicht (bestandene Leistungen) / '
+          'List of passed exam (german) [PDF]',
+    );
+
+    FakeHtmlResponse scriptWithReports(RequestOptions o) {
+      final String url = o.uri.toString();
+      if (url.contains('auth.login')) {
+        return const FakeHtmlResponse.redirect(_landingUrl);
+      }
+      if (url == _landingUrl) {
+        return const FakeHtmlResponse(hisInOneAuthenticatedLandingHtml);
+      }
+      if (url.contains('auth.logout')) return const FakeHtmlResponse('bye');
+      if (url.contains('personExamsReadonly.xhtml') && o.method == 'GET') {
+        return FakeHtmlResponse(hisInOneRenderedTreeWithExamReportsHtml);
+      }
+      return const FakeHtmlResponse('not found', statusCode: 404);
+    }
+
+    test('submits the real full-POST shape and follows both download hops to '
+        'the verified PDF', () async {
+      // Same two-hop mechanism confirmed 2026-10-04 for the Studienservice
+      // certificates: the POST's own redirect stays on the portal host
+      // with only docId; THAT redirects again, to the separate untrust-
+      // host with the richer accountId/hash/timestamp/docName set, before
+      // the actual bytes.
+      const String firstHop =
+          'https://sscportal.ssc.hs-anhalt.de/qisserver/rds'
+          '?state=docdownload&docId=abc';
+      const String secondHop =
+          'https://untrust-sscportal.ssc.hs-anhalt.de/qisserver/rds'
+          '?state=docdownload&accountId=52153&hash=abc'
+          '&timestamp=20261004125245&docId=abc'
+          '&docName=Geb%C3%BChrenbescheinigung.pdf';
+      final adapter = FakeHtmlAdapter((RequestOptions o) {
+        final String url = o.uri.toString();
+        if (url == secondHop) {
+          return const FakeHtmlResponse(
+            '%PDF-1.7\nfixture',
+            contentType: 'application/pdf',
+          );
+        }
+        if (url == firstHop) {
+          return const FakeHtmlResponse.redirect(secondHop);
+        }
+        if (url.contains('personExamsReadonly.xhtml') && o.method == 'POST') {
+          expect(
+            o.data,
+            isA<Map>().having(
+              (Map m) => m[offer.buttonId],
+              'button field',
+              offer.label,
+            ),
+          );
+          expect((o.data as Map)['DISABLE_VALIDATION'], 'true');
+          return const FakeHtmlResponse.redirect(firstHop);
+        }
+        return scriptWithReports(o);
+      });
+
+      final ExamReportDownloadResult result = await HisInOneGradesGateway(
+        const HisInOneProfile(),
+        adapter,
+      ).downloadExamReport(_creds, offer);
+
+      expect(result, isA<ExamReportDownloadLoaded>());
+      final ExamReportDownloadLoaded loaded =
+          result as ExamReportDownloadLoaded;
+      expect(
+        loaded.bytes.take(5),
+        orderedEquals(<int>[0x25, 0x50, 0x44, 0x46, 0x2d]),
+      );
+    });
+
+    // D-09: AGENTS.md §2 pins the order — portal-host docdownload first, the
+    // untrust- host only as its redirect.
+    test(
+      'a POST that redirects straight to the untrust- host is rejected',
+      () async {
+        const String untrust =
+            'https://untrust-sscportal.ssc.hs-anhalt.de/qisserver/rds'
+            '?state=docdownload&docId=abc';
+        final adapter = FakeHtmlAdapter((RequestOptions o) {
+          final String url = o.uri.toString();
+          if (url == untrust) {
+            return const FakeHtmlResponse(
+              '%PDF-1.7\nfixture',
+              contentType: 'application/pdf',
+            );
+          }
+          if (url.contains('personExamsReadonly.xhtml') && o.method == 'POST') {
+            return const FakeHtmlResponse.redirect(untrust);
+          }
+          return scriptWithReports(o);
+        });
+
+        await expectLater(
+          HisInOneGradesGateway(
+            const HisInOneProfile(),
+            adapter,
+          ).downloadExamReport(_creds, offer),
+          throwsA(const GradeFailure(GradeFailureKind.tlsOrHostRejected)),
+        );
+        expect(
+          adapter.requests.any(
+            (RequestOptions r) => r.uri.toString() == untrust,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('an offer no longer listed on a fresh read is rejected before any '
+        'POST', () async {
+      final adapter = FakeHtmlAdapter(scriptWithReports);
+      const ExamReportOffer stale = ExamReportOffer(
+        buttonId: 'examsReadonly:exaReports:fieldset_exaReports:printReport_9',
+        label: 'Veraltetes Angebot',
+      );
+
+      final ExamReportDownloadResult result = await HisInOneGradesGateway(
+        const HisInOneProfile(),
+        adapter,
+      ).downloadExamReport(_creds, stale);
+
+      expect(result, isA<ExamReportUnavailable>());
+      expect(
+        (result as ExamReportUnavailable).reason,
+        'offer-no-longer-listed',
+      );
+    });
+  });
 }
 
 /// Regression group for LEVIORA-154, reproduced against the live portal:
@@ -342,6 +480,36 @@ void _deployedPortalBuildTests() {
     },
   );
 
+  // Audit 2026-10-10: an account without results on this portal still has
+  // the print buttons on the same page — "Übersicht fehlender Leistungen"
+  // must stay reachable.
+  test('an empty Leistungsdaten section still carries the exam-report offers '
+      'from the same page', () async {
+    final String emptyWithReports = hisInOneEmptyOverviewHtml.replaceFirst(
+      '<input type="hidden" name="examsReadonly_SUBMIT"',
+      '<div id="examsReadonly:exaReports:fieldset_exaReports">'
+          '<button id="examsReadonly:exaReports:fieldset_exaReports:'
+          'printReport_2" name="examsReadonly:exaReports:fieldset_exaReports:'
+          'printReport_2" type="submit" value="Leistungsübersicht fehlende '
+          'Leistungen / Overview of missing exam [PDF]" '
+          'class="submit_print_pdf immediate"><span>PDF</span></button>'
+          '</div><input type="hidden" name="examsReadonly_SUBMIT"',
+    );
+    final adapter = FakeHtmlAdapter(
+      (RequestOptions o) => script(emptyWithReports, o),
+    );
+
+    final GradeReport report = await HisInOneGradesGateway(
+      const HisInOneProfile(),
+      adapter,
+    ).fetchGrades(_creds);
+
+    expect(report.isEmpty, isTrue);
+    expect(report.examReports.map((ExamReportOffer o) => o.buttonId), <String>[
+      'examsReadonly:exaReports:fieldset_exaReports:printReport_2',
+    ]);
+  });
+
   test('a tree without an expand-all control is parsed as rendered, without an '
       'expand POST', () async {
     final adapter = FakeHtmlAdapter(
@@ -361,6 +529,25 @@ void _deployedPortalBuildTests() {
             o.uri.toString().contains('personExamsReadonly.xhtml'),
       ),
       isFalse,
+    );
+  });
+
+  test('a rendered tree with Bescheinigungen populates both entries and '
+      'examReports from the one fetch', () async {
+    final adapter = FakeHtmlAdapter(
+      (RequestOptions o) => script(hisInOneRenderedTreeWithExamReportsHtml, o),
+    );
+
+    final GradeReport report = await HisInOneGradesGateway(
+      const HisInOneProfile(),
+      adapter,
+    ).fetchGrades(_creds);
+
+    expect(report.entries, hasLength(3));
+    expect(report.examReports, hasLength(1));
+    expect(
+      report.examReports.single.buttonId,
+      'examsReadonly:exaReports:fieldset_exaReports:printReport_0',
     );
   });
 }

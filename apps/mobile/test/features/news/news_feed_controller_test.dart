@@ -1,12 +1,15 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:campus_koethen/core/cache/cache_providers.dart';
 import 'package:campus_koethen/core/cache/content_cache.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/features/news/application/channel_subscriptions.dart';
+import 'package:campus_koethen/features/news/application/news_auto_refresh.dart';
 import 'package:campus_koethen/features/news/application/news_feed_controller.dart';
 import 'package:campus_koethen/features/news/application/tag_filter.dart';
 import 'package:campus_koethen/features/news/data/news_models.dart';
@@ -240,6 +243,43 @@ void main() {
     expect(state.page, 1);
   });
 
+  group('foreground auto refresh', () {
+    test('reloads a feed that is still on its first page', () async {
+      final _Feed feed = _Feed(<int, List<String>?>{
+        1: <String>['a', 'b'],
+        2: <String>['c', 'd'],
+      });
+      final ProviderContainer container = _container(feed);
+      await container.read(newsFeedControllerProvider.future);
+
+      await container.read(newsAutoRefreshProvider.notifier).run();
+
+      expect(feed.requestedPages, <int>[1, 1]);
+    });
+
+    test('leaves a feed alone that was scrolled past page one', () async {
+      // The five-minute and resume refresh used to invalidate the feed, so a
+      // reader deep in it was thrown back to the top.
+      final _Feed feed = _Feed(<int, List<String>?>{
+        1: <String>['a', 'b'],
+        2: <String>['c', 'd'],
+      });
+      final ProviderContainer container = _container(feed);
+      await container.read(newsFeedControllerProvider.future);
+      await container.read(newsFeedControllerProvider.notifier).loadMore();
+
+      await container.read(newsAutoRefreshProvider.notifier).run();
+      await container.read(newsFeedControllerProvider.future);
+
+      final NewsFeedState state = container
+          .read(newsFeedControllerProvider)
+          .value!;
+      expect(state.page, 2);
+      expect(_slugs(state), <String>['a', 'b', 'c', 'd']);
+      expect(feed.requestedPages, <int>[1, 2]);
+    });
+  });
+
   test('changing the channel selection starts over at page one', () async {
     // Page three of the old selection says nothing about the new one.
     final _Feed feed = _Feed(<int, List<String>?>{
@@ -290,6 +330,75 @@ void main() {
 
     expect(state.page, 1);
     expect(feed.requestedTagsParams.last, 'event');
+  });
+
+  test('a late page from the old tag never enters the new feed', () async {
+    final Completer<void> releaseOldPage = Completer<void>();
+    final Completer<void> oldPageStarted = Completer<void>();
+    final FakeHttpAdapter adapter = FakeHttpAdapter((
+      RequestOptions options,
+    ) async {
+      if (options.path.contains('channels')) {
+        return FakeHttpResponse(envelope(<Object>[_channel]));
+      }
+      if (options.path.contains('tags')) {
+        return FakeHttpResponse(envelope(<Object>[_tag]));
+      }
+      final int page =
+          int.tryParse('${options.queryParameters['page'] ?? 1}') ?? 1;
+      final String? tag = options.queryParameters['tags'] as String?;
+      if (page == 2 && tag == null) {
+        oldPageStarted.complete();
+        await releaseOldPage.future;
+      }
+      final List<String> slugs = tag == 'event'
+          ? <String>['new-filter']
+          : page == 1
+          ? <String>['old-filter']
+          : <String>['late-old-page'];
+      return FakeHttpResponse(
+        envelope(
+          slugs.map(_article).toList(),
+          meta: <String, dynamic>{
+            'pagination': <String, dynamic>{
+              'page': page,
+              'pageSize': 2,
+              'total': 2,
+              'totalPages': 2,
+            },
+          },
+        ),
+      );
+    });
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        keyValueStoreProvider.overrideWithValue(InMemoryKeyValueStore()),
+        contentCacheProvider.overrideWithValue(
+          SafeContentCache(MemoryContentCache()),
+        ),
+        apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(newsFeedControllerProvider.future);
+
+    final Future<void> oldLoadMore = container
+        .read(newsFeedControllerProvider.notifier)
+        .loadMore();
+    await oldPageStarted.future;
+    await container.read(newsTagFilterProvider.notifier).select('event');
+    final NewsFeedState refreshed = await container.read(
+      newsFeedControllerProvider.future,
+    );
+    expect(_slugs(refreshed), <String>['new-filter']);
+
+    releaseOldPage.complete();
+    await oldLoadMore;
+
+    expect(
+      _slugs(container.read(newsFeedControllerProvider).requireValue),
+      <String>['new-filter'],
+    );
   });
 
   test(

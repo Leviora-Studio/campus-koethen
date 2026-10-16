@@ -13,6 +13,7 @@ import 'package:campus_koethen/features/notifications/domain/planned_notificatio
 import 'package:campus_koethen/l10n/l10n.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -34,15 +35,21 @@ late tz.Location sydney;
 class _TestCopy implements EventReminderCopy {
   const _TestCopy();
 
-  @override
-  String title(CalendarEntry entry, {required bool onEventDay}) =>
-      '${onEventDay ? 'today' : 'tomorrow'}: ${entry.title}';
+  static String _day(EventReminderDay day) => switch (day.daysAhead) {
+    0 => 'today',
+    1 => 'tomorrow',
+    _ => 'in ${day.daysAhead} days',
+  };
 
   @override
-  String body(CalendarEntry entry, {required bool onEventDay}) {
+  String title(CalendarEntry entry, {required EventReminderDay day}) =>
+      '${_day(day)}: ${entry.title}';
+
+  @override
+  String body(CalendarEntry entry, {required EventReminderDay day}) {
     final String when = entry.allDay
-        ? '${onEventDay ? 'today' : 'tomorrow'}, all day'
-        : '${onEventDay ? 'today' : 'tomorrow'} at ${entry.start.toLocal()}';
+        ? '${_day(day)}, all day'
+        : '${_day(day)} at ${entry.start.toLocal()}';
     final String? place = entry.location;
     return place == null ? '$when.' : '$when, $place.';
   }
@@ -92,8 +99,16 @@ tz.TZDateTime at(
 List<NotificationRequest> requestsIn(
   tz.Location location,
   tz.TZDateTime now,
-  List<CalendarEntry> entries,
-) => eventReminderRequests(entries: entries, now: now, copy: const _TestCopy());
+  List<CalendarEntry> entries, {
+  Duration defaultLead = kEventReminderLead,
+  Map<String, int> overrides = const <String, int>{},
+}) => eventReminderRequests(
+  entries: entries,
+  now: now,
+  copy: const _TestCopy(),
+  defaultLead: defaultLead,
+  overrides: overrides,
+);
 
 /// The builder and the planner as one answer: what the operating system would
 /// actually be asked to deliver.
@@ -106,9 +121,10 @@ List<PlannedNotification> planned(
   ),
   NotificationPermissionStatus permission =
       NotificationPermissionStatus.granted,
+  Duration defaultLead = kEventReminderLead,
 }) {
   final NotificationPlan plan = planNotifications(
-    candidates: requestsIn(location, now, entries),
+    candidates: requestsIn(location, now, entries, defaultLead: defaultLead),
     preferences: preferences,
     permission: permission,
     now: now,
@@ -286,7 +302,7 @@ void main() {
       );
     });
 
-    test('a lecture and a Moodle deadline (P5) — never, in any form', () {
+    test('lectures and Moodle deadlines never use the event category', () {
       final List<CalendarEntry> notEvents = <CalendarEntry>[
         CalendarEntry(
           id: 'timetable:99',
@@ -306,8 +322,8 @@ void main() {
         requestsIn(berlin, at(berlin, 2026, 7, 1), notEvents),
         isEmpty,
         reason:
-            'P5: lectures and Moodle deadlines reach the daily overview and '
-            'produce no individual reminder of their own',
+            'Moodle uses its dedicated neutral deadline category; '
+            'lectures remain part of the daily overview only',
       );
     });
 
@@ -374,6 +390,83 @@ void main() {
         ], permission: NotificationPermissionStatus.denied),
         isEmpty,
       );
+    });
+  });
+
+  group('reader-defined event rules', () {
+    test('changes the default lead time', () {
+      final NotificationRequest request = requestsIn(
+        berlin,
+        at(berlin, 2026, 7, 1),
+        <CalendarEntry>[publicEvent(start: at(berlin, 2026, 7, 22, 16))],
+        defaultLead: const Duration(hours: 6),
+      ).single;
+
+      expect(
+        (request.trigger as AbsoluteTrigger).instant,
+        at(berlin, 2026, 7, 22, 10),
+      );
+    });
+
+    test('can disable exactly one event', () {
+      final CalendarEntry disabled = publicEvent(
+        id: 'publicCalendar:hsa:off',
+        start: at(berlin, 2026, 7, 22, 16),
+      );
+      final CalendarEntry enabled = publicEvent(
+        id: 'publicCalendar:hsa:on',
+        start: at(berlin, 2026, 7, 22, 17),
+      );
+
+      final List<NotificationRequest> requests = requestsIn(
+        berlin,
+        at(berlin, 2026, 7, 1),
+        <CalendarEntry>[disabled, enabled],
+        overrides: <String, int>{disabled.id: -1},
+      );
+
+      expect(requests.map((request) => request.target), <String>[enabled.id]);
+    });
+
+    test('a short lead for an early event is moved before, never after it', () {
+      final tz.TZDateTime start = at(berlin, 2026, 7, 22, 6);
+      final List<PlannedNotification> out = planned(
+        berlin,
+        at(berlin, 2026, 7, 1),
+        <CalendarEntry>[publicEvent(start: start)],
+        defaultLead: const Duration(minutes: 15),
+      );
+
+      expect(out.single.scheduledAt, at(berlin, 2026, 7, 21, 20));
+      expect(out.single.scheduledAt.isBefore(start), isTrue);
+      expect(out.single.title, startsWith('tomorrow'));
+    });
+
+    test('a short lead for a late event uses 20:00 on the same day', () {
+      final tz.TZDateTime start = at(berlin, 2026, 7, 22, 21);
+      final List<PlannedNotification> out = planned(
+        berlin,
+        at(berlin, 2026, 7, 22, 12),
+        <CalendarEntry>[publicEvent(start: start)],
+        defaultLead: const Duration(minutes: 15),
+      );
+
+      expect(out.single.scheduledAt, at(berlin, 2026, 7, 22, 20));
+      expect(out.single.scheduledAt.isBefore(start), isTrue);
+      expect(out.single.title, startsWith('today'));
+    });
+
+    test('the trigger names the event start, so the planner can never shift '
+        'the reminder past it (F-02)', () {
+      final tz.TZDateTime start = at(berlin, 2026, 7, 22, 21);
+      final NotificationRequest request = requestsIn(
+        berlin,
+        at(berlin, 2026, 7, 22, 12),
+        <CalendarEntry>[publicEvent(start: start)],
+        defaultLead: const Duration(minutes: 15),
+      ).single;
+
+      expect((request.trigger as AbsoluteTrigger).before, start);
     });
   });
 
@@ -493,23 +586,25 @@ void main() {
         l10n: lookupAppLocalizations(const Locale('en')),
         localeCode: 'en',
       );
+      final EventReminderDay today = EventReminderDay(
+        daysAhead: 0,
+        date: DateTime(2026, 7, 22),
+      );
+      final EventReminderDay tomorrow = EventReminderDay(
+        daysAhead: 1,
+        date: DateTime(2026, 7, 22),
+      );
 
       expect(
-        german.title(entry, onEventDay: false),
+        german.title(entry, day: tomorrow),
         'Morgen: Campus Sommerfest 2026',
       );
+      expect(german.title(entry, day: today), 'Heute: Campus Sommerfest 2026');
       expect(
-        german.title(entry, onEventDay: true),
-        'Heute: Campus Sommerfest 2026',
-      );
-      expect(
-        english.title(entry, onEventDay: false),
+        english.title(entry, day: tomorrow),
         'Tomorrow: Campus Sommerfest 2026',
       );
-      expect(
-        english.title(entry, onEventDay: true),
-        'Today: Campus Sommerfest 2026',
-      );
+      expect(english.title(entry, day: today), 'Today: Campus Sommerfest 2026');
     });
 
     test('names the event and its place, and says which day it is on', () {
@@ -548,6 +643,135 @@ void main() {
       );
 
       expect(out.single.visibility, NotificationVisibility.publicContent);
+    });
+  });
+
+  group('the day the reminder names (F-05)', () {
+    setUpAll(() async {
+      await initializeDateFormatting('de');
+      await initializeDateFormatting('en');
+    });
+
+    LocalisedEventReminderCopy copyIn(String code) =>
+        LocalisedEventReminderCopy(
+          l10n: lookupAppLocalizations(Locale(code)),
+          localeCode: code,
+        );
+
+    NotificationRequest localised(
+      String code,
+      CalendarEntry entry,
+      Duration lead, {
+      tz.TZDateTime? now,
+    }) => eventReminderRequests(
+      entries: <CalendarEntry>[entry],
+      now: now ?? at(berlin, 2026, 7, 1),
+      copy: copyIn(code),
+      defaultLead: lead,
+    ).single;
+
+    // 2026-07-22 is a Wednesday.
+    CalendarEntry wednesday() =>
+        publicEvent(start: at(berlin, 2026, 7, 22, 16));
+
+    test('two days ahead names the weekday and date, never "Morgen"', () {
+      final NotificationRequest de = localised(
+        'de',
+        wednesday(),
+        const Duration(days: 2),
+      );
+
+      expect(de.title, 'Mittwoch, 22. Juli: Campus Sommerfest 2026');
+      expect(de.body, startsWith('Mittwoch, 22. Juli um '));
+      expect(de.title, isNot(contains('Morgen')));
+      expect(de.body, isNot(contains('Morgen')));
+    });
+
+    test('a week ahead does the same in English', () {
+      final NotificationRequest en = localised(
+        'en',
+        wednesday(),
+        const Duration(days: 7),
+      );
+
+      expect(en.title, 'Wednesday, July 22: Campus Sommerfest 2026');
+      expect(en.body, startsWith('Wednesday, July 22 at '));
+    });
+
+    test('an all-day event two days ahead names its date, all day', () {
+      final NotificationRequest de = localised(
+        'de',
+        CalendarEntry(
+          id: 'publicCalendar:hsa:allday',
+          source: CalendarSource.publicCalendar,
+          title: 'Hochschulinformationstag',
+          start: DateTime.utc(2026, 7, 22),
+          allDay: true,
+        ),
+        const Duration(days: 2),
+      );
+
+      expect(de.title, 'Mittwoch, 22. Juli: Hochschulinformationstag');
+      expect(de.body, 'Mittwoch, 22. Juli, ganztägig.');
+    });
+
+    test('one day ahead still says "Morgen", the same day "Heute"', () {
+      expect(
+        localised('de', wednesday(), const Duration(days: 1)).title,
+        'Morgen: Campus Sommerfest 2026',
+      );
+      expect(
+        localised('de', wednesday(), const Duration(hours: 6)).title,
+        'Heute: Campus Sommerfest 2026',
+      );
+    });
+
+    test('calendar days, not 24-hour blocks, across the spring change', () {
+      // Delivered 2026-03-28 20:00 CET, event 2026-03-29 19:30 CEST: only
+      // 22.5 hours apart because the clocks go forward in between, but the
+      // event is on the next calendar day — "Morgen", not "Heute".
+      final CalendarEntry sunday = CalendarEntry(
+        id: 'publicCalendar:hsa:dst',
+        source: CalendarSource.publicCalendar,
+        title: 'Frühlingskonzert',
+        start: at(berlin, 2026, 3, 29, 19, 30),
+      );
+      final NotificationRequest de = localised(
+        'de',
+        sunday,
+        const Duration(hours: 22, minutes: 30),
+        now: at(berlin, 2026, 3, 1),
+      );
+
+      expect(
+        (de.trigger as AbsoluteTrigger).instant,
+        at(berlin, 2026, 3, 28, 20),
+      );
+      expect(de.title, 'Morgen: Frühlingskonzert');
+    });
+
+    test('calendar days across the autumn change', () {
+      // Delivered 2026-10-24 20:00 CEST, event 2026-10-26 07:30 CET: 36.5
+      // hours apart — one whole 24-hour block — yet two calendar days, so
+      // the reminder names the date instead of saying "Morgen".
+      final CalendarEntry monday = CalendarEntry(
+        id: 'publicCalendar:hsa:dst2',
+        source: CalendarSource.publicCalendar,
+        title: 'Vorlesungsbeginn',
+        start: at(berlin, 2026, 10, 26, 7, 30),
+      );
+      final NotificationRequest de = localised(
+        'de',
+        monday,
+        const Duration(hours: 36, minutes: 30),
+        now: at(berlin, 2026, 10, 1),
+      );
+
+      expect(
+        (de.trigger as AbsoluteTrigger).instant,
+        at(berlin, 2026, 10, 24, 20),
+      );
+      expect(de.title, 'Montag, 26. Oktober: Vorlesungsbeginn');
     });
   });
 }

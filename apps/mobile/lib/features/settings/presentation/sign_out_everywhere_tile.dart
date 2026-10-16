@@ -9,6 +9,7 @@ import '../../../core/theme/app_dimensions.dart';
 import '../../../l10n/l10n.dart';
 import '../application/sign_out_everywhere_controller.dart';
 import '../domain/direct_service.dart';
+import '../../university_account/application/university_account_controller.dart';
 
 extension on DirectService {
   /// Reuses each feature's own screen title so the name never drifts out of
@@ -17,12 +18,13 @@ extension on DirectService {
     DirectService.mail => l10n.settingsSectionMail,
     DirectService.moodle => l10n.moodleTitle,
     DirectService.grades => l10n.gradesTitle,
+    DirectService.nextcloud => l10n.nextcloudTitle,
+    DirectService.hsaKi => l10n.hsaKiTitle,
   };
 }
 
-/// "Überall abmelden" — signs out of every currently connected direct service
-/// (mail, Moodle, grades) through its own canonical logout path, after a
-/// confirmation that names exactly which services are affected.
+/// Completely removes the central identity after every connected direct
+/// service has completed its own canonical logout/wipe.
 class SignOutEverywhereTile extends ConsumerStatefulWidget {
   const SignOutEverywhereTile({super.key});
 
@@ -34,7 +36,7 @@ class SignOutEverywhereTile extends ConsumerStatefulWidget {
 class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
   /// True while the sign-outs are running.
   ///
-  /// Signing out of three services means three network round trips, and the
+  /// Signing out of several services means several network round trips, and
   /// tile used to look completely idle throughout — so a second tap was easy
   /// and the wait was unexplained.
   bool _busy = false;
@@ -45,7 +47,12 @@ class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
     final List<DirectService> connected = ref.watch(
       connectedDirectServicesProvider,
     );
-    final bool hasConnected = connected.isNotEmpty;
+    final bool hasIdentity = ref.watch(
+      universityAccountControllerProvider.select(
+        (AsyncValue<UniversityAccountState> value) =>
+            value.value?.hasIdentity ?? false,
+      ),
+    );
     final ColorScheme colors = Theme.of(context).colorScheme;
 
     return ListTile(
@@ -58,16 +65,18 @@ class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-          : Icon(AppIcons.logout, color: hasConnected ? colors.error : null),
+          : Icon(AppIcons.delete_outline, color: colors.error),
       title: Text(
         l10n.settingsSignOutEverywhere,
-        style: hasConnected && !_busy ? TextStyle(color: colors.error) : null,
+        style: !_busy ? TextStyle(color: colors.error) : null,
       ),
-      subtitle: Text(l10n.settingsSignOutEverywhereSubtitle(connected.length)),
-      enabled: hasConnected && !_busy,
-      onTap: hasConnected && !_busy
-          ? () => _confirmAndSignOut(context, ref, connected)
-          : null,
+      subtitle: Text(
+        hasIdentity
+            ? l10n.universityAccountDeleteSubtitle
+            : l10n.settingsSignOutEverywhereSubtitle(connected.length),
+      ),
+      enabled: !_busy,
+      onTap: !_busy ? () => _confirmAndSignOut(context, ref, connected) : null,
     );
   }
 
@@ -86,12 +95,14 @@ class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             icon: Icon(
-              AppIcons.logout,
+              AppIcons.delete_outline,
               color: Theme.of(dialogContext).colorScheme.error,
             ),
             title: Text(l10n.settingsSignOutEverywhereConfirmTitle),
             content: Text(
-              l10n.settingsSignOutEverywhereConfirmMessage(serviceNames),
+              connected.isEmpty
+                  ? l10n.universityAccountDeleteConfirmNoServices
+                  : l10n.settingsSignOutEverywhereConfirmMessage(serviceNames),
             ),
             actions: <Widget>[
               TextButton(
@@ -106,7 +117,7 @@ class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
                   foregroundColor: Theme.of(dialogContext).colorScheme.onError,
                 ),
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(l10n.settingsSignOutEverywhereConfirmAction),
+                child: Text(l10n.universityAccountDeleteConfirmAction),
               ),
             ],
           ),
@@ -118,8 +129,9 @@ class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
   }
 
   /// Runs the actual sign-out and reports the outcome. On a partial failure it
-  /// offers a retry that targets only the services still connected — already
-  /// signed-out ones are never asked to confirm again.
+  /// offers a retry. The service layer deliberately re-runs every idempotent
+  /// canonical wipe because controller error states are not proof that no
+  /// credentials remain.
   Future<void> _runSignOut(BuildContext context, WidgetRef ref) async {
     final AppLocalizations l10n = context.l10n;
     setState(() => _busy = true);
@@ -134,6 +146,29 @@ class _SignOutEverywhereTileState extends ConsumerState<SignOutEverywhereTile> {
     if (result.isFullSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.settingsSignOutEverywhereSuccess)),
+      );
+      return;
+    }
+
+    if (result.failedServices.isEmpty && !result.identityDeleted) {
+      await showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          icon: Icon(
+            AppIcons.error_outline,
+            color: Theme.of(dialogContext).colorScheme.error,
+          ),
+          title: Text(l10n.universityAccountDeleteIncompleteTitle),
+          content: Text(l10n.universityAccountDeleteIncompleteMessage),
+          actions: <Widget>[
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                MaterialLocalizations.of(dialogContext).okButtonLabel,
+              ),
+            ),
+          ],
+        ),
       );
       return;
     }

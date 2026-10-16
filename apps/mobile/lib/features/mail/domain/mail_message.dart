@@ -5,6 +5,57 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
+/// Server-facing compose budget.
+///
+/// SMTP base64 expands binary data by roughly one third. The 20 MiB binary
+/// ceiling therefore stays below a common 25 MiB message limit while headers
+/// and text still have room. Builds can align all three values with the real
+/// server policy through `--dart-define` without changing source code.
+abstract final class MailAttachmentLimits {
+  static const int maxCount = int.fromEnvironment(
+    'MAIL_ATTACHMENT_MAX_COUNT',
+    defaultValue: 10,
+  );
+  static const int maxFileBytes = int.fromEnvironment(
+    'MAIL_ATTACHMENT_MAX_FILE_BYTES',
+    defaultValue: 20 * 1024 * 1024,
+  );
+  static const int maxTotalBytes = int.fromEnvironment(
+    'MAIL_ATTACHMENT_MAX_TOTAL_BYTES',
+    defaultValue: 20 * 1024 * 1024,
+  );
+}
+
+enum MailAttachmentBudgetIssue { tooMany, fileTooLarge, totalTooLarge }
+
+MailAttachmentBudgetIssue? mailAttachmentBudgetIssue(
+  Iterable<OutgoingAttachment> attachments,
+) {
+  int count = 0;
+  int total = 0;
+  for (final OutgoingAttachment attachment in attachments) {
+    count++;
+    if (count > MailAttachmentLimits.maxCount) {
+      return MailAttachmentBudgetIssue.tooMany;
+    }
+    final int size = attachment.bytes.length;
+    if (size > MailAttachmentLimits.maxFileBytes) {
+      return MailAttachmentBudgetIssue.fileTooLarge;
+    }
+    total += size;
+    if (total > MailAttachmentLimits.maxTotalBytes) {
+      return MailAttachmentBudgetIssue.totalTooLarge;
+    }
+  }
+  return null;
+}
+
+class MailAttachmentLimitException implements Exception {
+  const MailAttachmentLimitException(this.issue);
+
+  final MailAttachmentBudgetIssue issue;
+}
+
 /// A single mailbox address as shown in the UI.
 @immutable
 class MailAddress {
@@ -59,12 +110,17 @@ class MailMessageDetail {
     required this.date,
     required this.body,
     this.cc = const <MailAddress>[],
+    this.replyTo = const <MailAddress>[],
     this.attachments = const <MailAttachment>[],
   });
 
   final String id;
   final String subject;
   final MailAddress from;
+
+  /// The `Reply-To` addresses, if the sender asked for replies to go
+  /// somewhere other than [from]. Empty when the header is absent.
+  final List<MailAddress> replyTo;
   final List<MailAddress> to;
 
   /// Carbon-copy recipients. Needed so "reply all" can address everyone.

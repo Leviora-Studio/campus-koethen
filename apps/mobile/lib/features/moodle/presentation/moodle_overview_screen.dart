@@ -12,7 +12,8 @@ import '../../../core/theme/app_dimensions.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/status_banner.dart';
 import '../../../l10n/l10n.dart';
-import '../application/moodle_account_controller.dart';
+import '../../settings/domain/direct_service.dart';
+import '../../university_account/application/university_service_connector.dart';
 import '../application/moodle_controller.dart';
 import '../domain/moodle_course.dart';
 import '../domain/moodle_course_search.dart';
@@ -80,8 +81,19 @@ class _MoodleOverviewScreenState extends ConsumerState<MoodleOverviewScreen> {
         ],
       ),
     );
-    if (confirmed ?? false) {
-      await ref.read(moodleAccountControllerProvider.notifier).disconnect();
+    if (!(confirmed ?? false) || !mounted) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(universityServiceConnectorProvider)
+          .disconnect(DirectService.moodle);
+    } catch (_) {
+      // The controller deliberately stays connected when any credential,
+      // cache content or encryption key could not be confirmed absent. Keep
+      // the retry action visible and report the incomplete local deletion.
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.moodleDisconnectIncomplete)),
+      );
     }
   }
 

@@ -1,20 +1,73 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:campus_koethen/core/links/safe_link_launcher.dart';
 import 'package:campus_koethen/features/moodle/application/moodle_providers.dart';
+import 'package:campus_koethen/features/moodle/data/moodle_file_downloader.dart';
+import 'package:campus_koethen/features/moodle/data/secure_moodle_token_store.dart';
 import 'package:campus_koethen/features/moodle/domain/moodle_account.dart';
+import 'package:campus_koethen/features/moodle/domain/moodle_assignment.dart';
 import 'package:campus_koethen/features/moodle/domain/moodle_cache.dart';
+import 'package:campus_koethen/features/moodle/domain/moodle_content.dart';
 import 'package:campus_koethen/features/moodle/domain/moodle_course.dart';
 import 'package:campus_koethen/features/moodle/presentation/moodle_course_screen.dart';
 import 'package:campus_koethen/features/moodle/presentation/moodle_screen.dart';
+import 'package:campus_koethen/features/moodle/presentation/moodle_setup_screen.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity.dart';
+import 'package:campus_koethen/features/university_account/domain/university_identity_store.dart';
 import 'package:campus_koethen/core/theme/app_colors.dart';
 import 'package:campus_koethen/core/theme/app_icons.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_moodle.dart';
 import '../../support/pump_app.dart';
+
+class _MemoryIdentityStore implements UniversityIdentityStore {
+  UniversityIdentity? value;
+  int writes = 0;
+
+  @override
+  Future<UniversityIdentity?> read() async => value;
+
+  @override
+  Future<void> write(UniversityIdentity identity) async {
+    writes++;
+    value = identity;
+  }
+
+  @override
+  Future<void> clear() async => value = null;
+}
+
+/// A keychain that can be made to fail every read, like a locked keystore.
+class _FlakySecureStorage extends FlutterSecureStorage {
+  _FlakySecureStorage(this.values);
+
+  final Map<String, String> values;
+  Object? readError;
+
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    final Object? error = readError;
+    if (error != null) throw error;
+    return values[key];
+  }
+}
 
 List<Override> _overrides({
   required FakeMoodleApiClient api,
@@ -32,6 +85,76 @@ void main() {
   final DateTime t0 = DateTime.utc(2026, 7, 26, 12);
 
   group('course tabs', _courseTabTests);
+
+  group('open in browser', _openInBrowserTests);
+
+  group('file download', _fileDownloadTests);
+
+  group('university identity reuse', () {
+    testWidgets(
+      'ticking "also use for other services" retains the identity centrally',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1200, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        final identityStore = _MemoryIdentityStore();
+        await pumpScreen(
+          tester,
+          const MoodleSetupScreen(),
+          overrides: _overrides(
+            api: FakeMoodleApiClient(),
+            tokens: InMemoryMoodleTokenStore(),
+            cache: InMemoryMoodleCacheStore(),
+            clock: MutableClock(t0),
+          ),
+          universityIdentityStore: identityStore,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextFormField).at(0), 'student42');
+        await tester.enterText(find.byType(TextFormField).at(1), 'pw');
+        await tester.tap(find.byType(Checkbox));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Verbinden'));
+        await tester.pumpAndSettle();
+
+        expect(identityStore.writes, 1);
+        expect(identityStore.value?.identifier, 'student42');
+        expect(identityStore.value?.password, 'pw');
+      },
+    );
+
+    testWidgets('hides the reuse offer once a central identity is stored', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await pumpScreen(
+        tester,
+        const MoodleSetupScreen(),
+        overrides: _overrides(
+          api: FakeMoodleApiClient(),
+          tokens: InMemoryMoodleTokenStore(),
+          cache: InMemoryMoodleCacheStore(),
+          clock: MutableClock(t0),
+        ),
+        universityIdentityStore: _MemoryIdentityStore()
+          ..value = const UniversityIdentity(
+            identifier: 'stud',
+            password: 'pw',
+          ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Diese Zugangsdaten auch für Mail, Moodle und Noten automatisch verwenden.',
+        ),
+        findsNothing,
+      );
+    });
+  });
 
   testWidgets('shows the connect screen when disconnected', (
     WidgetTester tester,
@@ -51,6 +174,60 @@ void main() {
     // The connect gate is shown, not the overview.
     expect(find.text('Mit Moodle verbinden'), findsOneWidget);
     expect(find.text('Meine Kurse'), findsNothing);
+  });
+
+  testWidgets('announces and locks the Moodle connection state', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final FakeMoodleApiClient api = FakeMoodleApiClient()
+      ..pendingToken = Completer<String>()
+      ..tokenRequested = Completer<void>();
+    await pumpScreen(
+      tester,
+      const MoodleSetupScreen(),
+      overrides: _overrides(
+        api: api,
+        tokens: InMemoryMoodleTokenStore(),
+        cache: InMemoryMoodleCacheStore(),
+        clock: MutableClock(t0),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'student42');
+    await tester.enterText(find.byType(TextFormField).at(1), 'pw');
+    await tester.tap(find.text('Verbinden'));
+    await api.tokenRequested!.future;
+    await tester.pump();
+
+    expect(find.text('Verbindung wird hergestellt …'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Verbindung wird hergestellt …'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.ancestor(
+              of: find.byTooltip('Passwort anzeigen'),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widgetList<PopScope>(find.byType(PopScope))
+          .any((PopScope scope) => !scope.canPop),
+      isTrue,
+    );
+
+    api.pendingToken!.complete('tok-fake');
+    await tester.pumpAndSettle();
   });
 
   testWidgets('setup lock and shield follow the light and dark brand colour', (
@@ -83,6 +260,47 @@ void main() {
     }
   });
 
+  testWidgets(
+    'an unreadable keychain shows a retryable error, not the setup form',
+    (WidgetTester tester) async {
+      final _FlakySecureStorage storage = _FlakySecureStorage(<String, String>{
+        'moodle.token': 'tok',
+        'moodle.userid': '7',
+      })..readError = StateError('keystore locked');
+      final cache = InMemoryMoodleCacheStore()
+        ..courses = <MoodleCourse>[
+          const MoodleCourse(id: 1, fullName: 'Beispielkurs Informatik'),
+        ]
+        ..marks = MoodleSyncMarks(lastAttempt: t0);
+
+      await pumpScreen(
+        tester,
+        const MoodleScreen(),
+        overrides: <Override>[
+          moodleApiClientProvider.overrideWithValue(FakeMoodleApiClient()),
+          moodleTokenStoreProvider.overrideWithValue(
+            SecureMoodleTokenStore(storage),
+          ),
+          moodleCacheStoreProvider.overrideWithValue(cache),
+          moodleClockProvider.overrideWithValue(MutableClock(t0)),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Moodle konnte nicht geöffnet werden'), findsOneWidget);
+      expect(find.text('Mit Moodle verbinden'), findsNothing);
+      expect(cache.clears, 0);
+
+      // Once the keychain answers again, retry restores the connection.
+      storage.readError = null;
+      await tester.tap(find.text('Aktualisieren'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Beispielkurs Informatik'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('shows cached courses when connected', (
     WidgetTester tester,
   ) async {
@@ -112,6 +330,49 @@ void main() {
       find.byIcon(AppIcons.book_outlined),
     );
     expect(courseIcon.color, AppColors.light.primary);
+  });
+
+  testWidgets('a failed disconnect stays connected and explains retry', (
+    WidgetTester tester,
+  ) async {
+    final tokens = InMemoryMoodleTokenStore()
+      ..token = const MoodleToken(value: 'tok', userId: 7, username: 'demo');
+    final cache = InMemoryMoodleCacheStore()
+      ..courses = <MoodleCourse>[
+        const MoodleCourse(id: 1, fullName: 'Rechnernetze'),
+      ]
+      ..marks = MoodleSyncMarks(lastAttempt: t0)
+      ..clearError = StateError('cache remains');
+
+    await pumpScreen(
+      tester,
+      const MoodleScreen(),
+      overrides: _overrides(
+        api: FakeMoodleApiClient(),
+        tokens: tokens,
+        cache: cache,
+        clock: MutableClock(t0),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Moodle-Verbindung und lokale Daten löschen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Löschen'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Moodle-Verbindung und lokale Daten konnten nicht vollständig '
+        'gelöscht werden. Bitte versuche es erneut.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Rechnernetze'), findsOneWidget);
+    expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('course tiles omit Moodle completion progress', (
@@ -282,6 +543,147 @@ void main() {
   });
 }
 
+/// Records what would have been handed to the OS, and hands nothing over.
+class _RecordingLinkLauncher extends SafeLinkLauncher {
+  final List<String?> opened = <String?>[];
+
+  @override
+  Future<LinkLaunchResult> open(String? rawUrl) async {
+    opened.add(rawUrl);
+    return LinkLaunchResult.opened;
+  }
+}
+
+/// Activities the app cannot show open in Moodle Web, through a token-free
+/// link to exactly moodle.hs-anhalt.de (AGENTS.md § 2).
+void _openInBrowserTests() {
+  final DateTime t0 = DateTime.utc(2026, 7, 26, 12);
+
+  Future<_RecordingLinkLauncher> pumpCourse(
+    WidgetTester tester, {
+    List<MoodleSection> sections = const <MoodleSection>[],
+    List<MoodleAssignment> assignments = const <MoodleAssignment>[],
+  }) async {
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final _RecordingLinkLauncher launcher = _RecordingLinkLauncher();
+    final FakeMoodleApiClient api = FakeMoodleApiClient()
+      ..sections = sections
+      ..assignments = assignments;
+    await pumpScreen(
+      tester,
+      const MoodleCourseScreen(courseId: 1),
+      overrides: <Override>[
+        ..._overrides(
+          api: api,
+          tokens: InMemoryMoodleTokenStore()
+            ..token = const MoodleToken(
+              value: 'tok',
+              userId: 7,
+              username: 'demo',
+            ),
+          cache: InMemoryMoodleCacheStore()
+            ..courses = <MoodleCourse>[
+              const MoodleCourse(id: 1, fullName: 'Beispielkurs Informatik'),
+            ],
+          clock: MutableClock(t0),
+        ),
+        linkLauncherProvider.overrideWithValue(launcher),
+      ],
+    );
+    await tester.pumpAndSettle();
+    return launcher;
+  }
+
+  testWidgets('an activity the app cannot show says so and opens in Moodle', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingLinkLauncher launcher = await pumpCourse(
+      tester,
+      sections: <MoodleSection>[
+        const MoodleSection(
+          name: 'Woche 1',
+          modules: <MoodleModule>[
+            MoodleModule(
+              id: 4711,
+              name: 'Übungsquiz 1',
+              type: MoodleModuleType.quiz,
+              rawType: 'quiz',
+            ),
+          ],
+        ),
+      ],
+    );
+
+    expect(
+      find.text('Dieser Inhaltstyp wird in der App nicht unterstützt.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Übungsquiz 1'));
+    await tester.pumpAndSettle();
+
+    expect(launcher.opened, <String>[
+      'https://moodle.hs-anhalt.de/mod/quiz/view.php?id=4711',
+    ]);
+  });
+
+  testWidgets('a label stays plain text without a link', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingLinkLauncher launcher = await pumpCourse(
+      tester,
+      sections: <MoodleSection>[
+        const MoodleSection(
+          name: 'Woche 1',
+          modules: <MoodleModule>[
+            MoodleModule(
+              id: 12,
+              name: 'Hinweis',
+              type: MoodleModuleType.label,
+              rawType: 'label',
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Hinweis'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Dieser Inhaltstyp wird in der App nicht unterstützt.'),
+      findsNothing,
+    );
+    expect(launcher.opened, isEmpty);
+  });
+
+  testWidgets('an assignment opens its Moodle page for handing in', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingLinkLauncher launcher = await pumpCourse(
+      tester,
+      assignments: <MoodleAssignment>[
+        const MoodleAssignment(
+          id: 50,
+          courseId: 1,
+          name: 'Übungsblatt 1',
+          cmid: 815,
+        ),
+      ],
+    );
+    await tester.tap(find.text('Aufgaben'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('In Moodle im Browser öffnen'));
+    await tester.pumpAndSettle();
+
+    expect(launcher.opened, <String>[
+      'https://moodle.hs-anhalt.de/mod/assign/view.php?id=815',
+    ]);
+  });
+}
+
 /// The three tab titles must stay readable where they are hardest to fit.
 void _courseTabTests() {
   final DateTime t0 = DateTime.utc(2026, 7, 26, 12);
@@ -339,6 +741,23 @@ void _courseTabTests() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('course screen layout matrix has no clipped primary action', (
+    WidgetTester tester,
+  ) async {
+    for (final (Size size, TextScaler scaler) in <(Size, TextScaler)>[
+      (const Size(320, 640), TextScaler.noScaling),
+      (const Size(360, 800), const TextScaler.linear(1.3)),
+      (const Size(800, 360), TextScaler.noScaling),
+      (const Size(320, 900), const TextScaler.linear(2)),
+    ]) {
+      await pumpCourse(tester, surface: size, textScaler: scaler);
+
+      expect(find.byTooltip('Aktualisieren'), findsOneWidget);
+      expect(find.text('Inhalte'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '$size at $scaler');
+    }
+  });
+
   testWidgets('the bar scrolls rather than shrinking the labels', (
     WidgetTester tester,
   ) async {
@@ -346,4 +765,118 @@ void _courseTabTests() {
     final TabBar bar = tester.widget<TabBar>(find.byType(TabBar));
     expect(bar.isScrollable, isTrue);
   });
+}
+
+/// Downloads run through the real downloader on a scripted connection.
+void _fileDownloadTests() {
+  final DateTime t0 = DateTime.utc(2026, 7, 26, 12);
+  const String fileUrl =
+      'https://moodle.hs-anhalt.de/webservice/pluginfile.php/1/mod_resource/content/1/uebung1.pdf';
+
+  testWidgets('cancelling a hung download unlocks the tile without an error', (
+    WidgetTester tester,
+  ) async {
+    // One chunk, then the connection goes silent.
+    final StreamController<Uint8List> body = StreamController<Uint8List>();
+    // Not awaited: `done` only completes once a listener sees it.
+    addTearDown(() => unawaited(body.close()));
+    final _StallingAdapter adapter = _StallingAdapter(body);
+    final tokens = InMemoryMoodleTokenStore()
+      ..token = const MoodleToken(value: 'tok', userId: 7, username: 'demo');
+    final cache = InMemoryMoodleCacheStore()
+      ..courses = <MoodleCourse>[
+        const MoodleCourse(id: 1, fullName: 'Beispielkurs Informatik'),
+      ];
+    cache.sections[1] = const <MoodleSection>[
+      MoodleSection(
+        name: 'Allgemeines',
+        modules: <MoodleModule>[
+          MoodleModule(
+            id: 5001,
+            name: 'Übungsblatt 1',
+            type: MoodleModuleType.resource,
+            files: <MoodleFile>[
+              MoodleFile(
+                fileName: 'uebung1.pdf',
+                fileUrl: fileUrl,
+                mimeType: 'application/pdf',
+                fileSize: 64,
+              ),
+            ],
+          ),
+        ],
+      ),
+    ];
+
+    await pumpScreen(
+      tester,
+      const MoodleCourseScreen(courseId: 1),
+      overrides: <Override>[
+        ..._overrides(
+          api: FakeMoodleApiClient(),
+          tokens: tokens,
+          cache: cache,
+          clock: MutableClock(t0),
+        ),
+        moodleFileDownloaderProvider.overrideWithValue(
+          MoodleFileDownloaderImpl(dio: Dio()..httpClientAdapter = adapter),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('uebung1.pdf'));
+    body.add(Uint8List.fromList(List<int>.filled(16, 65)));
+    // Let the request reach the connection and the first chunk arrive.
+    for (
+      int i = 0;
+      i < 20 && find.text('Wird geladen: 25 %').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    expect(adapter.requests, 1);
+    expect(find.text('Wird geladen: 25 %'), findsOneWidget);
+    expect(find.byTooltip('Download abbrechen'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Download abbrechen'));
+    for (int i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // A deliberate stop is not a failure, and the tile is usable again.
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('Die Datei konnte nicht geladen werden.'), findsNothing);
+    expect(find.byTooltip('Download abbrechen'), findsNothing);
+    expect(find.byIcon(AppIcons.download_outlined), findsOneWidget);
+    expect(adapter.requests, 1);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// Answers with headers and whatever [body] emits — and nothing more.
+class _StallingAdapter implements HttpClientAdapter {
+  _StallingAdapter(this.body);
+
+  final StreamController<Uint8List> body;
+  int requests = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests++;
+    return ResponseBody(
+      body.stream,
+      200,
+      headers: <String, List<String>>{
+        Headers.contentLengthHeader: <String>['64'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

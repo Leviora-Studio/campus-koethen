@@ -1,6 +1,8 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,7 +28,9 @@ import '../../notifications/presentation/pre_permission_sheet.dart';
 import '../application/canteen_filter_controller.dart';
 import '../application/canteen_providers.dart';
 import '../domain/canteen_filter.dart';
+import '../domain/canteen_balance_reader.dart';
 import '../domain/meal_highlight.dart';
+import 'canteen_balance_sheet.dart';
 import 'canteen_filter_sheet.dart';
 import '../application/canteen_refresh_scheduler.dart';
 import '../data/canteen_models.dart';
@@ -35,10 +39,12 @@ import 'meal_card.dart';
 
 /// The canteen screen: what is on offer today, as a menu card.
 ///
-/// The masthead identifies the selected canteen above the section title
-/// "Mensa". The picker and filter remain actions in that masthead.
+/// The stable Campus eyebrow locates the module; the selected canteen is the
+/// page title. The picker and filter remain actions in that masthead.
 class CanteenScreen extends ConsumerStatefulWidget {
-  const CanteenScreen({super.key});
+  const CanteenScreen({this.externalBalanceLaunchToken, super.key});
+
+  final String? externalBalanceLaunchToken;
 
   @override
   ConsumerState<CanteenScreen> createState() => _CanteenScreenState();
@@ -47,6 +53,7 @@ class CanteenScreen extends ConsumerStatefulWidget {
 class _CanteenScreenState extends ConsumerState<CanteenScreen>
     with WidgetsBindingObserver {
   late final CanteenRefreshScheduler _scheduler;
+  String? _handledBalanceLaunchToken;
 
   @override
   void initState() {
@@ -54,6 +61,29 @@ class _CanteenScreenState extends ConsumerState<CanteenScreen>
     _scheduler = CanteenRefreshScheduler(onRefresh: _refresh);
     WidgetsBinding.instance.addObserver(this);
     _scheduler.start();
+    _scheduleExternalBalanceRead();
+  }
+
+  @override
+  void didUpdateWidget(CanteenScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.externalBalanceLaunchToken !=
+        oldWidget.externalBalanceLaunchToken) {
+      _scheduleExternalBalanceRead();
+    }
+  }
+
+  void _scheduleExternalBalanceRead() {
+    final String? token = widget.externalBalanceLaunchToken;
+    if (token == null || token == _handledBalanceLaunchToken) return;
+    _handledBalanceLaunchToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showCanteenBalanceSheet(
+        context,
+        origin: CanteenBalanceReadOrigin.externalTag,
+      );
+    });
   }
 
   @override
@@ -69,13 +99,26 @@ class _CanteenScreenState extends ConsumerState<CanteenScreen>
   }
 
   Future<void> _refresh() async {
+    // Every refresh — on opening, on resume and on the foreground timer —
+    // requests the menu from today on, so it is also where a new calendar day
+    // has to reach the selected day (G-04). The first refresh runs inside
+    // initState, where Riverpod forbids modifying a provider, hence the
+    // microtask.
+    scheduleMicrotask(() {
+      if (mounted) ref.read(selectedMenuDayProvider.notifier).followToday();
+    });
     final String? slug = ref.read(selectedCanteenSlugProvider);
     ref.invalidate(canteensProvider);
     if (slug != null) ref.invalidate(canteenMenuProvider(slug));
-    await Future.wait<Object?>(<Future<Object?>>[
-      ref.read(canteensProvider.future),
-      if (slug != null) ref.read(canteenMenuProvider(slug).future),
-    ]);
+    try {
+      await Future.wait<Object?>(<Future<Object?>>[
+        ref.read(canteensProvider.future),
+        if (slug != null) ref.read(canteenMenuProvider(slug).future),
+      ]);
+    } on Object {
+      // The providers carry the failure and the screen shows it. Rethrown, it
+      // escaped the pull-to-refresh as an unhandled asynchronous error.
+    }
   }
 
   @override
@@ -94,12 +137,14 @@ class _CanteenScreenState extends ConsumerState<CanteenScreen>
         ?.displayName;
 
     return ScreenScaffold(
-      eyebrow:
-          menu?.displayName ??
-          selectedCanteenName ??
-          ModuleCategory.campus.label(l10n),
-      title: l10n.navCanteen,
+      eyebrow: ModuleCategory.campus.label(l10n),
+      title: menu?.displayName ?? selectedCanteenName ?? l10n.navCanteen,
       actions: <Widget>[
+        IconButton(
+          tooltip: l10n.canteenBalanceAction,
+          onPressed: () => showCanteenBalanceSheet(context),
+          icon: const Icon(AppIcons.currency_euro),
+        ),
         // Always reachable, even before a canteen has loaded: favourites are
         // not scoped to one canteen and outlive the picker's own state.
         IconButton(

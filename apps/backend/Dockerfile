@@ -12,13 +12,15 @@
 # ---------------------------------------------------------------------------
 # Stage 1 — install workspace dependencies (cached on manifests alone)
 # ---------------------------------------------------------------------------
-FROM node:22.23.2-alpine AS deps
+FROM node:24.21.0-alpine AS deps
 
 RUN corepack enable
 WORKDIR /repo
 
 # Only the manifests, so a source-only change does not bust the install cache.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY .node-version ./
+COPY scripts/check-node-version.mjs scripts/
 COPY patches/braces@3.0.3.patch patches/
 COPY apps/backend/package.json apps/backend/
 COPY apps/cms/package.json apps/cms/
@@ -54,7 +56,7 @@ RUN pnpm --filter @campus/backend deploy --prod --legacy /opt/deploy
 # ---------------------------------------------------------------------------
 # Stage 3 — runtime
 # ---------------------------------------------------------------------------
-FROM node:22.23.2-alpine AS runtime
+FROM node:24.21.0-alpine AS runtime
 
 # openssl is required by Prisma; tini gives us correct signal handling so the
 # worker's SIGTERM shutdown path actually runs.
@@ -81,13 +83,18 @@ ENV NODE_ENV=production \
 WORKDIR /opt/app
 
 # node:alpine already ships an unprivileged `node` user (uid 1000).
-COPY --from=build --chown=node:node /opt/deploy/node_modules ./node_modules
-COPY --from=build --chown=node:node /opt/deploy/dist ./dist
-COPY --from=build --chown=node:node /opt/deploy/package.json ./package.json
+#
+# Everything is copied ROOT-owned (world-readable, not writable by `node`): the
+# API, the worker and the migration task only read their code, so the running
+# process cannot rewrite it. Nothing under /opt/app is written at runtime; logs
+# go to stdout and the Prisma schema engine is installed at build time.
+COPY --from=build /opt/deploy/node_modules ./node_modules
+COPY --from=build /opt/deploy/dist ./dist
+COPY --from=build /opt/deploy/package.json ./package.json
 # Migrations travel with the image so `prisma migrate deploy` can be run as a
 # one-off task against the server database.
-COPY --from=build --chown=node:node /opt/deploy/prisma ./prisma
-COPY --from=build --chown=node:node /opt/deploy/prisma.config.ts ./prisma.config.ts
+COPY --from=build /opt/deploy/prisma ./prisma
+COPY --from=build /opt/deploy/prisma.config.ts ./prisma.config.ts
 
 # A deployment image that carries migrations but cannot execute them is not a
 # deployable artefact. Keep this assertion in the image build itself so the

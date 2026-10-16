@@ -24,6 +24,8 @@ export interface CatalogBuilding {
   nameDe: string;
   nameEn: string;
   planKind: 'schematic';
+  /** The campus site the building stands on. */
+  siteKey: 'koethen' | 'bernburg' | 'dessau';
   sourceAttributionDe?: string;
   sourceAttributionEn?: string;
   sortOrder: number;
@@ -105,6 +107,13 @@ export declare function generatedFileDrift(options?: {
   repoRoot?: string;
   packageRoot?: string;
   readFile?: (relativePath: string) => string | undefined;
+}): string[];
+
+export declare function generatedAssetLayoutProblems(options?: {
+  repoRoot?: string;
+  packageRoot?: string;
+  listFiles?: () => string[];
+  readPubspec?: () => string;
 }): string[];
 
 export declare class SvgParseError extends Error {}

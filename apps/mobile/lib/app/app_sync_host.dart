@@ -14,11 +14,8 @@ import '../features/mail/application/mail_sync_controller.dart';
 import '../features/moodle/application/moodle_account_controller.dart';
 import '../features/moodle/application/moodle_controller.dart';
 import '../features/moodle/domain/moodle_account.dart';
-import '../features/news/application/news_channel_feed_controller.dart';
-import '../features/news/application/news_feed_controller.dart';
-import '../features/news/application/news_providers.dart';
+import '../features/news/application/news_auto_refresh.dart';
 import '../features/timetable/application/timetable_providers.dart';
-import '../features/timetable/application/timetable_week.dart';
 
 const Duration kNewsForegroundSyncInterval = Duration(minutes: 5);
 const Duration kCalendarForegroundSyncInterval = Duration(minutes: 10);
@@ -42,10 +39,14 @@ class AppSyncHost extends ConsumerStatefulWidget {
 class _AppSyncHostState extends ConsumerState<AppSyncHost>
     with WidgetsBindingObserver {
   late final List<ForegroundRefreshScheduler> _schedulers;
+  late final MailLiveSyncController _mailLiveSync;
 
   @override
   void initState() {
     super.initState();
+    // Keep the notifier itself: Riverpod refs are intentionally unavailable
+    // during unmount, while stopping the owned socket is part of dispose.
+    _mailLiveSync = ref.read(mailLiveSyncControllerProvider.notifier);
     _schedulers = <ForegroundRefreshScheduler>[
       ForegroundRefreshScheduler(
         interval: kNewsForegroundSyncInterval,
@@ -79,6 +80,7 @@ class _AppSyncHostState extends ConsumerState<AppSyncHost>
       for (final ForegroundRefreshScheduler scheduler in _schedulers) {
         scheduler.start();
       }
+      unawaited(_mailLiveSync.start());
     });
   }
 
@@ -88,6 +90,7 @@ class _AppSyncHostState extends ConsumerState<AppSyncHost>
     for (final ForegroundRefreshScheduler scheduler in _schedulers) {
       scheduler.dispose();
     }
+    unawaited(_mailLiveSync.stop());
     super.dispose();
   }
 
@@ -96,15 +99,16 @@ class _AppSyncHostState extends ConsumerState<AppSyncHost>
     for (final ForegroundRefreshScheduler scheduler in _schedulers) {
       scheduler.handleLifecycleState(state);
     }
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_mailLiveSync.start());
+    } else {
+      unawaited(_mailLiveSync.stop());
+    }
   }
 
-  Future<void> _refreshNews() async {
-    ref.invalidate(newsChannelFeedControllerProvider);
-    ref.invalidate(newsChannelsProvider);
-    ref.invalidate(newsTagsProvider);
-    ref.invalidate(newsFeedControllerProvider);
-    await ref.read(newsFeedControllerProvider.future);
-  }
+  // Leaves feeds scrolled past page one alone, see NewsAutoRefresh.
+  Future<void> _refreshNews() =>
+      ref.read(newsAutoRefreshProvider.notifier).run();
 
   Future<void> _refreshCalendars() async {
     ref.invalidate(publicCalendarsCatalogProvider);
@@ -112,22 +116,8 @@ class _AppSyncHostState extends ConsumerState<AppSyncHost>
     await ref.read(publicCalendarsCatalogProvider.future);
   }
 
-  Future<void> _refreshTimetable() async {
-    ref.invalidate(timetableGroupsProvider);
-    ref.invalidate(timetableWeekProvider);
-    await ref.read(timetableGroupsProvider.future);
-
-    final String? groupId = ref.read(selectedTimetableGroupIdProvider);
-    if (groupId == null) return;
-    await ref.read(
-      timetableWeekProvider(
-        TimetableWeekRequest(
-          groupId: groupId,
-          weekStart: TimetableWeek.startOf(DateTime.now()),
-        ),
-      ).future,
-    );
-  }
+  Future<void> _refreshTimetable() =>
+      ref.read(timetableForegroundRefreshProvider)();
 
   Future<void> _refreshContacts() async {
     ref.invalidate(contactAreaProvider);
@@ -165,8 +155,12 @@ class _AppSyncHostState extends ConsumerState<AppSyncHost>
       AsyncValue<MailAccountState> next,
     ) {
       final bool wasSignedIn = previous?.value?.isSignedIn ?? false;
-      if (!wasSignedIn && (next.value?.isSignedIn ?? false)) {
+      final bool isSignedIn = next.value?.isSignedIn ?? false;
+      if (!wasSignedIn && isSignedIn) {
         unawaited(_refreshMail());
+        unawaited(_mailLiveSync.start());
+      } else if (wasSignedIn && !isSignedIn) {
+        unawaited(_mailLiveSync.stop());
       }
     });
     return widget.child;

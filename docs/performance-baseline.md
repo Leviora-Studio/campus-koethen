@@ -33,10 +33,11 @@ Eine Zahl ohne ihre Umgebung ist nicht vergleichbar. Die Referenzumgebung dieser
 | Campus API     | `NODE_ENV=production`, `node dist/main.js` (kein Watch, kein TS) |
 | Messdatum      | 2026-08-25                                                       |
 
-> **Node 24 statt der gepinnten 22.x.** Die Referenzmaschine hatte 24.19.0 installiert. Für die
-> **relative** Aussage — der Vergleich zweier Läufe auf derselben Maschine — ist das ohne Belang.
-> Für einen absoluten Vergleich mit dem Server ist es einer: Eine Wiederholung auf Node 22 kann
-> abweichen und muss die Version mitschreiben.
+> **Node-24-Patchstand.** Die historische Referenzmessung lief mit 24.19.0; das Repository ist
+> inzwischen auf 24.21.0 LTS gepinnt. Die vorhandenen Werte bleiben als historische Baseline
+> erhalten, weil sie auf derselben Hauptversion erhoben wurden. Jede neue Vergleichsmessung muss
+> den exakten Patchstand mitschreiben und für eine belastbare Vorher-/Nachher-Aussage beide Läufe
+> auf demselben Patchstand ausführen.
 
 Gemessen wird gegen einen Prozess im Produktionsmodus, nicht gegen `start:dev`. Der Watch-Modus
 kompiliert TypeScript zur Laufzeit und misst damit den Compiler mit.
@@ -56,6 +57,22 @@ begrenztes Lesen, JSON-Parsing, Block-Sanitising, DTO-Mapping, Serialisierung, K
 Ende-zu-Ende-Wert. Die reale Latenz ist diese Zahl **plus** der Antwortzeit des CMS. Der Stub
 kennt dafür `--upstream-delay-ms`, mit dem sich eine angenommene CMS-Latenz kontrolliert
 zuschalten lässt; ein Ende-zu-Ende-Budget für Strapi selbst ist offen (Abschnitt 9).
+
+### 2.2 Verifikation des Node-24.21.0-Pins
+
+Die Toolchain-Migration wurde am 1. Oktober 2026 mit dem exakten Repository-Pin Node 24.21.0
+und pnpm 11.15.1 erneut geprüft. Der Lauf umfasste den Frozen-Lockfile-Install, Prisma 7.9.1,
+Nest- und Strapi-Build einschließlich des nativen `sharp`-Moduls, alle Workspace-Tests sowie die
+Datenbank-Integrations- und Skalierungstests gegen eine isolierte, anschließend entfernte
+PostgreSQL-16-Instanz. Die Produktionsimages wurden unter Linux mit Node 24.21.0 gebaut, als
+unprivilegierter Benutzer gestartet und über `/health/live` beziehungsweise `/_health` geprüft.
+Der High-/Critical-Scan der beiden fertigen Images blieb ohne Befund.
+
+Dieser Lauf ist eine **Kompatibilitäts- und Regressionprüfung**, keine neue absolute
+Latenzreferenz: Er lief auf einer Windows-/Docker-Desktop-Maschine und ist deshalb nicht mit den
+Linux-Zahlen der Referenzumgebung vergleichbar. Die Werte aus Abschnitt 6 bleiben gültig; eine
+neue Zahlenreihe darf sie erst ersetzen, wenn Vorher und Nachher auf derselben Maschine, mit
+demselben Datenprofil und demselben Node-Patchstand gemessen wurden.
 
 ## 3. Datenprofile
 
@@ -437,21 +454,26 @@ erfundener Wert wäre schlimmer als eine offene Stelle.
 # 1. Isolierte Messdatenbank (nicht den Entwicklungsstack benutzen)
 docker run -d --name campus-perf-pg \
   -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="<lokal>" \
-  -e APP_DB_NAME=campus_app_local -e APP_DB_USER=campus_app -e APP_DB_PASSWORD="<lokal>" \
+  -e APP_DB_NAME=campus_app_perf -e APP_DB_USER=campus_app -e APP_DB_PASSWORD="<lokal>" \
   -e CMS_DB_NAME=campus_cms_local -e CMS_DB_USER=campus_cms -e CMS_DB_PASSWORD="<lokal>" \
   -e POSTGRES_INITDB_ARGS='--data-checksums' \
   -p 127.0.0.1:5443:5432 \
   -v "$PWD/infrastructure/local/initdb:/docker-entrypoint-initdb.d:ro" \
   postgres:16-alpine
 
-# 2. Schema + Datenprofil
+# 2. Schema + Datenprofil — Ziel AUSDRÜCKLICH setzen. Ohne gesetztes DATABASE_URL lädt
+#    `prisma migrate deploy` per dotenv die Entwicklungsdatenbank aus apps/backend/.env.
+#    Der Seed liest nur PERF_DATABASE_URL, verlangt den Namen campus_app_perf[_<run-id>]
+#    und bricht ab, wenn DATABASE_URL nicht exakt denselben Wert hat.
+export PERF_DATABASE_URL="postgresql://campus_app:<lokal>@127.0.0.1:5443/campus_app_perf"
+export DATABASE_URL="$PERF_DATABASE_URL"
 pnpm --filter @campus/backend exec prisma migrate deploy
 pnpm --filter @campus/backend exec ts-node \
   --project ../../scripts/perf/tsconfig.json \
   ../../scripts/perf/seed-perf-dataset.ts --profile realistic --reset
 
 # 3. Zeilenzahlen gegen das Profil prüfen — Abweichung = Lauf verwerfen
-docker exec campus-perf-pg psql -U postgres -d campus_app_local -c \
+docker exec campus-perf-pg psql -U postgres -d campus_app_perf -c \
   "select 'meals',count(*) from meals union all select 'sync_runs',count(*) from sync_runs \
    union all select 'cal_events',count(*) from public_calendar_events;"
 
@@ -462,8 +484,10 @@ docker exec campus-perf-pg psql -U postgres -d campus_app_local -c \
 #    Abschnitt 6 und 7 sind mit gesetztem Flag entstanden. Der Sync selbst wird
 #    dadurch nicht ausgelöst — das ist Sache des Workers, und
 #    WEBUNTIS_SYNC_ON_BOOT bleibt aus.
+#    DATABASE_URL steht hier noch einmal ausdrücklich, damit die API auch in einer neuen Shell
+#    nie die Entwicklungsdatenbank misst.
 node scripts/perf/strapi-stub.mjs --port 4599 &
-NODE_ENV=production STRAPI_BASE_URL=http://127.0.0.1:4599 \
+NODE_ENV=production DATABASE_URL="$PERF_DATABASE_URL" STRAPI_BASE_URL=http://127.0.0.1:4599 \
   STRAPI_API_TOKEN=<beliebig, nur "gesetzt" zählt> WEBUNTIS_ENABLED=true \
   PORT=3099 HOST=127.0.0.1 LOG_LEVEL=warn \
   node apps/backend/dist/main.js &
