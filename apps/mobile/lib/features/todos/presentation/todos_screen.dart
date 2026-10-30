@@ -181,6 +181,8 @@ class _TodosScreenState extends ConsumerState<TodosScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(l10n.todoDeletedUndo),
+        // A SnackBar with an action would otherwise stay until dismissed.
+        persist: false,
         action: SnackBarAction(
           label: l10n.todoUndo,
           onPressed: () =>
@@ -211,6 +213,8 @@ class _TodosScreenState extends ConsumerState<TodosScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(l10n.todoCompletedCleared),
+        // A SnackBar with an action would otherwise stay until dismissed.
+        persist: false,
         action: SnackBarAction(
           label: l10n.todoUndo,
           onPressed: () => controller.restoreAll(removed),

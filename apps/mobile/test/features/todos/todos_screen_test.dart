@@ -168,6 +168,61 @@ void main() {
     expect(find.text('Behalten'), findsOneWidget);
   });
 
+  // A SnackBar with an action persists by default since Flutter 3.35; the
+  // undo offer must still time out on its own like any other hint.
+  testWidgets('the undo hint after clearing completed tasks goes away', (
+    WidgetTester tester,
+  ) async {
+    final InMemoryTodoStore store = InMemoryTodoStore();
+    await store.writeAll(<Todo>[
+      Todo(
+        id: '1',
+        title: 'Erledigt',
+        done: true,
+        createdAt: DateTime(2026, 1, 1),
+      ),
+    ]);
+    await pumpScreen(
+      tester,
+      const TodosScreen(),
+      overrides: <Override>[todoStoreProvider.overrideWithValue(store)],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Erledigte entfernen'));
+    await tester.pumpAndSettle();
+    expect(find.text('Erledigte Aufgaben entfernt'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Erledigte Aufgaben entfernt'), findsNothing);
+  });
+
+  testWidgets('the undo hint after deleting a task goes away', (
+    WidgetTester tester,
+  ) async {
+    final InMemoryTodoStore store = InMemoryTodoStore();
+    await store.writeAll(<Todo>[
+      Todo(id: '1', title: 'Aufgabe', createdAt: DateTime(2026)),
+    ]);
+    await pumpScreen(
+      tester,
+      const TodosScreen(),
+      overrides: <Override>[todoStoreProvider.overrideWithValue(store)],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Löschen'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
   testWidgets('renders English when the locale is en', (
     WidgetTester tester,
   ) async {
