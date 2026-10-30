@@ -1293,6 +1293,44 @@ void main() {
       expect(gateway.sent.single.attachments.single.bytes, bytes);
     });
 
+    // Returning from the file picker hands focus back to the text field, so
+    // the keyboard re-opened and stayed up through the send.
+    testWidgets('sending closes the keyboard after attaching last', (
+      WidgetTester tester,
+    ) async {
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final gateway = FakeMailGateway();
+      final picker = FakeMailAttachmentPicker(
+        results: <MailFilePickResult>[
+          MailFilesPicked(<PickedMailFile>[
+            FakePickedMailFile(
+              filename: 'foto.png',
+              mediaType: 'image/png',
+              bytes: Uint8List.fromList(_pngBytes),
+            ),
+          ]),
+        ],
+      );
+      await pumpScreen(
+        tester,
+        const MailComposeScreen(),
+        overrides: <Override>[
+          ..._mail(gateway, store),
+          mailAttachmentPickerProvider.overrideWithValue(picker),
+        ],
+      );
+      await tester.pumpAndSettle();
+      await fillRecipientAndSubject(tester);
+      await tester.tap(find.byIcon(AppIcons.attach_file));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.send_outlined));
+      await tester.pumpAndSettle();
+
+      expect(gateway.sent, hasLength(1));
+      expect(tester.testTextInput.isVisible, isFalse);
+    });
+
     testWidgets('a read failure at send time keeps the screen and draft intact', (
       WidgetTester tester,
     ) async {

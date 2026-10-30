@@ -145,6 +145,10 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
       _focusFirstInvalidField();
       return;
     }
+    // Coming back from the file picker hands focus back to the last text
+    // field, which re-opens the keyboard; it would otherwise stay up through
+    // the send and even outlive the closing screen.
+    FocusManager.instance.primaryFocus?.unfocus();
 
     final NavigatorState navigator = Navigator.of(context);
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
