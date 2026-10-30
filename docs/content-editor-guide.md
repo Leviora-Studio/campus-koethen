@@ -66,11 +66,15 @@ Oben rechts im Editor wird die Locale umgeschaltet. Wichtig:
 | `name`              | Eigenname, in allen Sprachen identisch                        |
 | `slug`              | **stabil**, klein, mit Bindestrichen, z. B. `campus-news`     |
 | `description`       | übersetzbar; benennt, wer hier publiziert                     |
-| `colorHex`          | `#RRGGBB`                                                     |
+| `colorHex`          | `#RRGGBB`; Farbe der Beiträge **und** der Kalendertermine     |
 | `sortOrder`         | kleinere Zahl steht weiter oben                               |
 | `isActive`          | sichtbar in der App                                           |
 | `defaultSubscribed` | beim **ersten** Auftauchen automatisch abonniert              |
 | `publicCalendar`    | optional, 1:1-Zuordnung zu einem öffentlichen Google-Kalender |
+
+Ein öffentlicher Google-Kalender erscheint in der App **nur über seinen Kanal**:
+Seine Termine stehen im Reiter Events und im Kalender bei genau diesem Kanal und
+tragen dessen Farbe. Ein Kalender ohne Kanal wird nicht angezeigt.
 
 Ein neuer Kanal erscheint **ohne App-Update und ohne Code-Änderung**. Vor der
 Veröffentlichung die englische Beschreibung ergänzen und beide Sprachfassungen

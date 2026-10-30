@@ -485,7 +485,9 @@ Import **nicht**.
 Zwei getrennte Jobs, beide über `PUBLIC_CALENDAR_ENABLED` schaltbar (Default `false`):
 
 - **Katalog** — spiegelt validierte Strapi-Definitionen ins operative Read-Model. Eine fehlerhafte
-  oder unvollständige Strapi-Antwort löscht den letzten gültigen Katalog nie.
+  oder unvollständige Strapi-Antwort löscht den letzten gültigen Katalog nie. Nur Kalender mit
+  Kanal werden übernommen; ihre Farbe ist die des Kanals, ein zweiter Kalender am selben Kanal
+  wird verworfen.
 - **Events** — pro Kalender: ICS laden (bytebegrenzt) → validieren → parsen → im Zielfenster
   expandieren → **eine Transaktion** aus Upsert und Löschen ausschließlich im bestätigten Fenster.
 

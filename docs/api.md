@@ -789,9 +789,9 @@ Der Katalog. Keine Parameter außer `locale`.
     {
       "id": "3d9a…", // Campus-UUID
       "slug": "stura-termine", // stabiler Bezeichner, Auswahlschlüssel der App
-      "channelSlug": "campus-events", // oder null
+      "channelSlug": "campus-events", // Kanal, zu dem der Kalender gehört
       "name": "StuRa-Termine",
-      "colorHex": "#5B3FD0",
+      "colorHex": "#5B3FD0", // Farbe dieses Kanals
       "sortOrder": 10,
       "defaultSubscribed": true,
       "dataState": "ready", // "ready" | "stale"
@@ -814,7 +814,9 @@ Der Katalog. Keine Parameter außer `locale`.
 
 `defaultSubscribed` wertet die App **genau einmal** pro Slug aus — beim erstmaligen Auftauchen.
 Ein Backend-Update überschreibt eine bewusste Abwahl nie. Dieselbe Regel wie bei Posts-Kanälen.
-`channelSlug` verknüpft einen Kalender 1:1 mit einem redaktionellen Kanal (oder `null`).
+`channelSlug` verknüpft einen Kalender 1:1 mit einem redaktionellen Kanal und ist immer gesetzt:
+Kalender ohne Kanal liefert die API nicht aus. `colorHex` ist die Farbe dieses Kanals; ein Kalender
+hat keine eigene Farbe.
 Die Kalender-Liste teilt den Bereich bis `meta.to` in Abfragen von höchstens `meta.maxRangeDays`
 Tagen; ihre Reichweite ist damit nicht auf eine feste Tageszahl im Client begrenzt.
 

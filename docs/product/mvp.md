@@ -80,10 +80,13 @@ Zugangsdaten verlassen das Gerät nur in Richtung des offiziellen Anbieters.
 
 - Explizite Umschaltung **Tag ↔ Woche ↔ Liste**; die Wochenansicht zeigt standardmäßig Montag
   bis Freitag, das Wochenende ist ein lokaler Schalter
-- Quellen: Stundenplan (Campus API), öffentliche Kalender (Campus API), Moodle-Deadlines (direkt)
+- Quellen: Stundenplan (Campus API), Events (Campus API), Moodle-Deadlines (direkt). Events sind
+  genau das, was der Reiter Events zeigt: Event-Beiträge und öffentliche Google-Kalender der
+  ausgewählten Channels, mit derselben Duplikatregel
 - Zusammenführung **ausschließlich lokal auf dem Gerät**; Quellen sind isoliert — ein Fehler einer
   Quelle blendet die anderen nicht aus, sondern erscheint als eigenes Banner
-- „Kalender verwalten": lokale Auswahl der öffentlichen Kalender
+- „Kalender verwalten": dieselbe lokale Channel-Auswahl wie im Reiter Events — eine Auswahl für
+  beide Ansichten
 
 **Persönliche Dienste, direkt vom Gerät**
 

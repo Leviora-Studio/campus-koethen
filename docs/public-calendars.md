@@ -110,8 +110,9 @@ nie**; erst ein vollständig erfolgreicher Abruf fügt hinzu/aktualisiert/deakti
 - `GET /v1/calendars` — Katalog (nur aktive, valide, mind. einmal erfolgreich synchronisierte).
   DTO: `id, slug, channelSlug, name, colorHex, sortOrder, defaultSubscribed, dataState,
 lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen Kalender
-  1:1 mit einem redaktionellen Kanal (oder `null`). **Nie** Google-ID, Feed-URL,
-  ETag oder interne Fehler.
+  1:1 mit einem redaktionellen Kanal und ist immer gesetzt: Kalender ohne Kanal werden weder
+  übernommen noch ausgeliefert. `colorHex` ist die Farbe dieses Kanals. **Nie** Google-ID,
+  Feed-URL, ETag oder interne Fehler.
 - `GET /v1/calendars/:slug/events?from&to` — Termine eines Kalenders (Zeitraum begrenzt).
   Das Abfrageintervall ist als **Überlappung** definiert (`startsAt <= to AND endsAt >= from`).
 - `GET /v1/calendars/events?calendar=…&calendar=…&from&to` — aggregiert; Slugs dedupliziert,
@@ -122,13 +123,18 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
 
 ## 8. App
 
-- **Kalender-Tab:** dynamische Quelle neben Stundenplan und Moodle. Öffentliche Termine erhalten
-  einen Farbpunkt **plus** Kalendername/Icon (Farbe nie alleiniges Merkmal). Ein Fehler der
-  öffentlichen Quelle blendet Stundenplan/Moodle **nicht** aus.
-- **„Kalender verwalten“:** Y-aus-X-Auswahl lokal (SharedPreferences). `defaultSubscribed` greift
-  **genau einmal** pro Slug (seen-Ledger); bewusst deaktivierte bleiben aus; verschwundene Slugs
-  werden tolerant bereinigt; ein Backend-Update überschreibt die Auswahl nie; keine Auswahl ⇒ keine
-  öffentlichen Termine.
+- **Kalender-Tab:** Die Quelle „Events“ zeigt genau, was der Reiter Events zeigt: Event-Beiträge
+  und Termine der öffentlichen Kalender der **ausgewählten Channels**, mit derselben Duplikatregel
+  (ein Beitrag ersetzt den identischen Kalendertermin vollständig). Anders als die Übersicht zeigt
+  der Kalender auch Vergangenes im betrachteten Zeitraum. Termine erhalten die Channel-Farbe
+  **plus** Channel- bzw. Kalendernamen/Icon (Farbe nie alleiniges Merkmal). Fallen Beiträge oder
+  Kalender aus, bleibt die jeweils andere Hälfte sichtbar; ein Fehler blendet Stundenplan/Moodle
+  **nicht** aus.
+- **Auswahl:** Es gibt **eine** Channel-Auswahl für Reiter Events und Kalender (Quellenfilter der
+  Events, lokal in SharedPreferences). „Kalender verwalten“, das Events-Sheet im Kalender und das
+  Onboarding schreiben dieselbe Auswahl. Erstnutzung: alle Channels aktiv; ein neu erscheinender
+  Channel wird einmal aktiviert; bewusst deaktivierte bleiben aus; keine Auswahl ⇒ keine Events.
+  Das Feld `defaultSubscribed` eines Kalenders wertet die App nicht mehr aus.
 - **Tageszuordnung:** Ein ganztägiger Termin nennt ein **Datum** und wird vom Worker als
   UTC-Mitternacht abgelegt; die App liest ihn genau so zurück, damit ihn keine Gerätezone
   verschiebt. Ein zeitgebundener Termin ist ein **Zeitpunkt** und wird vor der Tageszuordnung nach
@@ -138,9 +144,10 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
   der Wochenansicht bleibt ein _zeitgebundener_ Termin in seiner Startspalte, weil ein Raster keine
   Box über zwei Spalten zeichnen kann; ganztägige Termine stehen dort im Band über dem Raster und
   spannen mit.
-- **Google-Buttons:** „In Google Kalender öffnen“ (einzeln, `googleOpenUrl`) und „Ausgewählte in
-  Google Kalender öffnen“ (kombinierte Embed-URL vom Backend), extern via `url_launcher`
-  (HTTPS, Browser-Fallback). Kein automatisches Hinzufügen zum persönlichen Google-Konto; Stundenplan
+- **Google-Buttons:** „In Google Kalender öffnen“ (einzeln, `googleOpenUrl`, bei jedem Channel mit
+  Kalender) extern via `url_launcher` (HTTPS, Browser-Fallback). Die kombinierte Embed-URL
+  (`/v1/calendars/google-view-url`) stellt das Backend bereit; die App bietet dafür derzeit keinen
+  Button an. Kein automatisches Hinzufügen zum persönlichen Google-Konto; Stundenplan
   und Moodle sind keine Google-Quellen und nicht Teil der kombinierten Ansicht.
 
 ## 9. Strapi-Redaktionshandbuch
@@ -151,8 +158,10 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
 3. **googleShareUrl**: den **öffentlichen** Google-Freigabelink mit `cid` einfügen
    (`https://calendar.google.com/calendar/u/0?cid=…`). **Keine** geheime/private „iCal-Adresse“ und
    **keine** `basic.ics`-URL.
-4. **colorHex** (`#RRGGBB`) und **sortOrder** wählen.
-5. **defaultSubscribed** bewusst setzen (true = beim ersten Erscheinen automatisch aktiv).
+4. **sortOrder** wählen. Eine eigene Farbe hat der Kalender nicht: Seine Termine tragen die Farbe
+   seines Channels.
+5. Den Kalender am **Channel** zuordnen (Feld `publicCalendar` des Channels). Ohne Channel erscheint
+   er nirgends in der App; je Channel ist genau ein Kalender möglich.
 6. **includeEventDescription** und **includeEventLocation** datensparsam entscheiden. Die Felder
    steuern ausdrücklich, ob Beschreibungen bzw. Orte importierter Termine in API und App erscheinen.
 7. **Speichern und Veröffentlichen** (Draft & Publish).

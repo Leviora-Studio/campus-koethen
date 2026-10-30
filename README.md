@@ -102,7 +102,7 @@ Harte Systemgrenzen:
 - Flutter spricht für alle öffentlichen und redaktionellen Daten **ausschließlich** mit der versionierten Campus API unter `/v1` — niemals direkt mit Strapi, meine-mensa.de, WebUntis oder dem Google-ICS-Feed.
 - Das Backend liest Strapi **ausschließlich** über dessen REST-API mit einem serverseitigen Read-only-Token — niemals direkt aus Strapi-Tabellen.
 - Für Mail, Noten, Moodle sowie Anträge und Feedback gibt es **keinen** Backend-Proxy, **keine** serverseitige Speicherung und **keinen** Analytics-/Logging-Umweg.
-- Der Kalender führt Stundenplan, öffentliche Kalender und Moodle-Deadlines **ausschließlich lokal auf dem Gerät** zusammen.
+- Der Kalender führt Stundenplan, Events (Event-Beiträge und öffentliche Kalender der ausgewählten Channels) und Moodle-Deadlines **ausschließlich lokal auf dem Gerät** zusammen.
 - CMS und operative Daten nutzen **getrennte Datenbanken und Rollen**.
 - Umgebungsunterschiede entstehen ausschließlich durch Environment/Secrets, nicht durch Quellcode.
 
