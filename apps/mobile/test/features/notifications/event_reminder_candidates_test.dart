@@ -138,6 +138,24 @@ void main() {
       expect(out.single.category, NotificationCategory.eventReminder);
     });
 
+    test('an event post of a selected channel is reminded about too', () {
+      final tz.TZDateTime start = at(berlin, 2026, 7, 22, 16);
+
+      final List<PlannedNotification> out =
+          planned(berlin, at(berlin, 2026, 7, 1, 12), <CalendarEntry>[
+            CalendarEntry(
+              id: 'postEvent:sommerfest-demo',
+              source: CalendarSource.postEvent,
+              title: 'Sommerfest (Demo)',
+              start: start,
+            ),
+          ]);
+
+      expect(out, hasLength(1));
+      expect(out.single.scheduledAt, at(berlin, 2026, 7, 21, 16));
+      expect(out.single.category, NotificationCategory.eventReminder);
+    });
+
     test('the lead is an absolute duration, not the same time yesterday', () {
       // The night the clocks go forward in Berlin: 02:00 becomes 03:00, so
       // 24 hours before 12:00 on the 29th is 11:00 on the 28th, not 12:00.

@@ -70,6 +70,7 @@ abstract interface class EventReminderCopy {
 /// here, which is a product decision.
 const Set<CalendarSource> kEventReminderSources = <CalendarSource>{
   CalendarSource.publicCalendar,
+  CalendarSource.postEvent,
   CalendarSource.savedEvents,
 };
 
@@ -142,10 +143,11 @@ List<NotificationRequest> eventReminderRequests({
 ///
 /// Two sources, and deliberately **not** the calendar screen's own
 /// `CalendarData`: that one applies the display switches, and a notification's
-/// scope is the notification settings plus the activated public calendars —
+/// scope is the notification settings plus the channels selected for events —
 /// never a view filter (ADR-0001 § 7.2).
 ///
-/// * **Public calendars**, only from the reader's activated selection, over
+/// * **Events** — the event posts and public calendars of the channels
+///   selected in the shared event-source filter, already deduplicated, over
 ///   [kEventReminderHorizonMonths]. Read as `.value`, never awaited: a plan
 ///   must never wait on a network answer, and a month still in flight simply
 ///   contributes nothing to *this* run — Riverpod rebuilds the plan when it
@@ -157,7 +159,7 @@ List<NotificationRequest> eventReminderRequests({
 ///
 /// The two are deduplicated with `savedEventEntriesForCalendar`, the events
 /// feature's own reusable rule, so a bookmarked event that is also a live
-/// calendar entry appears exactly once — and therefore produces exactly one
+/// post or calendar entry appears exactly once — and therefore produces exactly one
 /// reminder (ADR-0001 § 7.3, "genau eine").
 final Provider<List<CalendarEntry>> notificationEventEntriesProvider =
     Provider<List<CalendarEntry>>((Ref ref) {

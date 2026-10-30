@@ -295,11 +295,11 @@ nicht atomar sind:
 
 ### 7.2 Datenquellen des Planers — und was er ausdrücklich nicht liest
 
-| Kategorie             | Liest                                                                                                                            | Liest **nicht**                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Events (N1)           | zusammengeführte, entdoppelte Kalendereinträge der Quellen `publicCalendar` (nur aktivierte Auswahl) und `savedEvents`           | `calendarEnabledSourcesProvider`, `calendarSavedEventsEnabledProvider` |
-| Tagesübersicht (N2)   | dieselben Eventquellen plus `timetable` (gewählte Gruppe), `moodle` (verbundenes Konto) und den Speiseplan der bevorzugten Mensa | dieselben Anzeigeschalter                                              |
-| Favoritengericht (N3) | Speiseplan der bevorzugten Mensa (`selectedCanteenSlugProvider`) und `canteen.favourites.v1` (Gerichtsnamen)                     | `Meal.id` als Wiedererkennungsmerkmal (§ 4.1, Befund 5)                |
+| Kategorie             | Liest                                                                                                                                    | Liest **nicht**                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Events (N1)           | zusammengeführte, entdoppelte Kalendereinträge der Quellen `postEvent` und `publicCalendar` (nur ausgewählte Channels) und `savedEvents` | `calendarEnabledSourcesProvider`, `calendarSavedEventsEnabledProvider` |
+| Tagesübersicht (N2)   | dieselben Eventquellen plus `timetable` (gewählte Gruppe), `moodle` (verbundenes Konto) und den Speiseplan der bevorzugten Mensa         | dieselben Anzeigeschalter                                              |
+| Favoritengericht (N3) | Speiseplan der bevorzugten Mensa (`selectedCanteenSlugProvider`) und `canteen.favourites.v1` (Gerichtsnamen)                             | `Meal.id` als Wiedererkennungsmerkmal (§ 4.1, Befund 5)                |
 
 Weitere verbindliche Punkte:
 
@@ -743,8 +743,7 @@ Sie ist **additiv**: Der Planer aus § 7 bliebe unverändert, es käme nur ein w
 2. Geltungsbereich nach § 7.2.
    _Akzeptanz:_ ein Test, der belegt, dass ein ausgeschalteter Kalender-Anzeigeschalter
    (`calendarEnabledSourcesProvider`, `calendarSavedEventsEnabledProvider`) die Planung **nicht**
-   verändert, und einer, der belegt, dass ein abgewählter öffentlicher Kalender sie **sehr wohl**
-   verändert.
+   verändert, und einer, der belegt, dass ein abgewählter Channel sie **sehr wohl** verändert.
 3. `NotificationScheduler` als Port über `flutter_local_notifications`, vollständige Neuplanung,
    serialisiert nach § 7.1.
    _Akzeptanz:_ zweimaliges Planen desselben Zustands erzeugt keine Duplikate; zwei gleichzeitig

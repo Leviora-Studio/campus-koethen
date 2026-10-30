@@ -199,8 +199,8 @@ void main() {
       },
     );
 
-    test('a deselected public calendar DOES change it', () async {
-      // The other half of the same rule: the calendar *selection* is part of
+    test('a deselected channel DOES change it', () async {
+      // The other half of the same rule: the channel *selection* is part of
       // the scope, the calendar *view filter* is not. The selection is applied
       // one level down, in `calendarEventMonthEntriesProvider`, which answers
       // with nothing when nothing is selected.
