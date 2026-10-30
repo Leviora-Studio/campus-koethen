@@ -27,13 +27,13 @@ function strapiEntry(overrides: Record<string, unknown> = {}): Record<string, un
     name: 'Beispielkalender A',
     description: 'Öffentliche Veranstaltungen',
     googleShareUrl: SHARE,
-    colorHex: '#5B3FD0',
     iconKey: 'calendar',
     sortOrder: 1,
     isActive: true,
     defaultSubscribed: true,
     includeEventDescription: true,
     includeEventLocation: true,
+    channel: { slug: 'campus-events', colorHex: '#5B3FD0' },
     ...overrides,
   };
 }
@@ -143,19 +143,52 @@ describe('PublicCalendarSyncService (integration)', () => {
       expect(count).toBe(1);
     });
 
-    it('mirrors channelSlug from Strapi and resolves duplicates deterministically', async () => {
+    it('mirrors channel and colour from Strapi and drops a second calendar of a channel', async () => {
       strapi.de = [
-        strapiEntry({ slug: 'cal-1', channel: { slug: 'shared-channel' } }),
-        strapiEntry({ slug: 'cal-2', channel: { slug: 'shared-channel' } }),
+        strapiEntry({ slug: 'cal-1', channel: { slug: 'shared-channel', colorHex: '#c2185b' } }),
+        strapiEntry({ slug: 'cal-2', channel: { slug: 'shared-channel', colorHex: '#c2185b' } }),
       ];
       const outcome = await sync.syncCatalog();
       expect(outcome.status).toBe('success');
+      expect(outcome.accepted).toBe(1);
+      expect(outcome.rejected).toBe(1);
 
       const cal1 = await prisma.publicCalendar.findUnique({ where: { slug: 'cal-1' } });
       const cal2 = await prisma.publicCalendar.findUnique({ where: { slug: 'cal-2' } });
 
       expect(cal1?.channelSlug).toBe('shared-channel');
-      expect(cal2?.channelSlug).toBeNull(); // cleared on duplicate
+      expect(cal1?.colorHex).toBe('#C2185B');
+      expect(cal2).toBeNull();
+    });
+
+    it('retires a calendar once it no longer belongs to a channel', async () => {
+      strapi.de = [
+        strapiEntry(),
+        strapiEntry({ slug: 'cal-2', channel: { slug: 'other', colorHex: '#5B3FD0' } }),
+      ];
+      await sync.syncCatalog();
+      strapi.de = [
+        strapiEntry({ channel: null }),
+        strapiEntry({ slug: 'cal-2', channel: { slug: 'other', colorHex: '#5B3FD0' } }),
+      ];
+      const outcome = await sync.syncCatalog();
+
+      expect(outcome.status).toBe('success');
+      const row = await prisma.publicCalendar.findUnique({ where: { slug: 'beispielkalender-a' } });
+      expect(row?.isActive).toBe(false);
+    });
+
+    it('never serves a calendar that has no channel', async () => {
+      await seedReadyCalendar();
+      const before = await read.listCalendars({ requestedLocale: 'de', resolvedLocale: 'de' });
+      expect(before.data).toHaveLength(1);
+      await prisma.publicCalendar.update({
+        where: { slug: 'beispielkalender-a' },
+        data: { channelSlug: null },
+      });
+
+      const listed = await read.listCalendars({ requestedLocale: 'de', resolvedLocale: 'de' });
+      expect(listed.data).toHaveLength(0);
     });
 
     it('a Strapi failure keeps the last good definitions', async () => {

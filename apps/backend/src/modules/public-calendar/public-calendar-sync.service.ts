@@ -78,26 +78,27 @@ export class PublicCalendarSyncService {
         return { status: 'empty', received, accepted: 0, rejected, written: 0, deactivated: 0 };
       }
 
-      // Resolve duplicate channelSlug assignments deterministically (keep first, clear duplicate)
+      // A channel has at most one calendar. Keep the first (Strapi's own sort
+      // order) and drop the others, deterministically: a calendar without a
+      // channel would not be offered in the app anyway.
       const seenChannelSlugs = new Set<string>();
-      for (const def of definitions) {
-        if (def.channelSlug) {
-          if (seenChannelSlugs.has(def.channelSlug)) {
-            this.logger.warn({
-              message: `Duplicate channelSlug "${def.channelSlug}" on calendar "${def.slug}". Keeping earlier assignment; clearing on this calendar.`,
-              channelSlug: def.channelSlug,
-              calendarSlug: def.slug,
-            });
-            def.channelSlug = null;
-          } else {
-            seenChannelSlugs.add(def.channelSlug);
-          }
+      const accepted = definitions.filter((def) => {
+        if (!seenChannelSlugs.has(def.channelSlug)) {
+          seenChannelSlugs.add(def.channelSlug);
+          return true;
         }
-      }
+        this.logger.warn({
+          message: `Duplicate channelSlug "${def.channelSlug}" on calendar "${def.slug}". Keeping earlier assignment; dropping this calendar.`,
+          channelSlug: def.channelSlug,
+          calendarSlug: def.slug,
+        });
+        return false;
+      });
+      const duplicates = definitions.length - accepted.length;
 
       const now = new Date();
       await this.prisma.$transaction(async (tx) => {
-        for (const def of definitions) {
+        for (const def of accepted) {
           await tx.publicCalendar.upsert({
             where: { slug: def.slug },
             create: { ...this.toRow(def), operationalStatus: 'pending', lastCatalogSyncAt: now },
@@ -109,27 +110,27 @@ export class PublicCalendarSyncService {
       // Only after a complete, non-empty success may a calendar that Strapi no
       // longer publishes be retired. It is deactivated, never deleted.
       const retired = await this.prisma.publicCalendar.updateMany({
-        where: { isActive: true, slug: { notIn: definitions.map((d) => d.slug) } },
+        where: { isActive: true, slug: { notIn: accepted.map((d) => d.slug) } },
         data: { isActive: false },
       });
 
       await this.finishRun(run.id, {
         status: 'success',
         eventsReceived: received,
-        recordsAccepted: definitions.length,
-        recordsRejected: rejected,
-        recordsWritten: definitions.length,
+        recordsAccepted: accepted.length,
+        recordsRejected: rejected + duplicates,
+        recordsWritten: accepted.length,
         recordsRemoved: retired.count,
       });
       this.logger.log(
-        `Public-calendar catalogue: ${definitions.length} upserted, ${retired.count} retired, ${rejected} rejected`,
+        `Public-calendar catalogue: ${accepted.length} upserted, ${retired.count} retired, ${rejected + duplicates} rejected`,
       );
       return {
         status: 'success',
         received,
-        accepted: definitions.length,
-        rejected,
-        written: definitions.length,
+        accepted: accepted.length,
+        rejected: rejected + duplicates,
+        written: accepted.length,
         deactivated: retired.count,
       };
     } catch (error) {
@@ -177,7 +178,7 @@ export class PublicCalendarSyncService {
         filters: { isActive: { $eq: true } },
         sort: ['sortOrder:asc', 'slug:asc'],
         pagination: { page, pageSize: 100 },
-        populate: { channel: { fields: ['slug'] } },
+        populate: { channel: { fields: ['slug', 'colorHex'] } },
         locale,
       });
       collected.push(...response.data);

@@ -14,13 +14,12 @@ function deEntry(overrides: Record<string, unknown> = {}): Record<string, unknow
     slug: 'beispielkalender-a',
     name: 'Beispielkalender A',
     googleShareUrl: SHARE,
-    colorHex: '#5B3FD0',
     sortOrder: 1,
     isActive: true,
     defaultSubscribed: true,
     includeEventDescription: true,
     includeEventLocation: false,
-    channel: { slug: 'campus-events' },
+    channel: { slug: 'campus-events', colorHex: '#5b3fd0' },
     ...overrides,
   };
 }
@@ -39,9 +38,24 @@ describe('validateCatalog', () => {
     expect(def?.defaultSubscribed).toBe(true);
   });
 
-  it('handles missing channel relation by setting channelSlug to null', () => {
-    const result = validateCatalog([deEntry({ channel: null })], []);
-    expect(result.definitions[0]?.channelSlug).toBeNull();
+  it('rejects a calendar without a channel, since only channels are offered in the app', () => {
+    const result = validateCatalog(
+      [deEntry(), deEntry({ slug: 'ohne-kanal', channel: null }), deEntry({ slug: 'leer' })].map(
+        (entry) => (entry.slug === 'leer' ? { ...entry, channel: undefined } : entry),
+      ),
+      [],
+    );
+    expect(result.definitions.map((d) => d.slug)).toEqual(['beispielkalender-a']);
+    expect(result.rejected).toBe(2);
+  });
+
+  it("takes the colour from the calendar's channel, ignoring any calendar colour", () => {
+    const result = validateCatalog(
+      [deEntry({ colorHex: '#000000', channel: { slug: 'fsr-ins', colorHex: '#c2185b' } })],
+      [],
+    );
+    expect(result.definitions[0]?.channelSlug).toBe('fsr-ins');
+    expect(result.definitions[0]?.colorHex).toBe('#C2185B');
   });
 
   it('rejects an entry with an invalid share URL but keeps the others', () => {
@@ -64,13 +78,18 @@ describe('validateCatalog', () => {
     expect(result.definitions.map((d) => d.slug)).toEqual(['beispielkalender-a']);
   });
 
-  it('rejects a bad slug and a bad colour', () => {
+  it('rejects a bad slug, a bad channel slug and a bad channel colour', () => {
     const result = validateCatalog(
-      [deEntry({ slug: 'Bad Slug' }), deEntry({ slug: 'x', colorHex: 'red' })],
+      [
+        deEntry({ slug: 'Bad Slug' }),
+        deEntry({ slug: 'x', channel: { slug: 'Bad Channel', colorHex: '#5B3FD0' } }),
+        deEntry({ slug: 'y', channel: { slug: 'campus-events', colorHex: 'red' } }),
+        deEntry({ slug: 'z', channel: { slug: 'campus-events' } }),
+      ],
       [],
     );
     expect(result.definitions).toHaveLength(0);
-    expect(result.rejected).toBe(2);
+    expect(result.rejected).toBe(4);
   });
 
   it('maps the clearly named event inclusion switches', () => {

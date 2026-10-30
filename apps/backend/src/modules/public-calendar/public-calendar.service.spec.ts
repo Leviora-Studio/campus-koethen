@@ -102,6 +102,25 @@ describe('PublicCalendarService', () => {
       });
     });
 
+    it('serves only calendars that belong to a channel, in every read path', async () => {
+      const { service, calendarFindMany, calendarFindFirst } = serviceWith(row);
+      await service.listCalendars(en);
+      await service.getCalendarEvents('events', new Date(), new Date());
+      await service.getAggregatedEvents(['events'], new Date(), new Date());
+      await service.buildGoogleViewUrl(['events'], 'de');
+
+      const whereOf = (call: unknown[]): Record<string, unknown> =>
+        (call[0] as { where: Record<string, unknown> }).where;
+      const wheres = [
+        ...calendarFindMany.mock.calls.map(whereOf),
+        ...calendarFindFirst.mock.calls.map(whereOf),
+      ];
+      expect(wheres).toHaveLength(4);
+      for (const where of wheres) {
+        expect(where.channelSlug).toEqual({ not: null });
+      }
+    });
+
     it('flags a fallback when the English name is missing', async () => {
       const { service } = serviceWith({ ...row, nameEn: null });
       const result = await service.listCalendars(en);

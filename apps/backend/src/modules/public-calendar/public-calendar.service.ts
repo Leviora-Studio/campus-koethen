@@ -137,9 +137,15 @@ export class PublicCalendarService implements OnModuleInit {
     lastSuccessfulSyncAt: true,
   } as const;
 
+  /**
+   * Also excludes a calendar without a channel: the app offers events per
+   * channel only. The catalogue sync no longer mirrors such a calendar, but a
+   * row from before that rule may still be active until the next good sync.
+   */
   private servableWhere() {
     return {
       isActive: true,
+      channelSlug: { not: null },
       operationalStatus: { in: PublicCalendarService.SERVABLE },
       lastSuccessfulSyncAt: { not: null },
     };
@@ -173,16 +179,18 @@ export class PublicCalendarService implements OnModuleInit {
       select: PublicCalendarService.CALENDAR_FIELDS,
     });
     let translationFallback = false;
-    const data = rows.map((row) => {
+    const data = rows.flatMap((row) => {
+      // Already excluded by the query; this only narrows the type.
+      if (row.channelSlug === null) return [];
       const name = this.localise(locale.resolvedLocale, row.nameDe, row.nameEn);
       if (locale.resolvedLocale === 'en') {
         translationFallback = translationFallback || name.fellBack;
       }
       const stale = this.isStale(row.operationalStatus, row.lastSuccessfulSyncAt);
-      return {
+      const dto: PublicCalendarDto = {
         id: row.id,
         slug: row.slug,
-        channelSlug: row.channelSlug ?? null,
+        channelSlug: row.channelSlug,
         name: name.value,
         colorHex: row.colorHex,
         sortOrder: row.sortOrder,
@@ -191,7 +199,8 @@ export class PublicCalendarService implements OnModuleInit {
         lastSuccessfulSyncAt: row.lastSuccessfulSyncAt?.toISOString() ?? null,
         dataStale: stale,
         googleOpenUrl: buildSingleOpenUrl(row.googleCalendarId),
-      } satisfies PublicCalendarDto;
+      };
+      return [dto];
     });
     return { data, translationFallback };
   }
@@ -264,7 +273,7 @@ export class PublicCalendarService implements OnModuleInit {
       where: { slug, ...this.servableWhere() },
       select: PublicCalendarService.CALENDAR_FIELDS,
     });
-    if (!row) return null;
+    if (!row || row.channelSlug === null) return null;
     const limit = this.env.PUBLIC_CALENDAR_API_MAX_EVENTS;
     // One row over the ceiling: enough to KNOW the list was cut, without
     // loading a second, unbounded count query.
@@ -286,7 +295,7 @@ export class PublicCalendarService implements OnModuleInit {
       calendar: {
         id: row.id,
         slug: row.slug,
-        channelSlug: row.channelSlug ?? null,
+        channelSlug: row.channelSlug,
         name: row.nameDe,
         colorHex: row.colorHex,
         sortOrder: row.sortOrder,

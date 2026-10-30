@@ -9,9 +9,11 @@ import { ResponseMetaDto } from '../../common/dto/meta.dto';
 export interface CalendarDefinition {
   slug: string;
   googleCalendarId: string;
-  channelSlug: string | null;
+  /** Every served calendar belongs to exactly one channel. */
+  channelSlug: string;
   nameDe: string;
   nameEn: string | null;
+  /** The channel's colour; a calendar has none of its own. */
   colorHex: string;
   sortOrder: number;
   defaultSubscribed: boolean;
@@ -24,9 +26,10 @@ export interface CalendarDefinition {
 export class PublicCalendarDto {
   @ApiProperty() id!: string;
   @ApiProperty() slug!: string;
-  @ApiPropertyOptional({ nullable: true, type: String }) channelSlug!: string | null;
+  @ApiProperty({ description: 'The channel this calendar belongs to.' }) channelSlug!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ example: '#5B3FD0' }) colorHex!: string;
+  @ApiProperty({ example: '#5B3FD0', description: "The colour of the calendar's channel." })
+  colorHex!: string;
   @ApiProperty() sortOrder!: number;
   @ApiProperty() defaultSubscribed!: boolean;
   @ApiProperty({ description: 'ready | stale', example: 'ready' }) dataState!: string;

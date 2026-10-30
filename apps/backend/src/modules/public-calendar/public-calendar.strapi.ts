@@ -9,6 +9,10 @@ import { CalendarDefinition } from './public-calendar.types';
  * should already reject a bad share URL, the worker re-validates every field
  * here and re-derives the calendar id from the share link. A single invalid
  * entry is dropped (and counted), never taking the rest of the catalogue down.
+ *
+ * The app offers events per channel only, so a calendar without a (valid)
+ * channel is dropped the same way. Its colour is the channel's colour: the
+ * calendar has none of its own.
  */
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -20,7 +24,6 @@ const strapiEntrySchema = z
     slug: z.string(),
     name: z.string().min(1),
     googleShareUrl: z.string(),
-    colorHex: z.string(),
     sortOrder: z.coerce.number().int().default(0),
     isActive: z.boolean().default(true),
     defaultSubscribed: z.boolean().default(false),
@@ -29,6 +32,7 @@ const strapiEntrySchema = z
     channel: z
       .object({
         slug: z.string(),
+        colorHex: z.string(),
       })
       .nullish(),
   })
@@ -69,7 +73,13 @@ export function validateCatalog(
     }
     const entry = parsed.data;
 
-    if (!SLUG_PATTERN.test(entry.slug) || !COLOR_PATTERN.test(entry.colorHex)) {
+    const channel = entry.channel;
+    if (
+      !SLUG_PATTERN.test(entry.slug) ||
+      !channel ||
+      !SLUG_PATTERN.test(channel.slug) ||
+      !COLOR_PATTERN.test(channel.colorHex)
+    ) {
       rejected += 1;
       continue;
     }
@@ -81,20 +91,13 @@ export function validateCatalog(
 
     const en = enBySlug.get(entry.slug);
 
-    const channelSlug =
-      entry.channel &&
-      typeof entry.channel.slug === 'string' &&
-      SLUG_PATTERN.test(entry.channel.slug)
-        ? entry.channel.slug
-        : null;
-
     definitions.push({
       slug: entry.slug,
       googleCalendarId: extracted.calendarId,
-      channelSlug,
+      channelSlug: channel.slug,
       nameDe: entry.name,
       nameEn: en?.name ?? null,
-      colorHex: entry.colorHex.toUpperCase(),
+      colorHex: channel.colorHex.toUpperCase(),
       sortOrder: entry.sortOrder,
       defaultSubscribed: entry.defaultSubscribed,
       includeEventDescription: entry.includeEventDescription,

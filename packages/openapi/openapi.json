@@ -2627,14 +2627,15 @@
           },
           "channelSlug": {
             "type": "string",
-            "nullable": true
+            "description": "The channel this calendar belongs to."
           },
           "name": {
             "type": "string"
           },
           "colorHex": {
             "type": "string",
-            "example": "#5B3FD0"
+            "example": "#5B3FD0",
+            "description": "The colour of the calendar's channel."
           },
           "sortOrder": {
             "type": "number"
@@ -2663,6 +2664,7 @@
         "required": [
           "id",
           "slug",
+          "channelSlug",
           "name",
           "colorHex",
           "sortOrder",
