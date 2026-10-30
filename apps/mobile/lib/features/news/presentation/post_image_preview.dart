@@ -90,7 +90,6 @@ Future<void> _showOriginalImage(
   AppLocalizations l10n, {
   String? alternativeText,
 }) {
-  final AppColors colors = context.colors;
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -102,54 +101,11 @@ Future<void> _showOriginalImage(
         child: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(dialogContext).pop(),
-              ),
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: CachedNetworkImage(
-                    imageUrl: url,
-                    imageBuilder: (BuildContext _, ImageProvider provider) =>
-                        Image(
-                          image: provider,
-                          fit: BoxFit.contain,
-                          semanticLabel: alternativeText,
-                          excludeFromSemantics:
-                              alternativeText == null ||
-                              alternativeText.isEmpty,
-                        ),
-                    placeholder: (BuildContext _, String _) =>
-                        CircularProgressIndicator(color: colors.surface),
-                    errorWidget: (BuildContext _, String _, Object _) =>
-                        Material(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(AppRadius.card),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Icon(
-                                  AppIcons.broken_image_outlined,
-                                  color: colors.onSurface,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  l10n.newsImageUnavailable,
-                                  style: TextStyle(color: colors.onSurface),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                  ),
-                ),
+              child: _ZoomableImage(
+                url: url,
+                l10n: l10n,
+                alternativeText: alternativeText,
+                onDismiss: () => Navigator.of(dialogContext).pop(),
               ),
             ),
             PositionedDirectional(
@@ -170,4 +126,131 @@ Future<void> _showOriginalImage(
       ),
     ),
   );
+}
+
+/// The original image, zoomable with a pinch or a double tap and movable once
+/// zoomed. The backdrop zooms along with it, so a tap beside the image still
+/// closes the view at any zoom level.
+class _ZoomableImage extends StatefulWidget {
+  const _ZoomableImage({
+    required this.url,
+    required this.l10n,
+    required this.alternativeText,
+    required this.onDismiss,
+  });
+
+  final String url;
+  final AppLocalizations l10n;
+  final String? alternativeText;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_ZoomableImage> createState() => _ZoomableImageState();
+}
+
+class _ZoomableImageState extends State<_ZoomableImage> {
+  static const double _maxScale = 5;
+  static const double _doubleTapScale = 2.5;
+
+  final TransformationController _controller = TransformationController();
+  Offset _doubleTapPosition = Offset.zero;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDoubleTapDown(TapDownDetails details) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    _doubleTapPosition = _controller.toScene(
+      box.globalToLocal(details.globalPosition),
+    );
+  }
+
+  /// Zooms in around the tapped spot, or back out to the whole image.
+  void _onDoubleTap() {
+    if (_controller.value.getMaxScaleOnAxis() > 1) {
+      _controller.value = Matrix4.identity();
+      return;
+    }
+    const double scale = _doubleTapScale;
+    final Offset focus = _doubleTapPosition;
+    _controller.value = Matrix4.identity()
+      ..translateByDouble(
+        -focus.dx * (scale - 1),
+        -focus.dy * (scale - 1),
+        0,
+        1,
+      )
+      ..scaleByDouble(scale, scale, 1, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+    final AppLocalizations l10n = widget.l10n;
+    final String? alternativeText = widget.alternativeText;
+
+    return InteractiveViewer(
+      transformationController: _controller,
+      maxScale: _maxScale,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onDismiss,
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                onDoubleTapDown: _onDoubleTapDown,
+                onDoubleTap: _onDoubleTap,
+                child: CachedNetworkImage(
+                  imageUrl: widget.url,
+                  imageBuilder: (BuildContext _, ImageProvider provider) =>
+                      Image(
+                        image: provider,
+                        fit: BoxFit.contain,
+                        semanticLabel: alternativeText,
+                        excludeFromSemantics:
+                            alternativeText == null || alternativeText.isEmpty,
+                      ),
+                  placeholder: (BuildContext _, String _) =>
+                      CircularProgressIndicator(color: colors.surface),
+                  errorWidget: (BuildContext _, String _, Object _) => Material(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            AppIcons.broken_image_outlined,
+                            color: colors.onSurface,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            l10n.newsImageUnavailable,
+                            style: TextStyle(color: colors.onSurface),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

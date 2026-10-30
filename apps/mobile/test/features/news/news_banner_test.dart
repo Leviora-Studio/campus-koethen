@@ -152,4 +152,96 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byTooltip('Bildansicht schließen'), findsNothing);
   });
+
+  group('full view zoom', () {
+    Future<void> openFullView(WidgetTester tester) async {
+      await pumpCard(tester, article(width: 1600, height: 900));
+      await tester.tap(find.byTooltip('Bild im Vollbild öffnen'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    // The full view's loading spinner never stops in tests, so pumpAndSettle
+    // would time out; this lets the gesture's own animations finish instead.
+    Future<void> settle(WidgetTester tester) async {
+      for (int i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    Matrix4 transform(WidgetTester tester) => tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!
+        .value;
+
+    Offset imageCenter(WidgetTester tester) =>
+        tester.getCenter(find.byType(CachedNetworkImage).last);
+
+    testWidgets('pinching zooms in and dragging then pans the image', (
+      WidgetTester tester,
+    ) async {
+      await openFullView(tester);
+      expect(transform(tester).getMaxScaleOnAxis(), 1);
+
+      final Offset center = imageCenter(tester);
+      final TestGesture first = await tester.startGesture(
+        center - const Offset(20, 0),
+      );
+      final TestGesture second = await tester.startGesture(
+        center + const Offset(20, 0),
+        pointer: 2,
+      );
+      await tester.pump();
+      for (int step = 1; step <= 8; step++) {
+        await first.moveTo(center - Offset(20.0 + step * 10, 0));
+        await second.moveTo(center + Offset(20.0 + step * 10, 0));
+        await tester.pump();
+      }
+      await first.up();
+      await second.up();
+      await settle(tester);
+
+      final Matrix4 zoomed = transform(tester);
+      expect(zoomed.getMaxScaleOnAxis(), greaterThan(1.5));
+
+      await tester.timedDragFrom(
+        center,
+        const Offset(60, 40),
+        const Duration(milliseconds: 300),
+      );
+      await settle(tester);
+
+      expect(
+        transform(tester).getTranslation(),
+        isNot(equals(zoomed.getTranslation())),
+      );
+      expect(
+        find.byTooltip('Bildansicht schließen'),
+        findsOneWidget,
+        reason: 'zooming and panning keep the full view open',
+      );
+    });
+
+    testWidgets('double-tapping zooms in and double-tapping again resets', (
+      WidgetTester tester,
+    ) async {
+      await openFullView(tester);
+
+      final Offset center = imageCenter(tester);
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await settle(tester);
+
+      expect(transform(tester).getMaxScaleOnAxis(), greaterThan(1.5));
+      expect(find.byTooltip('Bildansicht schließen'), findsOneWidget);
+
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await settle(tester);
+
+      expect(transform(tester).getMaxScaleOnAxis(), 1);
+    });
+  });
 }
