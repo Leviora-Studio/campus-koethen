@@ -52,22 +52,6 @@ abstract final class PreferenceKeys {
   /// not a standing preference, so there is no seen-slugs ledger.
   static const String newsTagFilterSelected = 'news.tags.filter.selected.v1';
 
-  // --- Public calendars (Y-of-X selection, non-sensitive) ------------------
-
-  /// Schema version of the public-calendar selection store.
-  static const String publicCalendarStoreVersion = 'calendars.public.version';
-
-  /// Every public-calendar slug the app has ever seen. Guards
-  /// `defaultSubscribed` so it is evaluated exactly once per slug.
-  static const String publicCalendarSeenSlugs = 'calendars.public.seen.v1';
-
-  /// The public-calendar slugs the user has currently activated.
-  static const String publicCalendarSelectedSlugs =
-      'calendars.public.selected.v1';
-
-  /// Current schema version of the public-calendar selection store.
-  static const int publicCalendarStoreCurrentVersion = 1;
-
   // --- Personalisation (mobile-first redesign) -----------------------------
 
   /// `1` when the user asked for reduced motion locally. The operating

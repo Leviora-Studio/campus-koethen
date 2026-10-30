@@ -3,8 +3,10 @@
 
 import 'package:campus_koethen/features/calendar/application/calendar_merge.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
+import 'package:campus_koethen/features/calendar/domain/calendar_entry_details.dart';
 import 'package:campus_koethen/features/events/domain/saved_event_snapshot.dart';
 import 'package:campus_koethen/features/events/domain/unified_event.dart';
+import 'package:campus_koethen/features/news/data/news_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 SavedEventSnapshot _saved({
@@ -45,6 +47,26 @@ CalendarEntry _livePublicEntry({
   calendarSlug: calendarSlug,
 );
 
+/// A live event post as the calendar shows it (fictional demo post).
+CalendarEntry _livePostEntry({
+  String slug = 'sommerfest',
+  String channel = 'campus-events',
+  DateTime? start,
+}) {
+  final DateTime eventStart = start ?? DateTime.utc(2026, 8, 10, 18);
+  final NewsArticle article = NewsArticle.fromJson(<String, dynamic>{
+    'slug': slug,
+    'title': 'Demo-Beitrag',
+    'publishedAt': '2026-08-01T09:00:00.000Z',
+    'channels': <Object>[],
+    'tag': <String, dynamic>{'slug': 'event', 'name': 'Event'},
+    'primaryChannel': <String, dynamic>{'slug': channel, 'name': 'Demo'},
+    'content': <Object>[],
+    'eventStart': eventStart.toIso8601String(),
+  })!;
+  return eventPostsToCalendarEntries(<NewsArticle>[article]).single;
+}
+
 void main() {
   group('savedEventEntriesForCalendar', () {
     test('a saved calendar snapshot already live is not duplicated', () {
@@ -54,6 +76,47 @@ void main() {
         channelSlugByCalendarSlug: const <String, String?>{},
       );
       expect(out, isEmpty);
+    });
+
+    test('a saved post already shown live is not duplicated', () {
+      final CalendarEntry live = _livePostEntry(slug: 'sommerfest');
+      expect(live.details, isA<PostEventDetails>());
+
+      final List<CalendarEntry> out = savedEventEntriesForCalendar(
+        saved: <SavedEventSnapshot>[
+          _saved(
+            eventRef: 'post:sommerfest',
+            kind: UnifiedEventKind.postEvent,
+            channelSlug: 'campus-events',
+            calendarSlug: null,
+          ),
+        ],
+        liveEntries: <CalendarEntry>[live],
+        channelSlugByCalendarSlug: const <String, String?>{},
+      );
+      expect(out, isEmpty);
+    });
+
+    test('a saved calendar event a live post supersedes is not duplicated', () {
+      final List<CalendarEntry> out = savedEventEntriesForCalendar(
+        saved: <SavedEventSnapshot>[
+          _saved(eventRef: 'calendar:key1', channelSlug: 'campus-events'),
+        ],
+        liveEntries: <CalendarEntry>[_livePostEntry(channel: 'campus-events')],
+        channelSlugByCalendarSlug: const <String, String?>{},
+      );
+      expect(out, isEmpty);
+    });
+
+    test('a live post of another channel leaves a saved event alone', () {
+      final List<CalendarEntry> out = savedEventEntriesForCalendar(
+        saved: <SavedEventSnapshot>[
+          _saved(eventRef: 'calendar:key1', channelSlug: 'campus-events'),
+        ],
+        liveEntries: <CalendarEntry>[_livePostEntry(channel: 'kultur')],
+        channelSlugByCalendarSlug: const <String, String?>{},
+      );
+      expect(out, hasLength(1));
     });
 
     test(

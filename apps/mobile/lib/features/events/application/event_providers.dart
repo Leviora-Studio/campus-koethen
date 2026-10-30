@@ -85,10 +85,10 @@ DateTime? _parseWindowEndExclusive(String? isoDate) {
   return start?.add(const Duration(days: 1));
 }
 
-/// All public-calendar events across every calendar in the catalogue (not
-/// only the reader's own calendar-screen selection — the event overview
-/// aggregates every source, and the event-source filter is what narrows it
-/// down from there), for the server's own default window.
+/// All public-calendar events across every calendar in the catalogue that
+/// belongs to a channel — the event-source filter is what narrows it down from
+/// there — for the server's own default window. A calendar without a channel
+/// is never offered: the filter has no option it could belong to.
 final FutureProvider<Loaded<List<PublicCalendarEvent>>>
 eventCalendarsOverviewProvider =
     FutureProvider<Loaded<List<PublicCalendarEvent>>>((Ref ref) async {
@@ -97,6 +97,7 @@ eventCalendarsOverviewProvider =
         publicCalendarsCatalogProvider.future,
       )).value;
       final List<String> slugs = catalog
+          .where((PublicCalendar c) => c.channelSlug != null)
           .map((PublicCalendar c) => c.slug)
           .toList(growable: false);
       if (slugs.isEmpty) {
@@ -137,18 +138,15 @@ Future<void> _reconcileSavedCalendarEvents(
       );
 }
 
-/// Every event-source filter option, built from the channel and public
-/// calendar catalogues, folding a channel and its mapped calendar into one
-/// option — "Filteroptionen bilden zugeordneten Channel plus Kalender genau
-/// einmal ab, nicht zugeordnete Kalender einzeln". Also the single place a
-/// freshly seen option is folded into the persisted filter selection.
+/// Every event-source filter option: one per channel, its public calendar (if
+/// any) folded in. A calendar without a channel has no option and is not shown
+/// anywhere. Also the single place a freshly seen option is folded into the
+/// persisted filter selection — the one selection the event overview AND the
+/// calendar read.
 final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
     FutureProvider<List<EventSourceOption>>((Ref ref) async {
       final List<NewsChannel> channels = (await ref.watch(
         newsChannelsProvider.future,
-      )).value;
-      final List<PublicCalendar> calendars = (await ref.watch(
-        publicCalendarsCatalogProvider.future,
       )).value;
 
       final List<EventSourceOption> options = <EventSourceOption>[];
@@ -166,15 +164,6 @@ final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
           );
         }
       }
-      for (final PublicCalendar calendar in calendars) {
-        if (calendar.channelSlug != null) continue; // folded into its channel
-        if (seenKeys.add(calendar.slug)) {
-          options.add(
-            EventSourceOption(key: calendar.slug, label: calendar.name),
-          );
-        }
-      }
-
       await ref.read(eventSourceFilterProvider.notifier).reconcile(options);
       return options;
     });
@@ -224,17 +213,17 @@ final Provider<List<UnifiedEvent>> rawUnifiedEventsProvider =
           .where((NewsArticle a) => a.isEventPost)
           .map(postToUnifiedEvent)
           .toList();
-      final List<UnifiedEvent> mappedCalendarEvents = calendarEvents.map((
-        PublicCalendarEvent e,
-      ) {
-        final PublicCalendar? calendar = bySlug[e.calendarSlug];
-        return calendarToUnifiedEvent(
-          e,
-          channelSlug: calendar?.channelSlug,
-          calendarName: calendar?.name,
-          colorHex: calendar?.colorHex,
-        );
-      }).toList();
+      final List<UnifiedEvent> mappedCalendarEvents = <UnifiedEvent>[
+        for (final PublicCalendarEvent e in calendarEvents)
+          if (bySlug[e.calendarSlug] case final PublicCalendar calendar
+              when calendar.channelSlug != null)
+            calendarToUnifiedEvent(
+              e,
+              channelSlug: calendar.channelSlug,
+              calendarName: calendar.name,
+              colorHex: calendar.colorHex,
+            ),
+      ];
 
       return mergeEventSources(
         postEvents: postEvents,

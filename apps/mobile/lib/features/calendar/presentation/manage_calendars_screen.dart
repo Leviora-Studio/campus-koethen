@@ -5,15 +5,16 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_dimensions.dart';
 import '../../../l10n/l10n.dart';
-import 'public_calendar_list.dart';
+import 'event_channel_list.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 import '../../../app/app_modules.dart';
 
-/// "Kalender verwalten": activate/deactivate the public calendars (Y of X) and
-/// open them in Google Calendar.
+/// "Kalender verwalten": choose the channels whose events the calendar shows,
+/// and open their public calendars in Google Calendar.
 ///
 /// The full-screen form of the same choice the calendar's "Events" sheet
-/// offers — both are [PublicCalendarList], so there is one selection, not two.
+/// offers — both are [EventChannelList], writing the event overview's own
+/// source filter, so there is one selection, not three.
 /// Reached from the onboarding, where a bottom sheet would be out of place.
 class ManageCalendarsScreen extends StatelessWidget {
   const ManageCalendarsScreen({super.key});
@@ -41,7 +42,7 @@ class ManageCalendarsScreen extends StatelessWidget {
               ),
             ),
           ),
-          const Expanded(child: PublicCalendarList()),
+          const Expanded(child: EventChannelList()),
         ],
       ),
     );

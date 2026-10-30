@@ -19,6 +19,7 @@ import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/time/clock.dart';
+import 'package:campus_koethen/features/calendar/application/calendar_event_providers.dart';
 import 'package:campus_koethen/features/calendar/application/public_calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
 import 'package:campus_koethen/features/calendar/domain/public_calendar.dart';
@@ -184,7 +185,7 @@ Future<ProviderContainer> harness({
         (Ref ref, TimetableWeekRequest request) =>
             loaded(timetable ?? timetableWith(const <DateTime>[])),
       ),
-      publicCalendarMonthEntriesProvider.overrideWith(
+      calendarEventMonthEntriesProvider.overrideWith(
         (Ref ref, DateTime anchor) => publicEntries,
       ),
       publicCalendarsCatalogProvider.overrideWith(

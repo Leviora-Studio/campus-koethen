@@ -7,6 +7,7 @@ import '../../events/domain/event_source_label.dart';
 import '../../events/domain/saved_event_snapshot.dart';
 import '../../events/domain/unified_event.dart';
 import '../../moodle/domain/moodle_deadline.dart';
+import '../../news/data/news_models.dart';
 import '../../timetable/data/timetable_models.dart';
 import '../domain/calendar_entry.dart';
 import '../domain/calendar_entry_details.dart';
@@ -127,6 +128,30 @@ List<CalendarEntry> publicCalendarEventsToCalendarEntries(
   }).toList();
 }
 
+/// Maps event posts to calendar entries, coloured and labelled by the channel
+/// they belong to — the same attribution the event overview shows. Posts that
+/// are not event posts are skipped.
+List<CalendarEntry> eventPostsToCalendarEntries(Iterable<NewsArticle> posts) =>
+    posts
+        .where((NewsArticle post) => post.isEventPost)
+        .map(
+          (NewsArticle post) => CalendarEntry(
+            id: 'postEvent:${post.slug}',
+            source: CalendarSource.postEvent,
+            title: post.title,
+            start: post.eventStart!,
+            end: post.eventEnd,
+            allDay: post.eventAllDay,
+            sourceLabel: eventSourceDisplayLabel(
+              post.primaryChannel.name,
+              isChannelSource: true,
+            ),
+            colorArgb: parseHexColorArgb(post.primaryChannel.colorHex),
+            details: PostEventDetails(article: post),
+          ),
+        )
+        .toList();
+
 /// Maps a saved snapshot ("Meine gemerkten Events") to its calendar entry, so
 /// a bookmarked event shows up in the cross-source calendar with its own
 /// source and a bookmark to mark it apart from a live entry.
@@ -148,18 +173,50 @@ CalendarEntry savedEventSnapshotToCalendarEntry(SavedEventSnapshot snapshot) =>
             ),
     );
 
-/// The live public-calendar entry's own `eventRef`, in the same
+/// The live entry's own `eventRef`, in the same `post:<slug>` /
 /// `calendar:<id>` form [UnifiedEvent]/[SavedEventSnapshot] use, or `null`
-/// when [entry] is not a public-calendar entry. Derived from
-/// [CalendarEntry.id] (`publicCalendar:<calendarSlug>:<eventId>`) rather than
-/// a second identity field, so the two can never drift apart.
-String? _livePublicCalendarEventRef(CalendarEntry entry) {
+/// when [entry] is neither an event post nor a public-calendar entry. Derived
+/// from [CalendarEntry.id] (`postEvent:<slug>`,
+/// `publicCalendar:<calendarSlug>:<eventId>`) rather than a second identity
+/// field, so the two can never drift apart.
+String? _liveEventRef(CalendarEntry entry) {
+  if (entry.source == CalendarSource.postEvent) {
+    const String prefix = 'postEvent:';
+    if (!entry.id.startsWith(prefix)) return null;
+    return 'post:${entry.id.substring(prefix.length)}';
+  }
   if (entry.source != CalendarSource.publicCalendar) return null;
   final String? slug = entry.calendarSlug;
   if (slug == null) return null;
   final String prefix = 'publicCalendar:$slug:';
   if (!entry.id.startsWith(prefix)) return null;
   return 'calendar:${entry.id.substring(prefix.length)}';
+}
+
+/// A live entry as the [UnifiedEvent] the dedup rule compares, or `null` for
+/// a source the rule does not cover.
+UnifiedEvent? _liveAsUnified(
+  CalendarEntry entry,
+  Map<String, String?> channelSlugByCalendarSlug,
+) {
+  final String? ref = _liveEventRef(entry);
+  if (ref == null) return null;
+  final bool isPost = entry.source == CalendarSource.postEvent;
+  final CalendarEntryDetails? details = entry.details;
+  return UnifiedEvent(
+    eventRef: ref,
+    kind: isPost ? UnifiedEventKind.postEvent : UnifiedEventKind.calendarEvent,
+    title: entry.title,
+    start: entry.start,
+    end: entry.end,
+    allDay: entry.allDay,
+    channelSlug: isPost
+        ? (details is PostEventDetails ? details.channelSlug : null)
+        : entry.calendarSlug == null
+        ? null
+        : channelSlugByCalendarSlug[entry.calendarSlug],
+    calendarSlug: entry.calendarSlug,
+  );
 }
 
 /// Which saved snapshots still need their own calendar entry, once the ones a
@@ -169,12 +226,12 @@ String? _livePublicCalendarEventRef(CalendarEntry entry) {
 /// Reuses the events feature's own dedup rule
 /// (`event_dedup.isDuplicateCalendarEvent`) rather than a second, UI-side
 /// implementation of the same check. A saved snapshot is dropped when:
-/// * its `eventRef` names exactly the live public-calendar entry already
-///   shown (the common case: a bookmarked calendar occurrence still present
-///   live), or
-/// * it is a saved event post whose minute-exact start, all-day flag and
-///   mapped channel match a live public-calendar entry — the same
-///   post-suppresses-calendar-duplicate rule the event overview applies.
+/// * its `eventRef` names exactly a live entry already shown (the common
+///   case: a bookmarked post or calendar occurrence still present live), or
+/// * the rule pairs it with a live entry of the other kind: a saved post with
+///   a live calendar event, or a saved calendar event with the live post that
+///   supersedes it — the same post-suppresses-calendar-duplicate rule the
+///   event overview applies.
 ///
 /// [channelSlugByCalendarSlug] resolves a live public-calendar entry's
 /// channel attribution (from the calendar catalogue), the same lookup the
@@ -185,39 +242,29 @@ List<CalendarEntry> savedEventEntriesForCalendar({
   required List<CalendarEntry> liveEntries,
   required Map<String, String?> channelSlugByCalendarSlug,
 }) {
-  final Set<String> liveRefs = liveEntries
-      .map(_livePublicCalendarEventRef)
-      .whereType<String>()
-      .toSet();
-  final List<UnifiedEvent> livePublicAsUnified = liveEntries
-      .where((CalendarEntry e) => e.source == CalendarSource.publicCalendar)
-      .map(
-        (CalendarEntry e) => UnifiedEvent(
-          eventRef: _livePublicCalendarEventRef(e) ?? e.id,
-          kind: UnifiedEventKind.calendarEvent,
-          title: e.title,
-          start: e.start,
-          end: e.end,
-          allDay: e.allDay,
-          channelSlug: e.calendarSlug == null
-              ? null
-              : channelSlugByCalendarSlug[e.calendarSlug],
-          calendarSlug: e.calendarSlug,
-        ),
-      )
+  final List<UnifiedEvent> live = liveEntries
+      .map((CalendarEntry e) => _liveAsUnified(e, channelSlugByCalendarSlug))
+      .whereType<UnifiedEvent>()
       .toList();
+  final Set<String> liveRefs = live.map((UnifiedEvent e) => e.eventRef).toSet();
 
   // The same rule, asked as a lookup rather than once per (snapshot, live
   // entry) pair — see [EventDedupIndex].
-  final EventDedupIndex liveByDedupKey = EventDedupIndex(livePublicAsUnified);
+  final EventDedupIndex livePosts = EventDedupIndex(
+    live.where((UnifiedEvent e) => e.kind == UnifiedEventKind.postEvent),
+  );
+  final EventDedupIndex liveCalendarEvents = EventDedupIndex(
+    live.where((UnifiedEvent e) => e.kind == UnifiedEventKind.calendarEvent),
+  );
 
   final List<CalendarEntry> out = <CalendarEntry>[];
   for (final SavedEventSnapshot snapshot in saved) {
     if (liveRefs.contains(snapshot.eventRef)) continue;
-    if (snapshot.kind == UnifiedEventKind.postEvent &&
-        liveByDedupKey.hasCounterpartOf(snapshot.toUnifiedEvent())) {
-      continue;
-    }
+    final EventDedupIndex otherKind =
+        snapshot.kind == UnifiedEventKind.postEvent
+        ? liveCalendarEvents
+        : livePosts;
+    if (otherKind.hasCounterpartOf(snapshot.toUnifiedEvent())) continue;
     out.add(savedEventSnapshotToCalendarEntry(snapshot));
   }
   return out;

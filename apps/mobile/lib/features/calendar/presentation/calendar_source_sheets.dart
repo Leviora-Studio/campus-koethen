@@ -18,7 +18,7 @@ import '../../timetable/presentation/timetable_group_picker_sheet.dart';
 import '../../timetable/presentation/timetable_lesson_info_filter_sheet.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_entry.dart';
-import 'public_calendar_list.dart';
+import 'event_channel_list.dart';
 
 /// Opens the list of everything the calendar is merged from.
 ///
@@ -352,7 +352,7 @@ class _EventsSourceSheet extends ConsumerWidget {
       title: l10n.calendarSectionPublic,
       children: const <Widget>[
         // The same list the manage screen shows, writing the same selection.
-        PublicCalendarList(shrinkWrap: true),
+        EventChannelList(shrinkWrap: true),
       ],
     );
   }

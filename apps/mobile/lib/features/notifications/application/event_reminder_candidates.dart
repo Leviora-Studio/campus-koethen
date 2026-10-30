@@ -7,6 +7,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../../core/locale/formatters.dart';
 import '../../../core/locale/locale_providers.dart';
 import '../../calendar/application/calendar_merge.dart';
+import '../../calendar/application/calendar_event_providers.dart';
 import '../../calendar/application/public_calendar_providers.dart';
 import '../../calendar/domain/calendar_entry.dart';
 import '../../calendar/domain/public_calendar.dart';
@@ -166,7 +167,7 @@ final Provider<List<CalendarEntry>> notificationEventEntriesProvider =
       for (int i = 0; i < kEventReminderHorizonMonths; i++) {
         final DateTime month = DateTime(now.year, now.month + i);
         live.addAll(
-          ref.watch(publicCalendarMonthEntriesProvider(month)).value ??
+          ref.watch(calendarEventMonthEntriesProvider(month)).value ??
               const <CalendarEntry>[],
         );
       }

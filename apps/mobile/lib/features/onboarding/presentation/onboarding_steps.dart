@@ -14,7 +14,7 @@ import '../../../core/widgets/brand_mark.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../l10n/l10n.dart';
-import '../../calendar/presentation/public_calendar_list.dart';
+import '../../calendar/presentation/event_channel_list.dart';
 import '../../campusmap/application/campus_map_providers.dart';
 import '../../campusmap/domain/map_catalog.dart';
 import '../../canteen/application/canteen_providers.dart';
@@ -314,7 +314,8 @@ class _TimetableGroupStep extends StatelessWidget {
   }
 }
 
-/// News channels and public calendars, picked **inside** the setup.
+/// News channels and the channels whose events to show, picked **inside**
+/// the setup.
 ///
 /// These used to be rows that pushed the settings screens. That could not
 /// work: while the setup is unfinished the router sends every other route
@@ -337,7 +338,7 @@ class _ContentPickers extends StatelessWidget {
         const ChannelPickerList(),
         const SizedBox(height: AppSpacing.lg),
         _StepLabel(l10n.onboardingOpenCalendars),
-        const PublicCalendarList(shrinkWrap: true),
+        const EventChannelList(shrinkWrap: true),
       ],
     );
   }

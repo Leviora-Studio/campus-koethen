@@ -461,7 +461,7 @@ void main() {
       expect(find.text('Im Kalender anzeigen'), findsNothing);
     });
 
-    testWidgets('events leads to the public calendars', (
+    testWidgets("events leads to the Events tab's channel choice", (
       WidgetTester tester,
     ) async {
       await pumpCalendar(tester);
@@ -470,7 +470,7 @@ void main() {
       await tester.tap(find.text('Events'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Öffentliche Kalender'), findsOneWidget);
+      expect(find.text('Events nach Channel'), findsOneWidget);
       expect(find.text('Ausgewählte in Google Kalender öffnen'), findsNothing);
     });
   });

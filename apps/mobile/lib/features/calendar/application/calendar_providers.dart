@@ -18,6 +18,7 @@ import '../../timetable/application/timetable_week.dart';
 import '../../timetable/data/timetable_models.dart';
 import '../domain/calendar_entry.dart';
 import '../domain/public_calendar.dart';
+import 'calendar_event_providers.dart';
 import 'calendar_merge.dart';
 import 'public_calendar_providers.dart';
 
@@ -374,9 +375,7 @@ final _calendarMonthDataProvider = Provider.family<CalendarData, DateTime>(
   (Ref ref, DateTime anchor) => _buildCalendarData(
     ref,
     timetableWeekStarts: monthWeekStarts(anchor),
-    publicCalendarEntries: ref.watch(
-      publicCalendarMonthEntriesProvider(anchor),
-    ),
+    publicCalendarEntries: ref.watch(calendarEventMonthEntriesProvider(anchor)),
   ),
   isAutoDispose: true,
 );
@@ -412,7 +411,7 @@ final _calendarListDataProvider = Provider.family<CalendarData, DateTime>((
     timetableWeekStarts: const <DateTime>[],
     timetableRanges: timetableRanges,
     timetableMetadataLoading: groups?.isLoading ?? false,
-    publicCalendarEntries: ref.watch(publicCalendarListEntriesProvider(today)),
+    publicCalendarEntries: ref.watch(calendarEventListEntriesProvider(today)),
     windowFrom: today,
   );
 }, isAutoDispose: true);
@@ -508,7 +507,9 @@ CalendarData _buildCalendarData(
     }
   }
 
-  // --- Source 3: public Google calendars (via Campus API). Independent too.
+  // --- Source 3: events — the event posts and public calendars of the
+  // channels selected in the shared event-source filter (via Campus API).
+  // Independent too.
   final List<CalendarEntry> publicEntries = <CalendarEntry>[];
   bool publicLoading = false;
   bool publicError = false;
@@ -519,7 +520,7 @@ CalendarData _buildCalendarData(
   );
 
   // --- Source 4 (optional, opt-in): "Meine gemerkten Events". Independent
-  // too, and deduplicated against the live public-calendar entries above via
+  // too, and deduplicated against the live event entries above via
   // the events feature's own reusable dedup rule — never a second
   // implementation of it.
   final List<CalendarEntry> savedEventEntries = <CalendarEntry>[];

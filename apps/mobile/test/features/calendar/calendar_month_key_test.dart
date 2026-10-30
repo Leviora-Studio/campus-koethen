@@ -8,6 +8,7 @@ import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/time/clock.dart';
+import 'package:campus_koethen/features/calendar/application/calendar_event_providers.dart';
 import 'package:campus_koethen/features/calendar/application/calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/application/public_calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
@@ -27,6 +28,7 @@ import '../../support/fake_http_adapter.dart';
 Map<String, dynamic> get _calendar => <String, dynamic>{
   'id': 'cal-1',
   'slug': 'campus',
+  'channelSlug': 'campus-kanal',
   'name': 'Campus',
   'colorHex': '#5B3FD0',
   'sortOrder': 0,
@@ -50,6 +52,19 @@ void main() {
     requests = <RequestOptions>[];
     final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
       requests.add(options);
+      if (options.path == '/posts/channels') {
+        return FakeHttpResponse(
+          envelope(<Object>[
+            <String, dynamic>{
+              'slug': 'campus-kanal',
+              'name': 'Campus (Demo)',
+              'colorHex': '#5B3FD0',
+              'sortOrder': 0,
+              'defaultSubscribed': true,
+            },
+          ]),
+        );
+      }
       if (options.path == '/calendars') {
         return FakeHttpResponse(
           envelope(<Object>[_calendar], meta: catalogueMeta),
@@ -176,10 +191,10 @@ void main() {
     await loadCatalogue(c);
 
     await c.read(
-      publicCalendarMonthEntriesProvider(DateTime(2026, 5, 4)).future,
+      calendarEventMonthEntriesProvider(DateTime(2026, 5, 4)).future,
     );
     await c.read(
-      publicCalendarMonthEntriesProvider(DateTime(2026, 5, 27)).future,
+      calendarEventMonthEntriesProvider(DateTime(2026, 5, 27)).future,
     );
 
     expect(
@@ -194,10 +209,10 @@ void main() {
     await loadCatalogue(c);
 
     await c.read(
-      publicCalendarMonthEntriesProvider(DateTime(2026, 5, 4)).future,
+      calendarEventMonthEntriesProvider(DateTime(2026, 5, 4)).future,
     );
     await c.read(
-      publicCalendarMonthEntriesProvider(DateTime(2026, 6, 4)).future,
+      calendarEventMonthEntriesProvider(DateTime(2026, 6, 4)).future,
     );
 
     expect(eventRequests(), hasLength(2));
@@ -215,7 +230,7 @@ void main() {
     await loadCatalogue(c);
 
     final List<CalendarEntry> entries = await c.read(
-      publicCalendarListEntriesProvider(DateTime(2026, 9, 24, 18)).future,
+      calendarEventListEntriesProvider(DateTime(2026, 9, 24, 18)).future,
     );
 
     final List<RequestOptions> chunks = requests
@@ -249,7 +264,7 @@ void main() {
       await loadCatalogue(c);
 
       final List<CalendarEntry> entries = await c.read(
-        publicCalendarListEntriesProvider(DateTime(2026, 9, 24)).future,
+        calendarEventListEntriesProvider(DateTime(2026, 9, 24)).future,
       );
 
       expect(
@@ -377,7 +392,7 @@ void main() {
     );
     first.read();
     await c.read(
-      publicCalendarMonthEntriesProvider(DateTime(2026, 5, 4)).future,
+      calendarEventMonthEntriesProvider(DateTime(2026, 5, 4)).future,
     );
     final int before = eventRequests().length;
     expect(before, 1);

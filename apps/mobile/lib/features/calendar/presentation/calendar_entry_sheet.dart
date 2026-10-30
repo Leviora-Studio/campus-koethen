@@ -38,9 +38,9 @@ Future<void> showCalendarEntrySheet(
   builder: (BuildContext context) => _CalendarEntryPopup(entry: entry),
 );
 
-/// Selects the richer post popup only for a bookmarked post event.
+/// Selects the richer post popup for an event post — live, or bookmarked.
 ///
-/// Saved calendar occurrences use the same `savedEvents` calendar source, so
+/// A live event post carries its post along. Saved calendar occurrences use the same `savedEvents` calendar source, so
 /// the source enum alone is insufficient. Their stable ids preserve the
 /// original `post:<slug>` / `calendar:<id>` event reference and keep the two
 /// cases unambiguous.
@@ -51,6 +51,9 @@ class _CalendarEntryPopup extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (entry.details case PostEventDetails(:final NewsArticle article)) {
+      return _PostSheet(article: article);
+    }
     final String? postSlug = _savedPostSlug(entry);
     if (postSlug == null) return CalendarEntrySheet(entry: entry);
 
@@ -60,20 +63,7 @@ class _CalendarEntryPopup extends ConsumerWidget {
     final NewsArticle? article = posts.value?.articles
         .where((NewsArticle article) => article.slug == postSlug)
         .firstOrNull;
-    if (article != null) {
-      return SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: ArticleBlock(article: article, showFullContent: true),
-        ),
-      );
-    }
+    if (article != null) return _PostSheet(article: article);
 
     if (posts.isLoading) {
       return const SafeArea(
@@ -89,6 +79,27 @@ class _CalendarEntryPopup extends ConsumerWidget {
     // snapshot still has its date, title and source and remains useful.
     return CalendarEntrySheet(entry: entry);
   }
+}
+
+/// An event post, opened in full exactly as the news feed shows it.
+class _PostSheet extends StatelessWidget {
+  const _PostSheet({required this.article});
+
+  final NewsArticle article;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      child: ArticleBlock(article: article, showFullContent: true),
+    ),
+  );
 }
 
 String? _savedPostSlug(CalendarEntry entry) {
@@ -336,6 +347,9 @@ class CalendarEntrySheet extends ConsumerWidget {
             Text(description, style: text.bodyMedium),
           ],
         ],
+      // Opened as the post itself by [showCalendarEntrySheet]; this sheet is
+      // only the fallback, and its flattened fields already say it all.
+      PostEventDetails() => const <Widget>[],
       // An entry built before the details existed, or from a source that has
       // none: the flattened fields still say everything the agenda showed.
       null => <Widget>[

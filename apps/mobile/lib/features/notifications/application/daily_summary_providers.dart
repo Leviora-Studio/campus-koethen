@@ -7,6 +7,7 @@ import '../../../core/locale/locale_providers.dart';
 import '../../../core/network/loaded.dart';
 import '../../../l10n/l10n.dart';
 import '../../calendar/application/calendar_merge.dart';
+import '../../calendar/application/calendar_event_providers.dart';
 import '../../calendar/application/public_calendar_providers.dart';
 import '../../calendar/domain/calendar_entry.dart';
 import '../../calendar/domain/public_calendar.dart';
@@ -178,7 +179,7 @@ Iterable<CalendarEntry> _eventEntries(
   final List<CalendarEntry> live = <CalendarEntry>[];
   for (final DateTime anchor in _monthAnchors(today, lastDay)) {
     live.addAll(
-      ref.watch(publicCalendarMonthEntriesProvider(anchor)).value ??
+      ref.watch(calendarEventMonthEntriesProvider(anchor)).value ??
           const <CalendarEntry>[],
     );
   }

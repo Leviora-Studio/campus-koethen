@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/sync/foreground_refresh_scheduler.dart';
+import '../features/calendar/application/calendar_event_providers.dart';
 import '../features/calendar/application/public_calendar_providers.dart';
 import '../features/contacts/application/contacts_providers.dart';
 import '../features/mail/application/mail_account_controller.dart';
@@ -108,7 +109,8 @@ class _AppSyncHostState extends ConsumerState<AppSyncHost>
 
   Future<void> _refreshCalendars() async {
     ref.invalidate(publicCalendarsCatalogProvider);
-    ref.invalidate(publicCalendarMonthEntriesProvider);
+    ref.invalidate(calendarEventMonthEntriesProvider);
+    ref.invalidate(calendarEventListEntriesProvider);
     await ref.read(publicCalendarsCatalogProvider.future);
   }
 

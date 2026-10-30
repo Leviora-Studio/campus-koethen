@@ -286,7 +286,7 @@ void main() {
     // The pickers are here, in the step — not behind a route that the
     // redirect would bounce straight back to step one.
     expect(find.text('News-Kanäle wählen'), findsOneWidget);
-    expect(find.text('Öffentliche Kalender wählen'), findsOneWidget);
+    expect(find.text('Events nach Channel wählen'), findsOneWidget);
     expect(find.text('Schritt 1 von 5'), findsNothing);
   });
 

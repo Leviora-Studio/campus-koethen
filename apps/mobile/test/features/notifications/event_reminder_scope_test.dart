@@ -6,6 +6,7 @@ import 'package:campus_koethen/core/prefs/settings_controller.dart';
 import 'package:campus_koethen/core/network/api_meta.dart';
 import 'package:campus_koethen/core/network/loaded.dart';
 import 'package:campus_koethen/core/time/clock.dart';
+import 'package:campus_koethen/features/calendar/application/calendar_event_providers.dart';
 import 'package:campus_koethen/features/calendar/application/calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/application/public_calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
@@ -122,7 +123,7 @@ Future<ProviderContainer> containerWith({
       ),
       // Only the month the fixtures live in answers with anything; the rest of
       // the horizon is empty, exactly as an unfetched month would be.
-      publicCalendarMonthEntriesProvider.overrideWith(
+      calendarEventMonthEntriesProvider.overrideWith(
         (Ref ref, DateTime anchor) async =>
             anchor.month == 7 ? live : const <CalendarEntry>[],
       ),
@@ -136,7 +137,7 @@ Future<ProviderContainer> containerWith({
   // known yet" — which is a different rule, tested separately below.
   await container.read(savedEventsControllerProvider.future);
   await container.read(
-    publicCalendarMonthEntriesProvider(DateTime(2026, 7)).future,
+    calendarEventMonthEntriesProvider(DateTime(2026, 7)).future,
   );
   await container.read(publicCalendarsCatalogProvider.future);
   await container.read(notificationLocationProvider.future);
@@ -201,7 +202,7 @@ void main() {
     test('a deselected public calendar DOES change it', () async {
       // The other half of the same rule: the calendar *selection* is part of
       // the scope, the calendar *view filter* is not. The selection is applied
-      // one level down, in `publicCalendarMonthEntriesProvider`, which answers
+      // one level down, in `calendarEventMonthEntriesProvider`, which answers
       // with nothing when nothing is selected.
       final ProviderContainer container = await containerWith();
 
@@ -316,7 +317,7 @@ void main() {
             timeZoneResolverProvider.overrideWithValue(
               FixedTimeZoneResolver('Europe/Berlin'),
             ),
-            publicCalendarMonthEntriesProvider.overrideWith(
+            calendarEventMonthEntriesProvider.overrideWith(
               (Ref ref, DateTime anchor) =>
                   Future<List<CalendarEntry>>.error(Exception('offline')),
             ),

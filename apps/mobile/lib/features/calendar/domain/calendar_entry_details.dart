@@ -3,6 +3,7 @@
 
 import 'package:meta/meta.dart';
 
+import '../../news/data/news_models.dart';
 import '../../timetable/data/timetable_models.dart';
 
 /// What a calendar entry still knows about where it came from.
@@ -129,6 +130,31 @@ class PublicCalendarDetails extends CalendarEntryDetails {
 
   @override
   int get hashCode => Object.hash(calendarName, location, description);
+}
+
+/// An event post, written by the editors of its channel.
+///
+/// Carries the whole post rather than a few of its fields: the calendar opens
+/// an event post as the post itself, exactly as the news feed shows it.
+@immutable
+class PostEventDetails extends CalendarEntryDetails {
+  const PostEventDetails({required this.article});
+
+  final NewsArticle article;
+
+  /// The channel the post — and so the calendar entry — is attributed to.
+  String get channelSlug => article.primaryChannel.slug;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostEventDetails &&
+      (identical(other.article, article) ||
+          (other.article.slug == article.slug &&
+              other.article.title == article.title &&
+              other.article.publishedAt == article.publishedAt));
+
+  @override
+  int get hashCode => Object.hash(article.slug, article.title);
 }
 
 bool _sameList(List<String> a, List<String> b) {

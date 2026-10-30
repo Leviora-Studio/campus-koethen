@@ -14,6 +14,7 @@ import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/network/api_client.dart';
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/core/theme/app_dimensions.dart';
+import 'package:campus_koethen/features/calendar/application/calendar_merge.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry_details.dart';
 import 'package:campus_koethen/features/calendar/presentation/calendar_entry_sheet.dart';
@@ -326,6 +327,17 @@ void main() {
 
       expect(find.textContaining('auf dem Plan'), findsNothing);
     });
+  });
+
+  testWidgets('a live event post opens as the full post, even outside the '
+      "event overview's window", (WidgetTester tester) async {
+    await pumpPopup(
+      tester,
+      eventPostsToCalendarEntries(<NewsArticle>[eventPost()]).single,
+    );
+
+    expect(find.text('Der vollständige Beitrag.'), findsOneWidget);
+    expect(find.byType(CalendarEntrySheet), findsNothing);
   });
 
   group('a saved event in the calendar', () {

@@ -6,8 +6,8 @@ import 'package:campus_koethen/core/network/loaded.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
 import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/prefs/settings_controller.dart';
+import 'package:campus_koethen/features/calendar/application/calendar_event_providers.dart';
 import 'package:campus_koethen/features/calendar/application/calendar_providers.dart';
-import 'package:campus_koethen/features/calendar/application/public_calendar_providers.dart';
 import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_lesson_info_filter.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_providers.dart';
@@ -41,7 +41,7 @@ void main() {
             (Ref ref, TimetableWeekRequest request) async =>
                 Loaded<Timetable>(value: timetable, meta: ApiMeta.empty),
           ),
-          publicCalendarMonthEntriesProvider.overrideWith(
+          calendarEventMonthEntriesProvider.overrideWith(
             (Ref ref, DateTime anchor) async => const <CalendarEntry>[],
           ),
         ],
@@ -58,7 +58,7 @@ void main() {
               ),
             ).future,
           ),
-        container.read(publicCalendarMonthEntriesProvider(monday).future),
+        container.read(calendarEventMonthEntriesProvider(monday).future),
       ]);
       await container.pump();
 
