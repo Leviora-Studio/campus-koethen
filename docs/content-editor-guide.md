@@ -74,7 +74,10 @@ Oben rechts im Editor wird die Locale umgeschaltet. Wichtig:
 
 Ein öffentlicher Google-Kalender erscheint in der App **nur über seinen Kanal**:
 Seine Termine stehen im Reiter Events und im Kalender bei genau diesem Kanal und
-tragen dessen Farbe. Ein Kalender ohne Kanal wird nicht angezeigt.
+tragen dessen Farbe. Ein Kalender ohne Kanal wird nicht angezeigt. Jeder Kanal
+hat höchstens einen Kalender: Ist einem Kanal schon ein Kalender zugeordnet,
+lehnt Strapi das Speichern einer zweiten Zuordnung mit einem Hinweis ab — erst
+die bestehende Zuordnung entfernen.
 
 Ein neuer Kanal erscheint **ohne App-Update und ohne Code-Änderung**. Vor der
 Veröffentlichung die englische Beschreibung ergänzen und beide Sprachfassungen

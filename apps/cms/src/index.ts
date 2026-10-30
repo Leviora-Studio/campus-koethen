@@ -3,6 +3,10 @@ import { ensureLocales } from './bootstrap/locales';
 import { ensureRoomAdminConfiguration } from './bootstrap/room-admin-configuration';
 import { ensureTags, seedDemoContent } from './bootstrap/seed';
 import { createRoomGuard } from './catalog/room-guard';
+import {
+  createCalendarChannelGuard,
+  strapiCalendarChannelLookup,
+} from './editorial/calendar-channel-guard';
 import { createEditorialGuard } from './editorial/post-guard';
 
 export default {
@@ -12,15 +16,18 @@ export default {
    * Installs guards into the document-service middleware chain:
    *  1. Room guard: protects catalogue-managed technical fields
    *  2. Editorial guard: enforces post requirements, reserved slugs, primary channels, and event times
+   *  3. Calendar-channel guard: one public calendar per channel
    */
   register({ strapi }: { strapi: Core.Strapi }) {
     const roomGuard = createRoomGuard({
       warn: (message: string) => strapi.log.warn(`[rooms] ${message}`),
     });
     const editorialGuard = createEditorialGuard(strapi);
+    const calendarChannelGuard = createCalendarChannelGuard(strapiCalendarChannelLookup(strapi));
 
     strapi.documents.use((context, next) => roomGuard(context as never, next as never));
     strapi.documents.use((context, next) => editorialGuard(context as never, next as never));
+    strapi.documents.use((context, next) => calendarChannelGuard(context as never, next as never));
   },
 
   /**

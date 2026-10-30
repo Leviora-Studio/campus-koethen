@@ -57,7 +57,7 @@ export function validateEventDates(eventStart: unknown, eventEnd: unknown): void
   }
 }
 
-function extractRelationId(rel: unknown): string | number | null {
+export function extractRelationId(rel: unknown): string | number | null {
   if (typeof rel === 'string' || typeof rel === 'number') return rel;
   if (typeof rel === 'object' && rel !== null) {
     const rec = rel as Record<string, unknown>;
@@ -73,7 +73,7 @@ function extractRelationId(rel: unknown): string | number | null {
  * items, or a `{connect: [...]}` / `{set: [...]}` wrapper — into a flat array
  * of bare relation items ready to merge into another relation field.
  */
-function toRelationItems(value: unknown): unknown[] {
+export function toRelationItems(value: unknown): unknown[] {
   if (value === undefined || value === null) return [];
   if (Array.isArray(value)) return value;
   if (typeof value === 'object') {

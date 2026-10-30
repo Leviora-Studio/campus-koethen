@@ -161,7 +161,8 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
 4. **sortOrder** wählen. Eine eigene Farbe hat der Kalender nicht: Seine Termine tragen die Farbe
    seines Channels.
 5. Den Kalender am **Channel** zuordnen (Feld `publicCalendar` des Channels). Ohne Channel erscheint
-   er nirgends in der App; je Channel ist genau ein Kalender möglich.
+   er nirgends in der App. Je Channel ist genau ein Kalender möglich: Strapi lehnt eine zweite
+   Zuordnung beim Speichern ab und nennt den bereits zugeordneten Kalender.
 6. **includeEventDescription** und **includeEventLocation** datensparsam entscheiden. Die Felder
    steuern ausdrücklich, ob Beschreibungen bzw. Orte importierter Termine in API und App erscheinen.
 7. **Speichern und Veröffentlichen** (Draft & Publish).
