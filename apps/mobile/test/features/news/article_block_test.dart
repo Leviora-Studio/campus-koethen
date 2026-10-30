@@ -3,6 +3,7 @@
 
 import 'dart:ui' show Tristate;
 
+import 'package:campus_koethen/core/theme/app_dimensions.dart';
 import 'package:campus_koethen/core/content/content_block.dart';
 import 'package:campus_koethen/core/locale/locale_mode.dart';
 import 'package:campus_koethen/core/prefs/key_value_store.dart';
@@ -279,6 +280,25 @@ void main() {
   });
 
   group('channel links', () {
+    testWidgets('keeps a visible gap between several channel handles', (
+      WidgetTester tester,
+    ) async {
+      await _pumpCard(
+        tester,
+        _article(
+          channels: const <NewsChannelRef>[
+            NewsChannelRef(slug: 'fb5-news', name: 'FB5-News'),
+            NewsChannelRef(slug: 'fsr-ins', name: 'FSR.INS'),
+          ],
+        ),
+      );
+
+      final Rect first = tester.getRect(find.text('FB5-News'));
+      final Rect second = tester.getRect(find.text('FSR.INS'));
+
+      expect(second.left - first.right, greaterThanOrEqualTo(AppSpacing.md));
+    });
+
     testWidgets('exposes every channel handle as a link, not plain text', (
       WidgetTester tester,
     ) async {

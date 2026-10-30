@@ -244,6 +244,7 @@ class _Byline extends StatelessWidget {
           Expanded(
             child: Wrap(
               crossAxisAlignment: WrapCrossAlignment.start,
+              spacing: AppSpacing.md,
               children: <Widget>[
                 for (final NewsChannelRef channel in channels)
                   _ChannelLink(channel: channel, l10n: l10n),
