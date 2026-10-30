@@ -50,6 +50,7 @@
     "colorHex": {
       "type": "string",
       "required": true,
+      "description": "Colour of the channel in the app: its posts and the events of its public calendar.",
       "default": "#5B3FD0",
       "minLength": 7,
       "maxLength": 7,
