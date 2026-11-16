@@ -19,7 +19,7 @@ allowBuilds:
   '@scarf/scarf': false # analytics beacon — intentionally denied
   core-js-pure: false # postinstall advertising banner — intentionally denied
 
-# Forward-pins for transitive dependencies with known HIGH/CRITICAL advisories.
+# Forward-pins for transitive dependencies with known security advisories.
 # These come in through framework and tooling dependencies, so we cannot fix
 # them all by bumping a direct dependency. Verify the resulting lockfile with
 # the dependency audit and the affected builds and tests.
@@ -41,7 +41,7 @@ overrides:
   # have a patched release of their own, so neither needs a major bump.
   'js-yaml@<3.15.2': '>=3.15.2 <4' # GHSA-5p4m-2wfm-xmqj / GHSA-2883-xcg3-v3hh
   'js-yaml@>=4.0.0 <4.3.2': '>=4.3.2 <5' # GHSA-5p4m-2wfm-xmqj / GHSA-2883-xcg3-v3hh
-  'js-yaml@>=5.0.0 <5.2.2': '>=5.2.2'
+  'js-yaml@>=5.0.0 <5.4.1': '>=5.4.1 <6'
   # DoS via unbounded expansion length. Patched releases exist on every affected
   # major line, so each stays on its own: v5 is an ESM-first rewrite and forcing
   # it onto v1/v2 consumers such as minimatch@3 would risk a runtime break.
@@ -50,18 +50,18 @@ overrides:
   'brace-expansion@>=5.0.0 <5.0.11': '>=5.0.11 <6'
   # Host confusion via a backslash authority introducer (high). Reaches us
   # through ajv, which arrives with the prisma and nest CLIs.
-  'fast-uri@>=3.0.0 <3.1.6': '>=3.1.6 <4' # GHSA-7p8r-x3mc-p8w7 / GHSA-5jgf-p345-68v8
+  'fast-uri@>=3.0.0 <3.1.9': '>=3.1.9 <4' # URI scheme/host/path normalization advisories
   'mysql2@>=3.0.0 <3.22.0': '>=3.22.0 <4' # GHSA-3f6p-5ww8-9rcr; Prisma/Knex transitive driver
   # Strapi's sendmail provider still requests 9.x, but the latest security fixes
   # are only in 10.x. The CMS build and test suite pass with this override.
-  'nodemailer@<10.0.6': '10.0.6' # GHSA-v53p-9fqp-m79j / GHSA-prgh-xp8r-p3m5
+  'nodemailer@<10.1.4': '10.1.4' # SMTP/address parser and DKIM denial-of-service advisories
   'webpack-dev-middleware@<7.4.6': '7.4.6' # GHSA-g84c-rxfj-3j2c / CVE-2026-76844; Strapi admin tooling
   'undici@>=6.0.0 <6.29.1': '>=6.29.1 <7' # GHSA-rfgv-xxqx-mfg5
   'axios@>=1.13.0 <1.20.0': '>=1.20.0 <2' # redirect and request validation advisories
   # Address4 reads a leading-zero octet as decimal where resolvers read octal,
   # which is an SSRF and trust-boundary bypass (high). Comes in under Strapi.
   # Only the 10.x line is installed, so the pin cannot disturb an older major.
-  'ip-address@>=10.0.0 <10.3.1': '>=10.3.1' # GHSA-mwp4-54f8-5fhr
+  'ip-address@>=10.0.0 <10.7.4': '>=10.7.4 <11' # address classification and bounded parsing
   # A custom generator called with size 0 loops forever (high). Arrives under
   # postcss, which webpack/vite pull in for the Strapi admin build and the nest
   # CLI. Only the 3.x line is installed, so the pin cannot disturb another major.
@@ -69,8 +69,8 @@ overrides:
   # Strapi's admin/content-type tooling currently pins vulnerable patch
   # releases. All three fixes stay on the same major and preserve the public
   # dependency contracts used by their parent packages.
-  '@hono/node-server@<1.19.15': '>=1.19.15 <2' # GHSA-frvp-7c67-39w9
-  'hono@<4.12.34': '>=4.12.34 <5' # GHSA-8j4g-w8fx-2239 / GHSA-f23p-vx2j-j53r / GHSA-54fx-42gc-7vw4 / GHSA-79qm-7rj5-m7r9
+  '@hono/node-server@<1.19.18': '>=1.19.18 <2' # path interpretation at a reverse proxy
+  'hono@<4.13.16': '>=4.13.16 <5' # middleware, validation and HTML escaping advisories
   'postcss@<=8.5.22': '>=8.5.23 <9' # GHSA-fxqj-rqcc-2cmp
   # Stack exhaustion when merging recursive object graphs (high). Comes in under
   # @prisma/config, which ships with prisma and therefore reaches the backend
@@ -93,6 +93,11 @@ overrides:
   'vite@>=8.0.0 <8.1.6': '8.1.6'
   'body-parser@>=2.0.0 <2.4.0': '2.4.0'
   'zod@>=3.0.0 <4.0.0': '3.25.76'
+
+  # Full November review: compatible fixes also cover MODERATE/LOW findings.
+  'qs@>=6.0.0 <6.16.1': '>=6.16.1 <7'
+  'baseline-browser-mapping@>=2.0.0 <2.11.0': '>=2.11.0 <3'
+  'postcss-selector-parser@>=7.0.0 <7.1.6': '>=7.1.6 <8'
 
 # Advisories that are assessed and handled, but whose published range cannot
 # express the fix. Reviewed on every dependency change — never a blanket mute.
