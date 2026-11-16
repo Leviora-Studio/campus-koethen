@@ -1,4 +1,5 @@
 import type { StrapiApp } from '@strapi/strapi/admin';
+import { safeAdminLoginSearch } from '../security/admin-redirect';
 
 /**
  * Admin panel customisation.
@@ -15,5 +16,12 @@ export default {
     // an admin UI language setting.
     locales: [],
   },
-  bootstrap(_app: StrapiApp) {},
+  bootstrap(_app: StrapiApp) {
+    // Strapi awaits this hook before mounting its router/login component.
+    const { pathname, search, hash } = window.location;
+    const safeSearch = safeAdminLoginSearch(search);
+    if (safeSearch !== search) {
+      window.history.replaceState(window.history.state, '', `${pathname}${safeSearch}${hash}`);
+    }
+  },
 };

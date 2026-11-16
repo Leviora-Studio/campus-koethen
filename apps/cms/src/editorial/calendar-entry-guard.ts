@@ -29,14 +29,25 @@ export function createCalendarEntryGuard(strapi: Core.Strapi) {
       !['create', 'update', 'publish'].includes(context.action)
     )
       return next();
-    const existing = context.params.documentId
-      ? await strapi.documents('api::calendar-entry.calendar-entry').findOne({
-          documentId: context.params.documentId,
-          locale: context.params.locale,
-        })
-      : null;
+    const uid = 'api::calendar-entry.calendar-entry';
+    const locale = context.params.locale ?? 'de';
+    const documentId = context.params.documentId;
     const patch =
       context.params.data && typeof context.params.data === 'object' ? context.params.data : {};
+    if (locale === '*' || Array.isArray(locale)) {
+      const drafts = await strapi
+        .documents(uid)
+        .findMany({ filters: { documentId }, locale, status: 'draft' });
+      for (const draft of drafts) validateCalendarEntry({ ...draft, ...patch });
+      return next();
+    }
+    let existing = documentId
+      ? await strapi.documents(uid).findOne({ documentId, locale, status: 'draft' })
+      : null;
+    // Strapi creates a missing translation through update() and copies the shared
+    // fields afterwards. Validate those fields from the canonical document first.
+    if (!existing && documentId && locale !== 'de')
+      existing = await strapi.documents(uid).findOne({ documentId, locale: 'de', status: 'draft' });
     validateCalendarEntry({ timeZone: 'Europe/Berlin', ...existing, ...patch });
     return next();
   };

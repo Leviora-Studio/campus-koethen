@@ -79,3 +79,47 @@ test('removing an assignment and unrelated writes pass', async () => {
   assert.equal(await run(PUBLIC_CALENDAR_UID, 'cal-b', { name: 'Neu' }), true);
   assert.equal(await run(POST_UID, undefined, { channel: 'ch-fsr' }), true);
 });
+
+test('a published owner is protected even if a draft relation has already been removed', async () => {
+  const guard = createCalendarChannelGuard({
+    ...lookup,
+    channelOfCalendar: async () => [
+      { documentId: 'ch-stura', name: 'Demo draft' },
+      { documentId: 'ch-fsr', name: 'Demo published' },
+    ],
+  });
+  await assert.rejects(
+    guard(
+      {
+        uid: CHANNEL_UID,
+        action: 'update',
+        params: { documentId: 'ch-stura', data: { publicCalendar: 'cal-a' } },
+      },
+      async () => {},
+    ),
+  );
+});
+test('publication validates stored relations and performs validation and writing in one transaction', async () => {
+  let inTransaction = false;
+  const guard = createCalendarChannelGuard({
+    ...lookup,
+    async transaction(work) {
+      inTransaction = true;
+      try {
+        return await work();
+      } finally {
+        inTransaction = false;
+      }
+    },
+    async draftRelations() {
+      assert.equal(inTransaction, true);
+      return [{ publicCalendar: 'cal-a' }];
+    },
+  });
+  await assert.rejects(
+    guard({ uid: CHANNEL_UID, action: 'publish', params: { documentId: 'ch-stura' } }, async () => {
+      throw new Error('Conflict must be refused before the write');
+    }),
+  );
+  assert.equal(inTransaction, false);
+});

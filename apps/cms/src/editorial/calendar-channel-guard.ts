@@ -23,8 +23,10 @@ export interface LinkedDocument {
  * named: a `documentId`, or a numeric row id.
  */
 export interface CalendarChannelLookup {
-  calendarOfChannel(channel: string | number): Promise<LinkedDocument | null>;
-  channelOfCalendar(calendar: string | number): Promise<LinkedDocument | null>;
+  transaction?<T>(work: () => Promise<T>): Promise<T>;
+  draftRelations?(uid: string, documentId: string): Promise<Record<string, unknown>[]>;
+  calendarOfChannel(channel: string | number): Promise<LinkedDocument | LinkedDocument[] | null>;
+  channelOfCalendar(calendar: string | number): Promise<LinkedDocument | LinkedDocument[] | null>;
 }
 
 /**
@@ -41,42 +43,62 @@ export function createCalendarChannelGuard(lookup: CalendarChannelLookup) {
     context: GuardContext,
     next: () => Promise<T>,
   ): Promise<T> {
-    const data = context.params.data;
-    if (
-      (context.action === 'create' || context.action === 'update') &&
-      data &&
-      typeof data === 'object' &&
-      !Array.isArray(data)
-    ) {
-      const record = data as Record<string, unknown>;
-      const self = context.params.documentId;
+    const relevant =
+      [CHANNEL_UID, PUBLIC_CALENDAR_UID].includes(context.uid) &&
+      ['create', 'update', 'publish', 'unpublish', 'delete', 'discardDraft'].includes(
+        context.action,
+      );
+    if (!relevant) return next();
+    const run = async () => {
+      const drafts =
+        context.action === 'publish' && context.params.documentId && lookup.draftRelations
+          ? await lookup.draftRelations(context.uid, context.params.documentId)
+          : [];
+      const payloads = drafts.length ? drafts : [context.params.data];
+      for (const data of payloads) {
+        if (
+          (context.action === 'create' ||
+            context.action === 'update' ||
+            context.action === 'publish') &&
+          data &&
+          typeof data === 'object' &&
+          !Array.isArray(data)
+        ) {
+          const record = data as Record<string, unknown>;
+          const self = context.params.documentId;
 
-      if (context.uid === PUBLIC_CALENDAR_UID) {
-        for (const channel of relationRefs(record['channel'])) {
-          const taken = await lookup.calendarOfChannel(channel);
-          if (taken && taken.documentId !== self) {
-            throw new errors.ValidationError(
-              `This channel already has the public calendar "${taken.name ?? taken.documentId}". ` +
-                'A channel can have only one calendar: remove it there first.',
-            );
+          if (context.uid === PUBLIC_CALENDAR_UID) {
+            for (const channel of relationRefs(record['channel'])) {
+              const taken = await lookup.calendarOfChannel(channel);
+              for (const owner of Array.isArray(taken) ? taken : taken ? [taken] : []) {
+                if (owner.documentId !== self) {
+                  throw new errors.ValidationError(
+                    `This channel already has the public calendar "${owner.name ?? owner.documentId}". ` +
+                      'A channel can have only one calendar: remove it there first.',
+                  );
+                }
+              }
+            }
+          }
+
+          if (context.uid === CHANNEL_UID) {
+            for (const calendar of relationRefs(record['publicCalendar'])) {
+              const taken = await lookup.channelOfCalendar(calendar);
+              for (const owner of Array.isArray(taken) ? taken : taken ? [taken] : []) {
+                if (owner.documentId !== self) {
+                  throw new errors.ValidationError(
+                    `This public calendar already belongs to the channel "${owner.name ?? owner.documentId}". ` +
+                      'A calendar can belong to only one channel: remove it there first.',
+                  );
+                }
+              }
+            }
           }
         }
       }
-
-      if (context.uid === CHANNEL_UID) {
-        for (const calendar of relationRefs(record['publicCalendar'])) {
-          const taken = await lookup.channelOfCalendar(calendar);
-          if (taken && taken.documentId !== self) {
-            throw new errors.ValidationError(
-              `This public calendar already belongs to the channel "${taken.name ?? taken.documentId}". ` +
-                'A calendar can belong to only one channel: remove it there first.',
-            );
-          }
-        }
-      }
-    }
-
-    return next();
+      return next();
+    };
+    return lookup.transaction ? lookup.transaction(run) : run();
   };
 }
 
@@ -101,19 +123,43 @@ export function strapiCalendarChannelLookup(strapi: Core.Strapi): CalendarChanne
     uid: typeof CHANNEL_UID | typeof PUBLIC_CALENDAR_UID,
     ref: string | number,
     field: 'publicCalendar' | 'channel',
-  ): Promise<LinkedDocument | null> {
+  ): Promise<LinkedDocument | LinkedDocument[] | null> {
     const documentId = await documentIdOf(uid, ref);
     if (!documentId) return null;
-    const found = (await strapi.documents(uid).findOne({
-      documentId,
-      populate: { [field]: { fields: ['name'] } },
-    } as never)) as Record<string, unknown> | null;
-    const other = found?.[field] as { documentId?: string; name?: string } | null | undefined;
-    if (!other?.documentId) return null;
-    return { documentId: other.documentId, name: other.name ?? null };
+    const documents = await Promise.all(
+      (['draft', 'published'] as const).map((status) =>
+        strapi.documents(uid).findMany({
+          filters: { documentId },
+          locale: '*',
+          status,
+          populate: { [field]: { fields: ['name'] } },
+        } as never),
+      ),
+    );
+    return documents.flat().flatMap((document) => {
+      const other = (document as Record<string, unknown>)[field] as
+        { documentId?: string; name?: string } | null | undefined;
+      return other?.documentId ? [{ documentId: other.documentId, name: other.name ?? null }] : [];
+    });
   }
 
   return {
+    async transaction(work) {
+      // Calendar/channel edits are rare. One transaction-scoped lock prevents
+      // two editors from both observing a free one-to-one relation and stealing it.
+      return strapi.db.transaction(async ({ trx }) => {
+        await trx.raw('SELECT pg_advisory_xact_lock(?)', [1_926_110_516]);
+        return work();
+      });
+    },
+    async draftRelations(uid, documentId) {
+      return (await strapi.documents(uid as typeof CHANNEL_UID).findMany({
+        filters: { documentId },
+        locale: '*',
+        status: 'draft',
+        populate: uid === CHANNEL_UID ? ['publicCalendar'] : ['channel'],
+      } as never)) as unknown as Record<string, unknown>[];
+    },
     calendarOfChannel: (channel) => linked(CHANNEL_UID, channel, 'publicCalendar'),
     channelOfCalendar: (calendar) => linked(PUBLIC_CALENDAR_UID, calendar, 'channel'),
   };
