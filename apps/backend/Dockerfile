@@ -19,7 +19,8 @@ WORKDIR /repo
 
 # Only the manifests, so a source-only change does not bust the install cache.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches/braces@3.0.3.patch patches/
+# All patches are part of the locked dependency graph, including future additions.
+COPY patches/ patches/
 COPY apps/backend/package.json apps/backend/
 COPY apps/cms/package.json apps/cms/
 COPY packages/openapi/package.json packages/openapi/
@@ -58,7 +59,9 @@ FROM node:22.23.2-alpine AS runtime
 
 # openssl is required by Prisma; tini gives us correct signal handling so the
 # worker's SIGTERM shutdown path actually runs.
-RUN apk add --no-cache openssl tini
+# Apply available security fixes to packages inherited from the pinned Node image.
+RUN apk upgrade --no-cache \
+ && apk add --no-cache openssl tini
 
 # Remove npm, npx and corepack from the RUNTIME image.
 #

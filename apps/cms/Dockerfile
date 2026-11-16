@@ -20,7 +20,8 @@ WORKDIR /repo
 
 # Only the manifests, so a source-only change does not bust the install cache.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches/braces@3.0.3.patch patches/
+# All patches are part of the locked dependency graph, including future additions.
+COPY patches/ patches/
 COPY apps/cms/package.json apps/cms/
 COPY apps/backend/package.json apps/backend/
 COPY packages/openapi/package.json packages/openapi/
@@ -66,7 +67,9 @@ RUN pnpm --filter @campus/cms deploy --prod --legacy /opt/deploy
 FROM node:22.23.2-slim AS runtime
 
 # tini gives correct signal handling so Strapi shuts down cleanly.
+# Apply available security fixes to packages inherited from the pinned Node image.
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends tini \
  && rm -rf /var/lib/apt/lists/*
 
