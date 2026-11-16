@@ -178,3 +178,22 @@ Hinweispflicht vor Auslegungsspielraum.
   Fremdanbindung, die ADR-0001 ausschließt.
 
 **Ergebnis:** Das Lizenz-Gate für die lokalen Benachrichtigungen ist erfüllt.
+
+### Release 1.2.5: security maintenance
+
+The release updates existing direct/transitive dependencies within their installed
+major lines to address the November 2026 HIGH/CRITICAL audit findings. It adds no
+new direct production dependency. Strapi's already installed Vite 8 is advanced
+to 8.1.6; its existing override from Vite 6 remains explicit.
+
+[GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
+requires special handling: the backend uses upstream-fixed Zod >=4.6.6, while
+Strapi's Zod-3 callers need the older API. `patches/zod@3.25.76.patch` therefore
+rejects arrays/sets failing collection constraints before parsing elements,
+limits unconstrained arrays/sets to 10,000 elements and caps validation issues
+at 1,000. Both distributed module formats are patched. This deliberately limits
+very large CMS collections; ordinary editorial data stays far below these limits.
+Runtime regression tests resolve Strapi's installed copy, exercise sync/async
+validation and ensure the backend stays on a fixed Zod-4 version. The single
+advisory exception reflects this local backport, not an unmodified vulnerable
+package. Remove it when a compatible upstream Zod-3 fix becomes available.
