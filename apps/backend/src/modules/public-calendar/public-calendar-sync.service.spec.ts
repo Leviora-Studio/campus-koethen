@@ -57,6 +57,7 @@ describe('PublicCalendarSyncService reconciliation', () => {
    */
   async function run(body: string, stored: Array<Record<string, unknown>>) {
     const tx = {
+      publicCalendar: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       publicCalendarEvent: {
         findMany: jest.fn().mockResolvedValue(stored),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),

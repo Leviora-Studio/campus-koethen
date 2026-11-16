@@ -60,7 +60,12 @@ describe('editorial calendars', () => {
     );
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ source: 'editorial', title: 'Demo appointment' });
-    expect(google.getAggregatedEvents).toHaveBeenCalledWith([], expect.any(Date), expect.any(Date));
+    expect(google.getAggregatedEvents).toHaveBeenCalledWith(
+      [],
+      expect.any(Date),
+      expect.any(Date),
+      {},
+    );
   });
   it('never queries all editorial entries for an empty selection', async () => {
     const { service, get } = fixture();

@@ -82,6 +82,8 @@ function eventKeyIn(
   if (eventKeyCacheEntries >= MAX_EVENT_KEY_CACHE) {
     evictOldestEventKey();
   }
+  // Eviction can remove this very calendar when its final old key was dropped.
+  if (!eventKeyCache.has(calendarSlug)) eventKeyCache.set(calendarSlug, perCalendar);
   perCalendar.set(occurrenceKey, key);
   eventKeyCacheEntries += 1;
   return key;
@@ -314,10 +316,17 @@ export class PublicCalendarService implements OnModuleInit {
     slugs: string[],
     from: Date,
     to: Date,
+    expectedSources?: Record<string, string>,
   ): Promise<{ events: PublicCalendarEventDto[]; truncated: boolean }> {
     if (slugs.length === 0) return { events: [], truncated: false };
     const rows = await this.prisma.publicCalendar.findMany({
-      where: { slug: { in: slugs }, ...this.servableWhere() },
+      where: {
+        slug: { in: slugs },
+        ...this.servableWhere(),
+        ...(expectedSources
+          ? { OR: slugs.map((slug) => ({ slug, googleCalendarId: expectedSources[slug] ?? '' })) }
+          : {}),
+      },
       select: { id: true, slug: true },
     });
     if (rows.length === 0) return { events: [], truncated: false };
@@ -329,6 +338,14 @@ export class PublicCalendarService implements OnModuleInit {
     const eventRows = await this.prisma.publicCalendarEvent.findMany({
       where: {
         calendarId: { in: rows.map((r) => r.id) },
+        ...(expectedSources
+          ? {
+              calendar: {
+                ...this.servableWhere(),
+                OR: slugs.map((slug) => ({ slug, googleCalendarId: expectedSources[slug] ?? '' })),
+              },
+            }
+          : {}),
         startsAt: { lte: to },
         endsAt: { gte: from },
       },

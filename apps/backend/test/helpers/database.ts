@@ -7,16 +7,32 @@ import { PrismaClient } from '../../src/generated/prisma/client';
  * The synchronisation guarantees this project makes ("an empty or failed
  * upstream response never deletes stored data") are statements about database
  * state. Asserting them against a mock would prove nothing, so these tests run
- * against a genuine PostgreSQL instance — locally via
- * infrastructure/local/compose.yaml, in CI via a postgres service container.
+ * against a genuine, isolated temporary PostgreSQL database — locally in a
+ * disposable container, in CI via a postgres service container. Never point
+ * these helpers at the development database from the local compose stack.
  */
 
 export function requireDatabaseUrl(): string {
   const url = process.env['DATABASE_URL'];
   if (!url) {
+    throw new Error('DATABASE_URL must explicitly point to an isolated temporary test database.');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Invalid test database URL');
+  }
+  const database = decodeURIComponent(parsed.pathname.slice(1));
+  if (
+    !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
+    !/^[A-Za-z0-9_]+$/.test(database) ||
+    !/(^|_)test($|_)/i.test(database) ||
+    parsed.searchParams.has('database') ||
+    parsed.searchParams.has('dbname')
+  ) {
     throw new Error(
-      'DATABASE_URL is not set. Start the local stack with `pnpm compose:local:up` ' +
-        'and copy apps/backend/.env.example to apps/backend/.env.',
+      'Destructive integration tests require an explicitly named test database; development and production databases are refused.',
     );
   }
   return url;

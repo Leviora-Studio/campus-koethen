@@ -32,6 +32,25 @@ describe('editorial calendar entries', () => {
     ).toHaveLength(2);
     expect(mergeCalendarEntries([google, { ...editorial, calendarSlug: 'other' }])).toHaveLength(2);
   });
+  it('deduplicates all-day civil dates with implicit one-day post endings', () => {
+    const editorial = parseEditorialEntry(
+      { ...raw, start: '2026-11-16T00:00:00Z', end: '2026-11-17T00:00:00Z', allDay: true },
+      'demo',
+      'cal',
+    )!;
+    expect(
+      mergeCalendarEntries([
+        {
+          ...editorial,
+          id: 'post',
+          source: 'post',
+          start: '2026-11-16T12:00:00Z',
+          end: '2026-11-16T12:00:00Z',
+        },
+        editorial,
+      ]),
+    ).toEqual([editorial]);
+  });
   it('maps media through the Campus API and never exposes Strapi internals', () => {
     const entry = parseEditorialEntry(
       {

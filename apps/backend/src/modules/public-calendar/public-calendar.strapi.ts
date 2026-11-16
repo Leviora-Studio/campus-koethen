@@ -43,6 +43,7 @@ export interface CatalogValidationResult {
   definitions: CalendarDefinition[];
   received: number;
   rejected: number;
+  editorialOnlySlugs: string[];
 }
 
 /**
@@ -63,6 +64,7 @@ export function validateCatalog(
 
   const definitions: CalendarDefinition[] = [];
   let rejected = 0;
+  const editorialOnlySlugs: string[] = [];
 
   for (const raw of deEntries) {
     const parsed = strapiEntrySchema.safeParse(raw);
@@ -72,7 +74,11 @@ export function validateCatalog(
     }
     const entry = parsed.data;
     // Editorial-only calendars do not participate in the Google read model.
-    if (!entry.googleShareUrl) continue;
+    if (!entry.googleShareUrl) {
+      if (SLUG_PATTERN.test(entry.slug)) editorialOnlySlugs.push(entry.slug);
+      else rejected += 1;
+      continue;
+    }
 
     const channel = entry.channel;
     if (
@@ -105,5 +111,5 @@ export function validateCatalog(
     });
   }
 
-  return { definitions, received: deEntries.length, rejected };
+  return { definitions, received: deEntries.length, rejected, editorialOnlySlugs };
 }

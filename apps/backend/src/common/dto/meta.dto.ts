@@ -55,6 +55,8 @@ export class ResponseMetaDto {
     description: 'Maximum inclusive number of days in one calendar events request.',
   })
   maxRangeDays?: number;
+  @ApiPropertyOptional({ description: 'Maximum number of calendars in one event request.' })
+  maxCalendars?: number;
 
   @ApiPropertyOptional({
     description:
@@ -101,6 +103,7 @@ export function buildMeta(input: {
   from?: string;
   to?: string;
   maxRangeDays?: number;
+  maxCalendars?: number;
   truncated?: boolean;
   featureEnabled?: boolean;
   dataState?: 'ready' | 'pending' | 'unavailable';
@@ -144,5 +147,6 @@ export function buildMeta(input: {
   if (input.timezone !== undefined) {
     meta.timezone = input.timezone;
   }
+  if (input.maxCalendars !== undefined) meta.maxCalendars = input.maxCalendars;
   return meta;
 }

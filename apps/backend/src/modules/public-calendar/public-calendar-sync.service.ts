@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ENV } from '../../config/app-config.module';
@@ -42,6 +43,25 @@ export interface EventOutcome {
   errorCode?: string;
 }
 
+type SyncDefinition = {
+  id: string;
+  googleCalendarId: string;
+  includeEventDescription: boolean;
+  includeEventLocation: boolean;
+  lastSuccessfulSyncAt: Date | null;
+};
+class CalendarDefinitionChanged extends Error {}
+function expectedDefinition(calendar: SyncDefinition) {
+  return {
+    id: calendar.id,
+    isActive: true,
+    googleCalendarId: calendar.googleCalendarId,
+    includeEventDescription: calendar.includeEventDescription,
+    includeEventLocation: calendar.includeEventLocation,
+    lastSuccessfulSyncAt: calendar.lastSuccessfulSyncAt,
+  };
+}
+
 @Injectable()
 export class PublicCalendarSyncService {
   private readonly logger = new Logger(PublicCalendarSyncService.name);
@@ -63,11 +83,30 @@ export class PublicCalendarSyncService {
     });
     try {
       const [de, en] = await Promise.all([this.fetchAll('de'), this.fetchAll('en')]);
-      const { definitions, received, rejected } = validateCatalog(de, en);
+      const { definitions, received, rejected, editorialOnlySlugs } = validateCatalog(de, en);
 
       // An empty (or fully-rejected) catalogue is treated as suspect: it keeps
       // the last good read-model instead of deactivating every calendar.
       if (definitions.length === 0) {
+        if (editorialOnlySlugs.length && !rejected) {
+          const stopped = await this.prisma.publicCalendar.updateMany({
+            where: { slug: { in: editorialOnlySlugs }, isActive: true },
+            data: { isActive: false },
+          });
+          await this.finishRun(run.id, {
+            status: 'success',
+            eventsReceived: received,
+            recordsRemoved: stopped.count,
+          });
+          return {
+            status: 'success',
+            received,
+            accepted: 0,
+            rejected: 0,
+            written: 0,
+            deactivated: stopped.count,
+          };
+        }
         await this.finishRun(run.id, {
           status: 'empty',
           eventsReceived: received,
@@ -97,21 +136,40 @@ export class PublicCalendarSyncService {
       const duplicates = definitions.length - accepted.length;
 
       const now = new Date();
-      await this.prisma.$transaction(async (tx) => {
+      const retired = await this.prisma.$transaction(async (tx) => {
         for (const def of accepted) {
+          const previous = await tx.publicCalendar.findUnique({ where: { slug: def.slug } });
+          const reset =
+            previous &&
+            (previous.googleCalendarId !== def.googleCalendarId ||
+              previous.includeEventDescription !== def.includeEventDescription ||
+              previous.includeEventLocation !== def.includeEventLocation);
           await tx.publicCalendar.upsert({
             where: { slug: def.slug },
             create: { ...this.toRow(def), operationalStatus: 'pending', lastCatalogSyncAt: now },
-            update: { ...this.toRow(def), isActive: true, lastCatalogSyncAt: now },
+            update: {
+              ...this.toRow(def),
+              isActive: true,
+              lastCatalogSyncAt: now,
+              ...(reset
+                ? {
+                    operationalStatus: 'pending',
+                    lastSuccessfulSyncAt: null,
+                    lastEtag: null,
+                    lastModified: null,
+                    lastContentHash: null,
+                  }
+                : {}),
+            },
           });
         }
-      });
-
-      // Only after a complete, non-empty success may a calendar that Strapi no
-      // longer publishes be retired. It is deactivated, never deleted.
-      const retired = await this.prisma.publicCalendar.updateMany({
-        where: { isActive: true, slug: { notIn: accepted.map((d) => d.slug) } },
-        data: { isActive: false },
+        // A partially invalid catalogue cannot prove that an existing calendar was removed.
+        return rejected > 0
+          ? { count: 0 }
+          : tx.publicCalendar.updateMany({
+              where: { isActive: true, slug: { notIn: accepted.map((d) => d.slug) } },
+              data: { isActive: false },
+            });
       });
 
       await this.finishRun(run.id, {
@@ -173,7 +231,7 @@ export class PublicCalendarSyncService {
   private async fetchAll(locale: 'de' | 'en'): Promise<unknown[]> {
     const collected: unknown[] = [];
     let page = 1;
-    for (;;) {
+    for (; page <= 100;) {
       const response = await this.strapi.get<StrapiListResponse<unknown>>('/api/public-calendars', {
         filters: { isActive: { $eq: true } },
         sort: ['sortOrder:asc', 'slug:asc'],
@@ -181,11 +239,18 @@ export class PublicCalendarSyncService {
         populate: { channel: { fields: ['slug', 'colorHex'] } },
         locale,
       });
-      collected.push(...response.data);
-      const pageCount = response.meta?.pagination?.pageCount ?? 1;
+      const parsed = z
+        .object({
+          data: z.array(z.unknown()),
+          meta: z.object({ pagination: z.object({ pageCount: z.number().int().min(0).max(100) }) }),
+        })
+        .parse(response);
+      collected.push(...parsed.data);
+      const pageCount = parsed.meta.pagination.pageCount;
       if (page >= pageCount) break;
       page += 1;
     }
+    if (page > 100) throw new Error('Calendar catalogue page limit exceeded');
     return collected;
   }
 
@@ -196,8 +261,15 @@ export class PublicCalendarSyncService {
   window(now = new Date()): { from: Date; to: Date } {
     const day = 86_400_000;
     return {
-      from: new Date(now.getTime() - this.env.PUBLIC_CALENDAR_LOOKBACK_DAYS * day),
-      to: new Date(now.getTime() + this.env.PUBLIC_CALENDAR_LOOKAHEAD_DAYS * day),
+      from: new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+          this.env.PUBLIC_CALENDAR_LOOKBACK_DAYS * day,
+      ),
+      to: new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) +
+          (this.env.PUBLIC_CALENDAR_LOOKAHEAD_DAYS + 1) * day -
+          1,
+      ),
     };
   }
 
@@ -240,24 +312,34 @@ export class PublicCalendarSyncService {
     });
 
     try {
+      const refreshWindow =
+        !calendar.lastSuccessfulSyncAt ||
+        calendar.lastSuccessfulSyncAt.toISOString().slice(0, 10) !==
+          new Date().toISOString().slice(0, 10);
       const fetched = await this.ics.fetchCalendar(calendar.googleCalendarId, {
-        etag: calendar.lastEtag,
-        lastModified: calendar.lastModified,
+        etag: refreshWindow ? null : calendar.lastEtag,
+        lastModified: refreshWindow ? null : calendar.lastModified,
       });
 
       if (fetched.kind === 'notModified') {
-        await this.prisma.publicCalendar.update({
-          where: { id: calendar.id },
+        if (refreshWindow)
+          throw new IcsParseError(
+            'invalidCalendar',
+            'Unexpected 304 for an unconditional window refresh',
+          );
+        const updated = await this.prisma.publicCalendar.updateMany({
+          where: expectedDefinition(calendar),
           data: { lastSuccessfulSyncAt: new Date(), operationalStatus: 'ready' },
         });
+        if (!updated.count) throw new CalendarDefinitionChanged();
         await this.finishRun(run.id, { status: 'notModified' });
         return { slug, status: 'notModified', received: 0, written: 0, removed: 0 };
       }
 
       const contentHash = createHash('sha256').update(fetched.body).digest('hex');
-      if (contentHash === calendar.lastContentHash) {
-        await this.prisma.publicCalendar.update({
-          where: { id: calendar.id },
+      if (!refreshWindow && contentHash === calendar.lastContentHash) {
+        const updated = await this.prisma.publicCalendar.updateMany({
+          where: expectedDefinition(calendar),
           data: {
             lastSuccessfulSyncAt: new Date(),
             operationalStatus: 'ready',
@@ -265,6 +347,7 @@ export class PublicCalendarSyncService {
             lastModified: fetched.lastModified,
           },
         });
+        if (!updated.count) throw new CalendarDefinitionChanged();
         await this.finishRun(run.id, { status: 'notModified', feedBytes: fetched.body.length });
         return { slug, status: 'notModified', received: 0, written: 0, removed: 0 };
       }
@@ -282,17 +365,21 @@ export class PublicCalendarSyncService {
         maxTextLength: this.env.PUBLIC_CALENDAR_MAX_TEXT_LENGTH,
       });
 
-      const removed = await this.reconcile(calendar.id, win, events);
-
-      await this.prisma.publicCalendar.update({
-        where: { id: calendar.id },
-        data: {
-          operationalStatus: 'ready',
-          lastEtag: fetched.etag,
-          lastModified: fetched.lastModified,
-          lastContentHash: contentHash,
-          lastSuccessfulSyncAt: new Date(),
-        },
+      if (
+        !events.length &&
+        (await this.prisma.publicCalendarEvent.count({ where: { calendarId: calendar.id } }))
+      ) {
+        throw new IcsParseError(
+          'invalidCalendar',
+          'Empty feed cannot replace the last successful event stock',
+        );
+      }
+      const removed = await this.reconcile(calendar.id, win, events, calendar, {
+        operationalStatus: 'ready',
+        lastEtag: fetched.etag,
+        lastModified: fetched.lastModified,
+        lastContentHash: contentHash,
+        lastSuccessfulSyncAt: new Date(),
       });
       await this.finishRun(run.id, {
         status: events.length === 0 ? 'empty' : 'success',
@@ -309,6 +396,17 @@ export class PublicCalendarSyncService {
         removed,
       };
     } catch (error) {
+      if (error instanceof CalendarDefinitionChanged) {
+        await this.finishRun(run.id, { status: 'failed', errorCode: 'definitionChanged' });
+        return {
+          slug,
+          status: 'failed',
+          received: 0,
+          written: 0,
+          removed: 0,
+          errorCode: 'definitionChanged',
+        };
+      }
       return this.handleEventFailure(
         run.id,
         calendar.id,
@@ -316,6 +414,7 @@ export class PublicCalendarSyncService {
         calendar.operationalStatus,
         calendar.lastSuccessfulSyncAt,
         error,
+        calendar,
       );
     }
   }
@@ -367,9 +466,23 @@ export class PublicCalendarSyncService {
     calendarId: string,
     win: { from: Date; to: Date },
     events: ParsedEvent[],
+    expected: SyncDefinition,
+    syncData: {
+      operationalStatus: string;
+      lastEtag: string | null;
+      lastModified: string | null;
+      lastContentHash: string;
+      lastSuccessfulSyncAt: Date;
+    },
   ): Promise<number> {
     return this.prisma.$transaction(
       async (tx) => {
+        // Locks the current definition until the occurrences and sync metadata commit together.
+        const updated = await tx.publicCalendar.updateMany({
+          where: expectedDefinition(expected),
+          data: syncData,
+        });
+        if (!updated.count) throw new CalendarDefinitionChanged();
         const keptKeys = events.map((event) => event.occurrenceKey);
         const now = new Date();
 
@@ -478,6 +591,7 @@ export class PublicCalendarSyncService {
     currentStatus: string,
     hadSuccess: Date | null,
     error: unknown,
+    expected: SyncDefinition,
   ): Promise<EventOutcome> {
     let errorCode = 'unknown';
     let nextStatus = currentStatus;
@@ -490,7 +604,6 @@ export class PublicCalendarSyncService {
         // stale data is not served indefinitely.
         nextStatus = error.kind === 'feedNotFound' ? 'unavailable' : 'revoked';
         runStatus = 'revoked';
-        await this.prisma.publicCalendarEvent.deleteMany({ where: { calendarId } });
       } else {
         // Temporary transport error: keep the last good events, mark stale.
         nextStatus = hadSuccess ? 'stale' : 'pending';
@@ -503,9 +616,13 @@ export class PublicCalendarSyncService {
       runStatus = 'stale';
     }
 
-    await this.prisma.publicCalendar.update({
-      where: { id: calendarId },
-      data: { operationalStatus: nextStatus },
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.publicCalendar.updateMany({
+        where: expectedDefinition(expected),
+        data: { operationalStatus: nextStatus },
+      });
+      if (updated.count && runStatus === 'revoked')
+        await tx.publicCalendarEvent.deleteMany({ where: { calendarId } });
     });
     await this.finishRun(runId, { status: runStatus, errorCode, errorMessage: this.redact(error) });
     this.logger.warn(

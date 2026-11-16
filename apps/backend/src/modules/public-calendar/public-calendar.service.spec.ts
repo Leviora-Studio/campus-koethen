@@ -390,3 +390,24 @@ describe('PublicCalendarService', () => {
     });
   });
 });
+
+describe('event key cache eviction', () => {
+  it('keeps an actively used calendar attached when its last old key is evicted', () => {
+    jest.isolateModules(() => {
+      const fresh = jest.requireActual<typeof import('./public-calendar.service')>(
+        './public-calendar.service',
+      );
+      const crypto = jest.requireActual<typeof import('node:crypto')>('node:crypto');
+      fresh.computeEventKey('oldest-demo', 'first');
+      for (let i = 0; i < 9999; i++) fresh.computeEventKey(`demo-${i}`, 'first');
+      const hash = jest.spyOn(crypto, 'createHash');
+      try {
+        fresh.computeEventKey('oldest-demo', 'second');
+        fresh.computeEventKey('oldest-demo', 'second');
+        expect(hash).toHaveBeenCalledTimes(1);
+      } finally {
+        hash.mockRestore();
+      }
+    });
+  });
+});

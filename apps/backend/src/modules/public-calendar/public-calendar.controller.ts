@@ -113,6 +113,7 @@ export class PublicCalendarController {
           .toISOString()
           .slice(0, 10),
         maxRangeDays: this.env.PUBLIC_CALENDAR_API_MAX_RANGE_DAYS,
+        maxCalendars: this.env.PUBLIC_CALENDAR_API_MAX_CALENDARS,
       }),
     };
   }
@@ -145,6 +146,7 @@ export class PublicCalendarController {
           'translationFallback' in extra ? (extra.translationFallback as boolean) : false,
         from: range.from.toISOString().slice(0, 10),
         to: range.to.toISOString().slice(0, 10),
+        dataStale: 'dataStale' in extra ? (extra.dataStale as boolean) : false,
         truncated,
       }),
     };
@@ -163,7 +165,9 @@ export class PublicCalendarController {
     @Query() query: Record<string, unknown>,
   ): Promise<ApiResponse<GoogleViewUrlDataDto>> {
     const slugs = this.parseCalendars(query.calendar, locale.resolvedLocale);
-    const url = await this.calendars.buildGoogleViewUrl(slugs, locale.resolvedLocale);
+    const url = this.editorial
+      ? await this.editorial.buildGoogleViewUrl(slugs, locale)
+      : await this.calendars.buildGoogleViewUrl(slugs, locale.resolvedLocale);
     return { data: { url }, meta: buildMeta({ ...locale, translationFallback: false }) };
   }
 
@@ -183,10 +187,10 @@ export class PublicCalendarController {
   ): Promise<ApiResponse<PublicCalendarEventDto[]>> {
     if (!SLUG_PATTERN.test(slug) || !this.editorial)
       throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
+    const range = this.range(query, locale.resolvedLocale);
     const catalogue = await this.editorial.listCalendars(locale, true);
     if (!catalogue.data.some((c) => c.slug === slug))
       throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
-    const range = this.range(query, locale.resolvedLocale);
     const result = await this.editorial.events([slug], range.from, range.to, locale, true);
     return {
       data: result.events,
@@ -194,6 +198,7 @@ export class PublicCalendarController {
         ...locale,
         translationFallback: result.translationFallback,
         truncated: result.truncated,
+        dataStale: result.dataStale,
         from: range.from.toISOString().slice(0, 10),
         to: range.to.toISOString().slice(0, 10),
       }),

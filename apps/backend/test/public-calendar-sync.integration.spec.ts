@@ -294,6 +294,120 @@ describe('PublicCalendarSyncService (integration)', () => {
     });
   });
 
+  describe('review regressions', () => {
+    it('stops importing an explicitly detached Google source while retaining stored events', async () => {
+      await seedReadyCalendar();
+      strapi.de = [strapiEntry({ googleShareUrl: null })];
+      await sync.syncCatalog();
+      expect((await prisma.publicCalendar.findFirstOrThrow()).isActive).toBe(false);
+      expect(await prisma.publicCalendarEvent.count()).toBe(1);
+      expect(await sync.syncEvents()).toEqual([]);
+    });
+    it('invalidates Google cache validators and readiness after a source change', async () => {
+      await seedReadyCalendar();
+      await prisma.publicCalendar.updateMany({
+        data: { lastEtag: 'demo-etag', lastModified: 'demo-modified' },
+      });
+      const other = Buffer.from('other-demo@group.calendar.google.com').toString('base64url');
+      strapi.de = [
+        strapiEntry({ googleShareUrl: `https://calendar.google.com/calendar/u/0?cid=${other}` }),
+      ];
+      await sync.syncCatalog();
+      const row = await prisma.publicCalendar.findFirstOrThrow();
+      expect(row).toMatchObject({
+        operationalStatus: 'pending',
+        lastEtag: null,
+        lastModified: null,
+        lastContentHash: null,
+        lastSuccessfulSyncAt: null,
+      });
+      expect(
+        (
+          await read.getAggregatedEvents(
+            ['beispielkalender-a'],
+            new Date(0),
+            new Date('2030-01-01'),
+          )
+        ).events,
+      ).toEqual([]);
+    });
+    it('forces a fresh import when description/location consent changes', async () => {
+      await seedReadyCalendar();
+      strapi.de = [strapiEntry({ includeEventDescription: false, includeEventLocation: false })];
+      await sync.syncCatalog();
+      expect(await prisma.publicCalendar.findFirstOrThrow()).toMatchObject({
+        lastContentHash: null,
+        operationalStatus: 'pending',
+      });
+    });
+    it('does not retire the last good calendar on a partially invalid catalogue', async () => {
+      strapi.de = [strapiEntry(), strapiEntry({ slug: 'other-demo', channel: null })];
+      await sync.syncCatalog();
+      strapi.de = [
+        strapiEntry({ channel: { slug: 'demo', colorHex: 'invalid' } }),
+        strapiEntry({ slug: 'other-demo', channel: null }),
+      ];
+      await sync.syncCatalog();
+      expect(
+        (await prisma.publicCalendar.findUniqueOrThrow({ where: { slug: 'beispielkalender-a' } }))
+          .isActive,
+      ).toBe(true);
+    });
+
+    it('never deletes the last successful event stock on an empty feed', async () => {
+      await seedReadyCalendar();
+      ics.next = okBody(icsWith([]));
+      await sync.syncCalendarEvents('beispielkalender-a');
+      expect(await prisma.publicCalendarEvent.count()).toBe(1);
+      expect((await prisma.publicCalendar.findFirstOrThrow()).operationalStatus).toBe('stale');
+    });
+    it('does not publish a response fetched before a concurrent source change', async () => {
+      await seedReadyCalendar();
+      ics.fetchCalendar = async () => {
+        strapi.de = [
+          strapiEntry({
+            googleShareUrl: `https://calendar.google.com/calendar/render?cid=${Buffer.from('changed-demo@group.calendar.google.com').toString('base64url')}`,
+          }),
+        ];
+        await sync.syncCatalog();
+        return okBody(
+          icsWith([{ uid: 'obsolete', dayOffset: 3, summary: 'Obsolete demo response' }]),
+        );
+      };
+      expect((await sync.syncCalendarEvents('beispielkalender-a')).errorCode).toBe(
+        'definitionChanged',
+      );
+      expect((await prisma.publicCalendar.findFirstOrThrow()).operationalStatus).toBe('pending');
+      expect(
+        await prisma.publicCalendarEvent.count({ where: { title: 'Obsolete demo response' } }),
+      ).toBe(0);
+    });
+    it('does not delete retained events on an old request failing after a source change', async () => {
+      await seedReadyCalendar();
+      ics.fetchCalendar = async () => {
+        strapi.de = [
+          strapiEntry({
+            googleShareUrl: `https://calendar.google.com/calendar/render?cid=${Buffer.from('changed-demo@group.calendar.google.com').toString('base64url')}`,
+          }),
+        ];
+        await sync.syncCatalog();
+        throw new IcsClientError('permissionRevoked', 'Demo revoked source');
+      };
+      await sync.syncCalendarEvents('beispielkalender-a');
+      expect(await prisma.publicCalendarEvent.count()).toBe(1);
+      expect((await prisma.publicCalendar.findFirstOrThrow()).operationalStatus).toBe('pending');
+    });
+    it('refreshes an unchanged feed after the expansion window moves to a new day', async () => {
+      const body = icsWith([{ uid: 'demo', dayOffset: 2, summary: 'Demo event' }]);
+      await seedReadyCalendar(body);
+      await prisma.publicCalendar.updateMany({
+        data: { lastSuccessfulSyncAt: new Date(Date.now() - 86400000) },
+      });
+      ics.next = okBody(body);
+      expect((await sync.syncCalendarEvents('beispielkalender-a')).status).toBe('success');
+    });
+  });
+
   describe('read model', () => {
     it('aggregated events with an empty selection returns nothing (never all)', async () => {
       await seedReadyCalendar();

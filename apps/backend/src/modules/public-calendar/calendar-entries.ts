@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicMediaUrl } from '../media/media.path';
+import { isAllowedAttachmentType, isAllowedMediaType, publicMediaUrl } from '../media/media.path';
 import { computeEventKey } from './public-calendar.service';
 import { PublicCalendarEventDto } from './public-calendar.types';
 
@@ -20,8 +20,8 @@ const link = z.object({
 });
 const media = z.object({
   url: z.string(),
-  name: z.string().optional(),
-  mime: z.string().optional(),
+  name: z.string().nullish(),
+  mime: z.string().nullish(),
 });
 export const editorialEntrySchema = z
   .object({
@@ -65,11 +65,12 @@ export function parseEditorialEntry(
     status: 'confirmed',
     source: 'editorial',
     timeZone: v.timeZone,
-    imageUrl: publicMediaUrl(v.image?.url),
+    imageUrl:
+      v.image?.mime && !isAllowedMediaType(v.image.mime) ? null : publicMediaUrl(v.image?.url),
     links: v.links ?? [],
     attachments: (v.attachments ?? []).flatMap((file) => {
       const url = publicMediaUrl(file.url);
-      return url
+      return url && isAllowedAttachmentType(file.mime ?? null)
         ? [
             {
               url: url.replace('/media/uploads/', '/media/files/'),
@@ -82,6 +83,18 @@ export function parseEditorialEntry(
   };
 }
 
+/** All-day dates are civil dates; a missing/zero end means one full day. */
+export function calendarPeriod(start: string, end: string, allDay: boolean) {
+  let from = new Date(start),
+    to = new Date(end);
+  if (allDay) {
+    from = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+    to = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
+    if (to <= from) to = new Date(from.getTime() + 86_400_000);
+  }
+  return { start: from.toISOString(), end: to.toISOString() };
+}
+
 /** Calendar attribution + whitespace-normalised, case-sensitive title + exact UTC period. */
 export function mergeCalendarEntries(entries: PublicCalendarEventDto[]): PublicCalendarEventDto[] {
   const ranks = { editorial: 0, post: 1, google: 2 };
@@ -90,11 +103,12 @@ export function mergeCalendarEntries(entries: PublicCalendarEventDto[]): PublicC
   );
   const kept = new Map<string, PublicCalendarEventDto>();
   for (const e of sorted) {
+    const period = calendarPeriod(e.start, e.end, e.allDay);
     const key = JSON.stringify([
       e.calendarSlug,
       e.title.trim().replace(/\s+/g, ' '),
-      Date.parse(e.start),
-      Date.parse(e.end),
+      Date.parse(period.start),
+      Date.parse(period.end),
       e.allDay,
     ]);
     if (!kept.has(key)) kept.set(key, e);
