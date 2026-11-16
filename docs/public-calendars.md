@@ -122,6 +122,8 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
   1:1 mit einem redaktionellen Kanal und ist im App-Katalog immer gesetzt. Unzugeordnete
   Kalender sind über den Website-Endpunkt erreichbar. `colorHex` ist die Farbe dieses Kanals. **Nie** Google-ID,
   Feed-URL, ETag oder interne Fehler.
+- `GET /v1/calendars/all` — Website-Katalog mit demselben DTO, enthält zusätzlich Kalender ohne
+  Kanal (`channelSlug` dann leerer String). Gedacht für `GET /v1/calendars/:slug/entries`.
 - `GET /v1/calendars/:slug/events?from&to` — Termine eines Kalenders (Zeitraum begrenzt).
   Das Abfrageintervall ist als **Überlappung** definiert (`startsAt <= to AND endsAt >= from`).
 - `GET /v1/calendars/events?calendar=…&calendar=…&from&to` — aggregiert; Slugs dedupliziert,
@@ -217,6 +219,9 @@ Recurrence, invitations, attendees and reminders are not supported.
 
 - Existing `/v1/calendars/events` and `/v1/calendars/:slug/events` return Google
   occurrences plus editorial appointments. Existing post endpoints stay unchanged.
+- **Website catalogue:** `GET /v1/calendars/all?locale=de` lists every published, active
+  calendar, including calendars without a channel (`channelSlug` is then an empty string).
+  `GET /v1/calendars` stays the channel-based app catalogue.
 - **Website:** `GET /v1/calendars/:slug/entries?from=2026-11-01&to=2026-11-30&locale=de`
   additionally includes event posts of the linked channel, projected onto neutral
   appointment fields. No post blocks, tags or navigation options are returned.

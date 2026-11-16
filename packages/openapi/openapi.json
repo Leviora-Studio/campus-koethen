@@ -732,6 +732,42 @@
         ]
       }
     },
+    "/v1/calendars/all": {
+      "get": {
+        "description": "Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex the default colour. Use the slugs with GET /v1/calendars/{slug}/entries.",
+        "operationId": "PublicCalendarController_all_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List every published, active calendar for websites, with or without a channel.",
+        "tags": [
+          "public-calendars"
+        ]
+      }
+    },
     "/v1/calendars/events": {
       "get": {
         "description": "Pass one `calendar` slug per selected calendar. An empty selection returns an empty list (never \"all calendars\"). Each event carries calendarId and calendarSlug. The result is capped server-side; `meta.truncated` reports a cut list rather than presenting it as complete.",

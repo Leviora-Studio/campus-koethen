@@ -824,6 +824,14 @@ Die Kalender-Liste teilt den Bereich bis `meta.to` in Abfragen von höchstens `m
 Tagen und höchstens `meta.maxCalendars` Kalendern; ihre Reichweite ist damit nicht auf eine feste
 Tageszahl im Client begrenzt. `googleOpenUrl` ist ohne Google-Anbindung ein leerer String.
 
+### `GET /v1/calendars/all`
+
+Website-Katalog: **alle** veröffentlichten, aktiven Kalender, auch solche ohne Channel. Gleiche
+Felder und gleiche `meta` wie `GET /v1/calendars`, Parameter nur `locale`. Bei Kalendern ohne
+Channel ist `channelSlug` ein leerer String und `colorHex` die Standardfarbe. Die Slugs sind für
+`GET /v1/calendars/:slug/entries` gedacht. Der App-Katalog `GET /v1/calendars` bleibt
+unverändert kanalbasiert.
+
 ### `GET /v1/calendars/events`
 
 Aggregierte Termine über **mehrere** ausgewählte Kalender. Das Abfrageintervall ist als **Überlappung** definiert: `startsAt <= to AND endsAt >= from`.

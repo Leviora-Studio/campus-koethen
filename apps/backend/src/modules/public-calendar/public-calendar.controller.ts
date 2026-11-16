@@ -98,8 +98,28 @@ export class PublicCalendarController {
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PublicCalendarListResponseDto })
   async list(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
+    return this.catalogue(locale, false);
+  }
+
+  @Get('all')
+  @ApiOperation({
+    summary: 'List every published, active calendar for websites, with or without a channel.',
+    description:
+      'Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex the default colour. Use the slugs with GET /v1/calendars/{slug}/entries.',
+  })
+  @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
+  @ApiOkResponse({ type: PublicCalendarListResponseDto })
+  async all(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
+    return this.catalogue(locale, true);
+  }
+
+  private async catalogue(
+    locale: LocaleResolution,
+    includeUnmapped: boolean,
+  ): Promise<ApiResponse<PublicCalendarDto[]>> {
     const { data, translationFallback } = await (this.editorial ?? this.calendars).listCalendars(
       locale,
+      includeUnmapped,
     );
     const now = Date.now();
     return {

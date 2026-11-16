@@ -1,5 +1,6 @@
 import { ApiError } from '../../common/errors/api-error';
 import { Env } from '../../config/env.schema';
+import { EditorialCalendarService } from './editorial-calendar.service';
 import { PublicCalendarController } from './public-calendar.controller';
 import { PublicCalendarService } from './public-calendar.service';
 
@@ -65,6 +66,35 @@ describe('PublicCalendarController date range', () => {
     expect(response.meta.from).toBe('2026-09-24');
     expect(response.meta.to).toBe('2027-03-23');
     expect(response.meta.maxRangeDays).toBe(120);
+  });
+
+  it('lists every servable calendar for websites, including calendars without a channel', async () => {
+    const withChannel = { slug: 'beispielkalender-a', channelSlug: 'beispielkanal' };
+    const withoutChannel = { slug: 'beispielkalender-b', channelSlug: '' };
+    const listCalendars = jest.fn(async (_locale: unknown, includeUnmapped = false) => ({
+      data: includeUnmapped ? [withChannel, withoutChannel] : [withChannel],
+      translationFallback: false,
+    }));
+    const editorial = { listCalendars } as unknown as EditorialCalendarService;
+    const controller = new PublicCalendarController(
+      {} as PublicCalendarService,
+      {
+        PUBLIC_CALENDAR_API_MAX_RANGE_DAYS: 120,
+        PUBLIC_CALENDAR_LOOKAHEAD_DAYS: 180,
+        PUBLIC_CALENDAR_API_MAX_CALENDARS: 50,
+        PUBLIC_CALENDAR_ENABLED: true,
+      } as Env,
+      editorial,
+    );
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-24T12:00:00.000Z'));
+
+    const all = await controller.all(locale);
+    const app = await controller.list(locale);
+
+    expect(all.data.map((c) => c.slug)).toEqual(['beispielkalender-a', 'beispielkalender-b']);
+    // The app catalogue stays channel-based.
+    expect(app.data.map((c) => c.slug)).toEqual(['beispielkalender-a']);
+    expect(all.meta).toMatchObject({ from: '2026-09-24', to: '2027-03-23', maxRangeDays: 120 });
   });
 
   it('still honours an explicit range', async () => {

@@ -30,6 +30,7 @@ const REQUIRED_PATHS = [
   '/v1/rooms',
   '/v1/rooms/{roomKey}',
   '/v1/calendars',
+  '/v1/calendars/all',
   '/v1/calendars/events',
   '/v1/calendars/{slug}/events',
   '/v1/calendars/{slug}/entries',
