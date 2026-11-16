@@ -1,3 +1,4 @@
+import 'package:campus_koethen/features/calendar/domain/public_calendar.dart';
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
@@ -30,7 +31,7 @@ UnifiedEvent calendarEvent({
   bool allDay = false,
   String? channel = 'campus-events',
   String calendarSlug = 'stura-termine',
-  String title = 'Kalenderveranstaltung',
+  String title = 'Postveranstaltung',
 }) => UnifiedEvent(
   eventRef: ref,
   kind: UnifiedEventKind.calendarEvent,
@@ -44,6 +45,26 @@ UnifiedEvent calendarEvent({
 );
 
 void main() {
+  test('editorial-only calendars parse without a Google link', () {
+    final calendar = PublicCalendar.fromJson({
+      'id': 'demo',
+      'slug': 'demo',
+      'name': 'Demo calendar',
+      'googleOpenUrl': '',
+    });
+    expect(calendar, isNotNull);
+    final event = PublicCalendarEvent.fromJson({
+      'id': 'demo-entry',
+      'calendarId': 'demo',
+      'calendarSlug': 'demo',
+      'title': 'Demo appointment',
+      'start': '2026-11-16T10:00:00Z',
+      'end': '2026-11-16T11:00:00Z',
+      'source': 'editorial',
+    })!;
+    expect(calendarToUnifiedEvent(event).isEditorial, isTrue);
+  });
+
   group('isDuplicateCalendarEvent', () {
     test('exact time-bound match is a duplicate', () {
       final UnifiedEvent p = post(start: DateTime.utc(2026, 8, 10, 18, 0));
@@ -106,19 +127,19 @@ void main() {
       expect(isDuplicateCalendarEvent(postEvent: p, calendarEvent: c), isFalse);
     });
 
-    test('seconds and below never matter — still minute-exact', () {
+    test('different seconds are different periods', () {
       final UnifiedEvent p = post(start: DateTime.utc(2026, 8, 10, 18, 0, 0));
       final UnifiedEvent c = calendarEvent(
         start: DateTime.utc(2026, 8, 10, 18, 0, 59),
       );
-      expect(isDuplicateCalendarEvent(postEvent: p, calendarEvent: c), isTrue);
+      expect(isDuplicateCalendarEvent(postEvent: p, calendarEvent: c), isFalse);
     });
   });
 
   group('mergeEventSources', () {
     test('a matching calendar event is suppressed and the post wins whole', () {
       final UnifiedEvent p = post(title: 'Vom Post');
-      final UnifiedEvent c = calendarEvent(title: 'Vom Kalender');
+      final UnifiedEvent c = calendarEvent(title: 'Vom Post');
       final List<UnifiedEvent> merged = mergeEventSources(
         postEvents: <UnifiedEvent>[p],
         calendarEvents: <UnifiedEvent>[c],
@@ -150,6 +171,28 @@ void main() {
       );
       expect(merged, hasLength(2));
     });
+  });
+
+  test('editorial appointments win over identical event posts', () {
+    final UnifiedEvent editorial = UnifiedEvent(
+      eventRef: 'calendar:editorial',
+      kind: UnifiedEventKind.calendarEvent,
+      title: 'Postveranstaltung',
+      start: DateTime.utc(2026, 8, 10, 18),
+      channelSlug: 'campus-events',
+      isEditorial: true,
+    );
+    expect(
+      mergeEventSources(postEvents: [post()], calendarEvents: [editorial]),
+      [editorial],
+    );
+    expect(
+      mergeEventSources(
+        postEvents: [post(title: 'Other demo')],
+        calendarEvents: [editorial],
+      ),
+      hasLength(2),
+    );
   });
 
   group('EventDedupIndex', () {

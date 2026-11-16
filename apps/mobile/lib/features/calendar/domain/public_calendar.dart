@@ -47,8 +47,8 @@ class PublicCalendar {
     final String? slug = asString(map['slug']);
     final String? id = asString(map['id']);
     final String? name = asString(map['name']);
-    final String? googleOpenUrl = asString(map['googleOpenUrl']);
-    if (slug == null || id == null || name == null || googleOpenUrl == null) {
+    final String googleOpenUrl = asString(map['googleOpenUrl']) ?? '';
+    if (slug == null || id == null || name == null) {
       return null;
     }
     return PublicCalendar(
@@ -83,6 +83,7 @@ class PublicCalendarEvent {
     required this.end,
     this.allDay = false,
     this.status = 'confirmed',
+    this.source = 'google',
     this.description,
     this.location,
   });
@@ -97,6 +98,7 @@ class PublicCalendarEvent {
   final DateTime end;
   final bool allDay;
   final String status;
+  final String source;
 
   static PublicCalendarEvent? fromJson(Object? json) {
     final Map<String, dynamic>? map = asJsonMap(json);
@@ -117,6 +119,7 @@ class PublicCalendarEvent {
       end: end,
       allDay: asBool(map['allDay']) ?? false,
       status: asString(map['status']) ?? 'confirmed',
+      source: asString(map['source']) ?? 'google',
     );
   }
 

@@ -13,35 +13,20 @@ import 'unified_event.dart';
 bool sameStartMinute(DateTime a, DateTime b) =>
     a.millisecondsSinceEpoch ~/ 60000 == b.millisecondsSinceEpoch ~/ 60000;
 
-/// Whether [calendarEvent] is an exact duplicate of [postEvent] under the
-/// contract's dedup rule: identical channel/calendar attribution, identical
-/// all-day flag, and a minute-exact identical start. A calendar event with no
-/// [UnifiedEvent.channelSlug] (unmapped to any channel) can never match —
-/// callers should not even offer it to this check, but it is also guarded
-/// here for safety.
+/// Duplicates have the same channel, title, full UTC period and all-day flag.
 bool isDuplicateCalendarEvent({
   required UnifiedEvent postEvent,
   required UnifiedEvent calendarEvent,
 }) {
-  if (calendarEvent.channelSlug == null) return false;
-  if (postEvent.channelSlug != calendarEvent.channelSlug) return false;
-  if (postEvent.allDay != calendarEvent.allDay) return false;
-  return sameStartMinute(postEvent.start, calendarEvent.start);
+  final String? key = _dedupKey(calendarEvent);
+  return key != null && key == _dedupKey(postEvent);
 }
 
-/// Everything [isDuplicateCalendarEvent] compares, as one comparable string:
-/// the all-day flag, the start truncated to the minute in UTC, and the channel
-/// attribution. Two events are duplicates under the rule exactly when their
-/// keys are equal — so a set of keys can answer what a nested loop answered.
-///
-/// `null` for an event with no channel attribution: the rule can never call
-/// such an event a duplicate, in either direction. The channel comes last so a
-/// slug containing the separator cannot be read as a different key.
 String? _dedupKey(UnifiedEvent event) {
   final String? channel = event.channelSlug;
   if (channel == null) return null;
-  final int startMinute = event.start.millisecondsSinceEpoch ~/ 60000;
-  return '${event.allDay}|$startMinute|$channel';
+  final String title = event.title.trim().replaceAll(RegExp(r'\s+'), ' ');
+  return '$channel|${event.allDay}|${event.start.toUtc().microsecondsSinceEpoch}|${(event.end ?? event.start).toUtc().microsecondsSinceEpoch}|$title';
 }
 
 /// [isDuplicateCalendarEvent] as a lookup instead of a scan.
@@ -74,25 +59,24 @@ class EventDedupIndex {
   }
 }
 
-/// The single reusable merge+dedup function for the event overview AND the
-/// calendar (per contract, "eine einzige wiederverwendbare Funktion").
-///
-/// Every event post is kept as-is. A calendar event is kept unless an event
-/// post exists with identical primaryChannel/calendar-channelSlug, identical
-/// all-day flag and a minute-exact identical start — in which case the post
-/// wins **completely**; fields are never mixed between the two.
-///
-/// A calendar event with no channel mapping is never suppressed. Two events
-/// on the same day with a different start time, different channels or a
-/// different all-day flag are never treated as duplicates.
+/// Editorial appointment > event post > Google occurrence; keep whole entries.
 List<UnifiedEvent> mergeEventSources({
   required List<UnifiedEvent> postEvents,
   required List<UnifiedEvent> calendarEvents,
 }) {
-  final List<UnifiedEvent> result = List<UnifiedEvent>.of(postEvents);
-  final EventDedupIndex posts = EventDedupIndex(postEvents);
-  for (final UnifiedEvent calendarEvent in calendarEvents) {
-    if (!posts.hasCounterpartOf(calendarEvent)) result.add(calendarEvent);
-  }
-  return result;
+  final List<UnifiedEvent> editorial = calendarEvents
+      .where((e) => e.isEditorial)
+      .toList();
+  final EventDedupIndex appointments = EventDedupIndex(editorial);
+  final List<UnifiedEvent> posts = postEvents
+      .where((e) => !appointments.hasCounterpartOf(e))
+      .toList();
+  final EventDedupIndex preferred = EventDedupIndex([...editorial, ...posts]);
+  return [
+    ...posts,
+    ...editorial,
+    ...calendarEvents.where(
+      (e) => !e.isEditorial && !preferred.hasCounterpartOf(e),
+    ),
+  ];
 }

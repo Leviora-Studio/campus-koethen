@@ -9,8 +9,8 @@ import { ResponseMetaDto } from '../../common/dto/meta.dto';
 export interface CalendarDefinition {
   slug: string;
   googleCalendarId: string;
-  /** Every served calendar belongs to exactly one channel. */
-  channelSlug: string;
+  /** Independent calendars can also be embedded on websites. */
+  channelSlug: string | null;
   nameDe: string;
   nameEn: string | null;
   /** The channel's colour; a calendar has none of its own. */
@@ -40,7 +40,22 @@ export class PublicCalendarDto {
   googleOpenUrl!: string;
 }
 
+export class CalendarLinkDto {
+  @ApiProperty() label!: string;
+  @ApiProperty() url!: string;
+}
+export class CalendarAttachmentDto {
+  @ApiProperty() url!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() mimeType!: string;
+}
 export class PublicCalendarEventDto {
+  @ApiPropertyOptional({ enum: ['editorial', 'post', 'google'] }) source?:
+    'editorial' | 'post' | 'google';
+  @ApiPropertyOptional({ nullable: true, type: String }) timeZone?: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) imageUrl?: string | null;
+  @ApiPropertyOptional({ type: [CalendarLinkDto] }) links?: CalendarLinkDto[];
+  @ApiPropertyOptional({ type: [CalendarAttachmentDto] }) attachments?: CalendarAttachmentDto[];
   @ApiProperty({
     description:
       'Stable, non-invertible eventKey = base64url(sha256(calendarSlug + "\\0" + occurrenceKey))[0..21].',

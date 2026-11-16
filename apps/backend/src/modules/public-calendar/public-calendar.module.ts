@@ -1,3 +1,5 @@
+import { PostsModule } from '../posts/posts.module';
+import { EditorialCalendarService } from './editorial-calendar.service';
 import { Module } from '@nestjs/common';
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
@@ -14,8 +16,10 @@ import { PublicCalendarSyncService } from './public-calendar-sync.service';
  * their @Global() modules.
  */
 @Module({
+  imports: [PostsModule],
   controllers: [PublicCalendarController],
   providers: [
+    EditorialCalendarService,
     PublicCalendarService,
     PublicCalendarSyncService,
     {

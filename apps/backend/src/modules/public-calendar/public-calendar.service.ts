@@ -138,14 +138,12 @@ export class PublicCalendarService implements OnModuleInit {
   } as const;
 
   /**
-   * Also excludes a calendar without a channel: the app offers events per
-   * channel only. The catalogue sync no longer mirrors such a calendar, but a
-   * row from before that rule may still be active until the next good sync.
+   * Google availability is independent of a channel assignment. The app
+   * catalogue applies its channel filter separately from website queries.
    */
   private servableWhere() {
     return {
       isActive: true,
-      channelSlug: { not: null },
       operationalStatus: { in: PublicCalendarService.SERVABLE },
       lastSuccessfulSyncAt: { not: null },
     };
@@ -172,6 +170,7 @@ export class PublicCalendarService implements OnModuleInit {
 
   async listCalendars(
     locale: LocaleResolution,
+    includeUnmapped = false,
   ): Promise<{ data: PublicCalendarDto[]; translationFallback: boolean }> {
     const rows = await this.prisma.publicCalendar.findMany({
       where: this.servableWhere(),
@@ -181,7 +180,7 @@ export class PublicCalendarService implements OnModuleInit {
     let translationFallback = false;
     const data = rows.flatMap((row) => {
       // Already excluded by the query; this only narrows the type.
-      if (row.channelSlug === null) return [];
+      if (row.channelSlug === null && !includeUnmapped) return [];
       const name = this.localise(locale.resolvedLocale, row.nameDe, row.nameEn);
       if (locale.resolvedLocale === 'en') {
         translationFallback = translationFallback || name.fellBack;
@@ -190,7 +189,7 @@ export class PublicCalendarService implements OnModuleInit {
       const dto: PublicCalendarDto = {
         id: row.id,
         slug: row.slug,
-        channelSlug: row.channelSlug,
+        channelSlug: row.channelSlug ?? '',
         name: name.value,
         colorHex: row.colorHex,
         sortOrder: row.sortOrder,
@@ -295,7 +294,7 @@ export class PublicCalendarService implements OnModuleInit {
       calendar: {
         id: row.id,
         slug: row.slug,
-        channelSlug: row.channelSlug,
+        channelSlug: row.channelSlug ?? '',
         name: row.nameDe,
         colorHex: row.colorHex,
         sortOrder: row.sortOrder,

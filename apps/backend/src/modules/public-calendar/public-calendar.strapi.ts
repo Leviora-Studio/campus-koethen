@@ -10,9 +10,8 @@ import { CalendarDefinition } from './public-calendar.types';
  * here and re-derives the calendar id from the share link. A single invalid
  * entry is dropped (and counted), never taking the rest of the catalogue down.
  *
- * The app offers events per channel only, so a calendar without a (valid)
- * channel is dropped the same way. Its colour is the channel's colour: the
- * calendar has none of its own.
+ * The app offers channel calendars; independent calendars remain available
+ * to website readers. A linked calendar inherits its channel colour.
  */
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -23,7 +22,7 @@ const strapiEntrySchema = z
   .object({
     slug: z.string(),
     name: z.string().min(1),
-    googleShareUrl: z.string(),
+    googleShareUrl: z.string().nullish(),
     sortOrder: z.coerce.number().int().default(0),
     isActive: z.boolean().default(true),
     defaultSubscribed: z.boolean().default(false),
@@ -72,13 +71,14 @@ export function validateCatalog(
       continue;
     }
     const entry = parsed.data;
+    // Editorial-only calendars do not participate in the Google read model.
+    if (!entry.googleShareUrl) continue;
 
     const channel = entry.channel;
     if (
       !SLUG_PATTERN.test(entry.slug) ||
-      !channel ||
-      !SLUG_PATTERN.test(channel.slug) ||
-      !COLOR_PATTERN.test(channel.colorHex)
+      (channel != null &&
+        (!SLUG_PATTERN.test(channel.slug) || !COLOR_PATTERN.test(channel.colorHex)))
     ) {
       rejected += 1;
       continue;
@@ -94,10 +94,10 @@ export function validateCatalog(
     definitions.push({
       slug: entry.slug,
       googleCalendarId: extracted.calendarId,
-      channelSlug: channel.slug,
+      channelSlug: channel?.slug ?? null,
       nameDe: entry.name,
       nameEn: en?.name ?? null,
-      colorHex: channel.colorHex.toUpperCase(),
+      colorHex: channel?.colorHex.toUpperCase() ?? '#5B3FD0',
       sortOrder: entry.sortOrder,
       defaultSubscribed: entry.defaultSubscribed,
       includeEventDescription: entry.includeEventDescription,

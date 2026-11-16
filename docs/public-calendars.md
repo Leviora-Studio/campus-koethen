@@ -1,8 +1,9 @@
 <!-- Campus Köthen App · AGPL-3.0-only · Copyright © 2026 Leviora Studio and Jona Loreen Sommer -->
 
-# Öffentliche Google-Kalender (ICS)
+# Redaktionelle Kalender und öffentliche Google-Kalender (ICS)
 
-Redakteur:innen legen in Strapi **öffentliche** Google-Kalender an. Der Campus-Worker
+Redakteur:innen legen in Strapi Kalender und eigene Termine an. Optional wird ein
+**öffentlicher** Google-Kalender verknüpft. Der Campus-Worker
 synchronisiert sie über den **öffentlichen ICS-Feed**, die Campus API liefert Katalog und Termine,
 und die App führt sie – lokal – mit Stundenplan und Moodle-Deadlines im Kalender-Tab zusammen. Nach
 der einmaligen Implementierung braucht ein weiterer Kalender **weder App- noch Backend-Änderung**.
@@ -107,11 +108,11 @@ nie**; erst ein vollständig erfolgreicher Abruf fügt hinzu/aktualisiert/deakti
 
 ## 7. Campus API
 
-- `GET /v1/calendars` — Katalog (nur aktive, valide, mind. einmal erfolgreich synchronisierte).
+- `GET /v1/calendars` — Katalog der aktiven, validen Kanal-Kalender; eigene Termine benötigen keinen Google-Sync.
   DTO: `id, slug, channelSlug, name, colorHex, sortOrder, defaultSubscribed, dataState,
 lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen Kalender
-  1:1 mit einem redaktionellen Kanal und ist immer gesetzt: Kalender ohne Kanal werden weder
-  übernommen noch ausgeliefert. `colorHex` ist die Farbe dieses Kanals. **Nie** Google-ID,
+  1:1 mit einem redaktionellen Kanal und ist im App-Katalog immer gesetzt. Unzugeordnete
+  Kalender sind über den Website-Endpunkt erreichbar. `colorHex` ist die Farbe dieses Kanals. **Nie** Google-ID,
   Feed-URL, ETag oder interne Fehler.
 - `GET /v1/calendars/:slug/events?from&to` — Termine eines Kalenders (Zeitraum begrenzt).
   Das Abfrageintervall ist als **Überlappung** definiert (`startsAt <= to AND endsAt >= from`).
@@ -125,7 +126,7 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
 
 - **Kalender-Tab:** Die Quelle „Events“ zeigt genau, was der Reiter Events zeigt: Event-Beiträge
   und Termine der öffentlichen Kalender der **ausgewählten Channels**, mit derselben Duplikatregel
-  (ein Beitrag ersetzt den identischen Kalendertermin vollständig). Anders als die Übersicht zeigt
+  (eigener Strapi-Termin vor Event-Post vor Google-Termin; gleicher Titel und vollständiger Zeitraum). Anders als die Übersicht zeigt
   der Kalender auch Vergangenes im betrachteten Zeitraum. Termine erhalten die Channel-Farbe
   **plus** Channel- bzw. Kalendernamen/Icon (Farbe nie alleiniges Merkmal). Fallen Beiträge oder
   Kalender aus, bleibt die jeweils andere Hälfte sichtbar; ein Fehler blendet Stundenplan/Moodle
@@ -145,7 +146,7 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
   Box über zwei Spalten zeichnen kann; ganztägige Termine stehen dort im Band über dem Raster und
   spannen mit.
 - **Google-Buttons:** „In Google Kalender öffnen“ (einzeln, `googleOpenUrl`, bei jedem Channel mit
-  Kalender) extern via `url_launcher` (HTTPS, Browser-Fallback). Die kombinierte Embed-URL
+  Google-Verknüpfung) extern via `url_launcher` (HTTPS, Browser-Fallback). Die kombinierte Embed-URL
   (`/v1/calendars/google-view-url`) stellt das Backend bereit; die App bietet dafür derzeit keinen
   Button an. Kein automatisches Hinzufügen zum persönlichen Google-Konto; Stundenplan
   und Moodle sind keine Google-Quellen und nicht Teil der kombinierten Ansicht.
@@ -155,7 +156,7 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
 1. Strapi öffnen → **Public Calendar → Create an entry**.
 2. **Name** (lokalisiert) und **Slug** (nur `a-z0-9-`, stabil, nach Veröffentlichung nicht mehr
    ändern) eintragen.
-3. **googleShareUrl**: den **öffentlichen** Google-Freigabelink mit `cid` einfügen
+3. Optional **googleShareUrl**: den **öffentlichen** Google-Freigabelink mit `cid` einfügen
    (`https://calendar.google.com/calendar/u/0?cid=…`). **Keine** geheime/private „iCal-Adresse“ und
    **keine** `basic.ics`-URL.
 4. **sortOrder** wählen. Eine eigene Farbe hat der Kalender nicht: Seine Termine tragen die Farbe
@@ -187,3 +188,55 @@ Standardparameter: Lookahead 400 Tage, API Max Range 400 Tage, Max Occurrences p
 Für DEV muss `PUBLIC_CALENDAR_ENABLED=true` gesetzt und der Strapi-Token mit Leserechten versehen
 werden. Neue Abhängigkeit: **`ical.js@2.2.1` (MPL-2.0, keine transitiven Laufzeit-Deps)** — Bewertung
 in [`legal/dependency-licenses.md`](legal/dependency-licenses.md).
+
+## Editorial calendars (1.2.5)
+
+The existing `public-calendar` collection is now displayed as **Calendar**; its
+technical UID and slugs remain unchanged. `googleShareUrl` is optional. A calendar
+can contain editorial appointments without any Google import or successful ICS sync.
+Assign the calendar to a channel to offer it in the app (one calendar per channel).
+
+Create appointments in **Calendar Entry** and select their calendar. Fields:
+`title`, stable `slug`, plain-text `description`, `location`, `start`, `end`,
+IANA `timeZone` (default `Europe/Berlin`), `allDay`, `image`, labelled HTTPS `links`,
+and uploaded `attachments`. German is canonical; title, description, location and
+links can be translated into English. Drafts are never publicly served.
+Timed start/end values are absolute ISO timestamps including an offset. End must
+be after start. All-day dates use UTC midnight and an **exclusive end date**
+(e.g. November 16 is `2026-11-16T00:00:00Z` to `2026-11-17T00:00:00Z`).
+Recurrence, invitations, attendees and reminders are not supported.
+
+- Existing `/v1/calendars/events` and `/v1/calendars/:slug/events` return Google
+  occurrences plus editorial appointments. Existing post endpoints stay unchanged.
+- **Website:** `GET /v1/calendars/:slug/entries?from=2026-11-01&to=2026-11-30&locale=de`
+  additionally includes event posts of the linked channel, projected onto neutral
+  appointment fields. No post blocks, tags or navigation options are returned.
+- Fields: `id`, `calendarId`, `calendarSlug`, `title`, `description`, `location`,
+  `start`, `end`, `allDay`, `status`, `source` (`editorial`, `post`, `google`),
+  `timeZone`, `imageUrl`, `links` (`label`, `url`), `attachments` (`name`, `url`,
+  `mimeType`). Time zone is null for sources without explicit zone metadata.
+  Image/file URLs are relative to the Campus API origin; resolve them against
+  that origin on websites hosted elsewhere. Rich descriptions are plain text.
+- Date ranges and result counts use the existing calendar limits. Check
+  `meta.truncated`; a truncated response is not a complete calendar export.
+- Duplicate identity: same calendar (channel in the app), whitespace-normalised,
+  case-sensitive title, exact UTC start AND end, and same all-day flag.
+  Priority: **editorial appointment > event post > Google**. Keep the winning
+  entry whole. Different titles or durations are separate appointments.
+- Upload downloads use `/v1/media/files/:filename` with attachment disposition,
+  no redirects, strict upload-path validation and the existing 12 MiB limit.
+  Supported attachments: raster images, PDF, plain text, CSV, ICS, ZIP,
+  Word/Excel/PowerPoint (legacy and OOXML), and OpenDocument text/sheets/slides.
+  Active HTML/SVG documents are not served.
+
+Deployment: update CMS, API and worker together. Strapi creates the new collection
+and component on startup. Existing calendar/channel relations are retained; no
+operational Prisma migration is needed. A custom CMS token must gain read-only
+`find` access to `calendar-entry`; the standard read-only token already covers it.
+Google sync settings control Google import; editorial appointments remain available
+independently. Older apps can read added appointments in existing Google calendars; editorial-only
+calendars require the new app parser. Only the new app applies editorial precedence
+against locally loaded event posts.
+
+For browser-based website embedding, add the website origin to the backend
+`CORS_ALLOWED_ORIGINS` environment allowlist. No CMS token belongs in the website.

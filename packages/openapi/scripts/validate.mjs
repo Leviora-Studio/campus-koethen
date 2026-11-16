@@ -32,6 +32,8 @@ const REQUIRED_PATHS = [
   '/v1/calendars',
   '/v1/calendars/events',
   '/v1/calendars/{slug}/events',
+  '/v1/calendars/{slug}/entries',
+  '/v1/media/files/{filename}',
   '/v1/calendars/google-view-url',
 ];
 
@@ -43,7 +45,12 @@ const REQUIRED_PATHS = [
  * array while actually returning the envelope — the generated contract said one
  * thing, the running server another, and nothing caught it.
  */
-const ENVELOPE_EXEMPT_PATHS = ['/health/live', '/health/ready', '/v1/media/uploads/{filename}'];
+const ENVELOPE_EXEMPT_PATHS = [
+  '/health/live',
+  '/health/ready',
+  '/v1/media/uploads/{filename}',
+  '/v1/media/files/{filename}',
+];
 
 /**
  * Strapi internals that must never appear anywhere in the contract.

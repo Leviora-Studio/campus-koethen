@@ -102,7 +102,7 @@ describe('PublicCalendarService', () => {
       });
     });
 
-    it('serves only calendars that belong to a channel, in every read path', async () => {
+    it('serves only active synchronised Google data in every read path', async () => {
       const { service, calendarFindMany, calendarFindFirst } = serviceWith(row);
       await service.listCalendars(en);
       await service.getCalendarEvents('events', new Date(), new Date());
@@ -117,7 +117,7 @@ describe('PublicCalendarService', () => {
       ];
       expect(wheres).toHaveLength(4);
       for (const where of wheres) {
-        expect(where.channelSlug).toEqual({ not: null });
+        expect(where.isActive).toBe(true);
       }
     });
 

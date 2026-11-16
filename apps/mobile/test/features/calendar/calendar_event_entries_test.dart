@@ -73,7 +73,7 @@ Map<String, dynamic> _calendarEvent(String id, String calendar, String start) =>
       'id': id,
       'calendarId': 'id-$calendar',
       'calendarSlug': calendar,
-      'title': 'Demo-Termin $id',
+      'title': id == 'doppelt' ? 'Demo-Beitrag fsr-doppelt' : 'Demo-Termin $id',
       'start': start,
       'end': start,
     };

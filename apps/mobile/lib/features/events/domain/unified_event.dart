@@ -38,6 +38,7 @@ class UnifiedEvent {
     this.calendarEventId,
     this.location,
     this.description,
+    this.isEditorial = false,
   });
 
   final String eventRef;
@@ -74,6 +75,7 @@ class UnifiedEvent {
 
   final String? location;
   final String? description;
+  final bool isEditorial;
 
   /// The key filter options are grouped by: the mapped channel when one
   /// exists, otherwise the calendar's own slug for an unmapped calendar.
@@ -148,6 +150,7 @@ UnifiedEvent calendarToUnifiedEvent(
     calendarSlug: event.calendarSlug,
     sourceLabel: calendarName ?? event.calendarSlug,
     colorArgb: _parseColorArgb(colorHex),
+    isEditorial: event.source == 'editorial',
     isCancelled: event.status == 'cancelled',
     calendarEventId: event.id,
     location: event.location,

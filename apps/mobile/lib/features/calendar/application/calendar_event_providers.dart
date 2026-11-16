@@ -153,22 +153,29 @@ Future<List<CalendarEntry>> _loadEventEntries(
       if (bySlug.containsKey(event.calendarSlug)) event,
   ];
 
-  final Set<String> keptCalendarEventIds = <String>{
-    for (final UnifiedEvent event in mergeEventSources(
-      postEvents: selectedPosts.map(postToUnifiedEvent).toList(),
-      calendarEvents: <UnifiedEvent>[
-        for (final PublicCalendarEvent event in calendarEvents)
-          calendarToUnifiedEvent(
-            event,
-            channelSlug: bySlug[event.calendarSlug]!.channelSlug,
-          ),
-      ],
-    ))
+  final List<UnifiedEvent> merged = mergeEventSources(
+    postEvents: selectedPosts.map(postToUnifiedEvent).toList(),
+    calendarEvents: <UnifiedEvent>[
+      for (final PublicCalendarEvent event in calendarEvents)
+        calendarToUnifiedEvent(
+          event,
+          channelSlug: bySlug[event.calendarSlug]!.channelSlug,
+        ),
+    ],
+  );
+  final Set<String> keptCalendarEventIds = {
+    for (final event in merged)
       if (event.calendarEventId case final String id) id,
+  };
+  final Set<String> keptPostSlugs = {
+    for (final event in merged)
+      if (event.postSlug case final String slug) slug,
   };
 
   return <CalendarEntry>[
-    ...eventPostsToCalendarEntries(selectedPosts),
+    ...eventPostsToCalendarEntries(
+      selectedPosts.where((post) => keptPostSlugs.contains(post.slug)).toList(),
+    ),
     ...publicCalendarEventsToCalendarEntries(
       calendarEvents
           .where((PublicCalendarEvent e) => keptCalendarEventIds.contains(e.id))

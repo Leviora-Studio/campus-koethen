@@ -79,10 +79,10 @@ export class PublicCalendarSyncService {
       }
 
       // A channel has at most one calendar. Keep the first (Strapi's own sort
-      // order) and drop the others, deterministically: a calendar without a
-      // channel would not be offered in the app anyway.
+      // order) and drop duplicates. Independent calendars are not duplicates.
       const seenChannelSlugs = new Set<string>();
       const accepted = definitions.filter((def) => {
+        if (def.channelSlug === null) return true;
         if (!seenChannelSlugs.has(def.channelSlug)) {
           seenChannelSlugs.add(def.channelSlug);
           return true;

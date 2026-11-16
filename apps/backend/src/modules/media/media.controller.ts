@@ -64,6 +64,30 @@ export class MediaController {
     }
   }
 
+  @Get('files/:filename')
+  @ApiResponse({
+    status: 200,
+    description: 'Attachment bytes.',
+    content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } } },
+  })
+  @ApiOperation({
+    summary: 'Download an editorial attachment (bounded upload path; no redirects).',
+  })
+  @Header('X-Content-Type-Options', 'nosniff')
+  @Header('Content-Disposition', 'attachment')
+  @Header('Cache-Control', 'public, max-age=86400')
+  async attachment(@Param('filename') filename: string, @Res() response: Response): Promise<void> {
+    try {
+      const result = await this.media.fetch(`/uploads/${filename}`, { attachment: true });
+      if (result.kind === 'file') {
+        response.setHeader('Content-Type', result.contentType);
+        response.send(result.body);
+      } else response.status(304).end();
+    } catch (error) {
+      throw MediaController.toApiError(error);
+    }
+  }
+
   private static toApiError(error: unknown): ApiError {
     if (!(error instanceof MediaError)) {
       return new ApiError('UPSTREAM_UNAVAILABLE');

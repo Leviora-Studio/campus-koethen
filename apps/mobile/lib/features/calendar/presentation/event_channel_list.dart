@@ -117,7 +117,7 @@ class EventChannelList extends ConsumerWidget {
               onChanged: (bool value) => ref
                   .read(eventSourceFilterProvider.notifier)
                   .setSelected(option.key, selected: value),
-              onOpenInGoogle: calendar == null
+              onOpenInGoogle: calendar == null || calendar.googleOpenUrl.isEmpty
                   ? null
                   : () => _open(context, ref, calendar.googleOpenUrl),
             );

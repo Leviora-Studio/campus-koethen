@@ -17,7 +17,7 @@ SavedEventSnapshot _saved({
   String? channelSlug,
   String? calendarSlug = 'stura-termine',
   String? sourceLabel,
-  String title = 'Gemerktes Event',
+  String title = 'Demo-Beitrag',
   int? colorArgb,
 }) => SavedEventSnapshot(
   eventRef: eventRef,
@@ -37,7 +37,7 @@ CalendarEntry _livePublicEntry({
   String eventId = 'key1',
   DateTime? start,
   bool allDay = false,
-  String title = 'Live-Termin',
+  String title = 'Demo-Beitrag',
 }) => CalendarEntry(
   id: 'publicCalendar:$calendarSlug:$eventId',
   source: CalendarSource.publicCalendar,
@@ -182,7 +182,7 @@ void main() {
     });
 
     test('a saved post event duplicating a live calendar entry by channel and '
-        'minute-exact start is suppressed', () {
+        'same title and full period is suppressed', () {
       final DateTime start = DateTime.utc(2026, 8, 10, 18, 0);
       final List<CalendarEntry> out = savedEventEntriesForCalendar(
         saved: <SavedEventSnapshot>[

@@ -4,8 +4,8 @@
   "info": {
     "singularName": "public-calendar",
     "pluralName": "public-calendars",
-    "displayName": "Public Calendar",
-    "description": "A public Google calendar, synced read-only via its PUBLIC ICS feed. Fully dynamic: publishing one here makes it appear in the app after the first successful backend sync — no app or backend code change. Only calendars assigned to a channel are shown; their events use the channel's colour."
+    "displayName": "Calendar",
+    "description": "Editorial calendar with optional public Google calendar import."
   },
   "options": {
     "draftAndPublish": true
@@ -40,7 +40,6 @@
     },
     "googleShareUrl": {
       "type": "string",
-      "required": true,
       "maxLength": 2048,
       "regex": "^https://calendar\\.google\\.com/calendar/(render|u/[0-9]+(/r)?)\\?.*cid=.+$",
       "pluginOptions": {
@@ -111,6 +110,20 @@
           "localized": false
         }
       }
+    },
+    "description": {
+      "type": "text",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "entries": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::calendar-entry.calendar-entry",
+      "mappedBy": "calendar"
     }
   }
 }

@@ -698,7 +698,7 @@
     },
     "/v1/calendars": {
       "get": {
-        "description": "Only active, validated calendars that have synced at least once. The Google calendar id and feed URL are never exposed; each item carries a safe googleOpenUrl.",
+        "description": "Active editorial calendars remain available without a Google sync. googleOpenUrl is an empty string for calendars without Google import. The Google calendar id and feed URL are never exposed.",
         "operationId": "PublicCalendarController_list_v1",
         "parameters": [
           {
@@ -726,7 +726,7 @@
             }
           }
         },
-        "summary": "List public calendars (read-only, synced from their public ICS feed).",
+        "summary": "List channel calendars, with optional Google import.",
         "tags": [
           "public-calendars"
         ]
@@ -823,6 +823,63 @@
           }
         },
         "summary": "A combined calendar.google.com embed URL for the selected calendars.",
+        "tags": [
+          "public-calendars"
+        ]
+      }
+    },
+    "/v1/calendars/{slug}/entries": {
+      "get": {
+        "operationId": "PublicCalendarController_entries_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarEventsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Neutral calendar entries from editorial appointments, event posts and Google; editorial appointments win duplicates.",
         "tags": [
           "public-calendars"
         ]
@@ -1016,6 +1073,38 @@
         ]
       }
     },
+    "/v1/media/files/{filename}": {
+      "get": {
+        "operationId": "MediaController_attachment_v1",
+        "parameters": [
+          {
+            "name": "filename",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment bytes.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download an editorial attachment (bounded upload path; no redirects).",
+        "tags": [
+          "media"
+        ]
+      }
+    },
     "/v1/environment": {
       "get": {
         "operationId": "UserTestEnvironmentController_get_v1",
@@ -1055,7 +1144,7 @@
   "info": {
     "title": "Campus Köthen API",
     "description": "Public read-only API of the Campus Köthen app.\n\nCampus Köthen is an independent, unofficial campus app. It is neither developed\nnor operated by Hochschule Anhalt, nor is it officially endorsed by the university.\n\nAll content endpoints accept `locale=de|en` (default `de`) and report\n`requestedLocale`, `resolvedLocale` and `translationFallback` in their metadata.\nCanteen dish text comes from a German-only source and is never machine-translated.",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "contact": {
       "name": "Campus Köthen App",
       "url": "https://github.com/Leviora-Studio/campus-koethen",
@@ -2692,9 +2781,71 @@
           "meta"
         ]
       },
+      "CalendarLinkDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ]
+      },
+      "CalendarAttachmentDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "name",
+          "mimeType"
+        ]
+      },
       "PublicCalendarEventDto": {
         "type": "object",
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "editorial",
+              "post",
+              "google"
+            ]
+          },
+          "timeZone": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarLinkDto"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarAttachmentDto"
+            }
+          },
           "id": {
             "type": "string",
             "description": "Stable, non-invertible eventKey = base64url(sha256(calendarSlug + \"\\0\" + occurrenceKey))[0..21]."

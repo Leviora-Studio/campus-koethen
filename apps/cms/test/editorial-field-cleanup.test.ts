@@ -10,7 +10,7 @@ import publicCalendar from '../src/api/public-calendar/content-types/public-cale
 
 test('public calendar keeps only understandable event inclusion switches', () => {
   const attributes = publicCalendar.attributes as Record<string, unknown>;
-  for (const removed of ['description', 'iconKey', 'ownerContact', 'attribution', 'timeZone']) {
+  for (const removed of ['iconKey', 'ownerContact', 'attribution', 'timeZone']) {
     assert.equal(removed in attributes, false);
   }
   assert.equal('showDescription' in attributes, false);

@@ -485,9 +485,10 @@ Import **nicht**.
 Zwei getrennte Jobs, beide über `PUBLIC_CALENDAR_ENABLED` schaltbar (Default `false`):
 
 - **Katalog** — spiegelt validierte Strapi-Definitionen ins operative Read-Model. Eine fehlerhafte
-  oder unvollständige Strapi-Antwort löscht den letzten gültigen Katalog nie. Nur Kalender mit
-  Kanal werden übernommen; ihre Farbe ist die des Kanals, ein zweiter Kalender am selben Kanal
-  wird verworfen.
+  oder unvollständige Strapi-Antwort löscht den letzten gültigen Katalog nie. Google-Kalender
+  werden auch ohne Kanal für den Website-Abruf übernommen; die App bietet weiterhin nur
+  Kanal-Kalender an. Zugeordnete Kalender übernehmen die Kanalfarbe; ein zweiter Kalender
+  am selben Kanal wird verworfen. Eigene Termine bleiben redaktionell in Strapi.
 - **Events** — pro Kalender: ICS laden (bytebegrenzt) → validieren → parsen → im Zielfenster
   expandieren → **eine Transaktion** aus Upsert und Löschen ausschließlich im bestätigten Fenster.
 
@@ -526,7 +527,7 @@ auf alle nicht begründet ausgenommenen, behebbaren HIGH/CRITICAL-CVEs geprüft.
 Build wird mit SBOM und maximaler Build-Provenance nach GHCR veröffentlicht.
 
 `main` erhält die Tags `main` und `sha-<voller Commit SHA>`. Ein Git-Tag erhält zusätzlich seinen
-eigenen Namen, für diesen Release also `1.2.4`. Deployments verwenden ausschließlich den
+eigenen Namen, für diesen Release also `1.2.5`. Deployments verwenden ausschließlich den
 unveränderlichen `sha-`-Tag; CI verbindet sich nie mit einem Server und deployt nichts.
 
 ### 7.2 Health-Semantik

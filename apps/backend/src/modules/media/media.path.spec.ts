@@ -1,3 +1,4 @@
+import { isAllowedAttachmentType } from './media.path';
 import { isAllowedMediaType, normaliseMediaPath, publicMediaUrl } from './media.path';
 
 /**
@@ -98,5 +99,19 @@ describe('isAllowedMediaType', () => {
     // bundled map assets.
     expect(isAllowedMediaType('image/svg+xml')).toBe(false);
     expect(isAllowedMediaType('IMAGE/SVG+XML; charset=utf-8')).toBe(false);
+  });
+});
+
+// Attachments use forced downloads; the image endpoint keeps its raster-only rule.
+describe('editorial attachment downloads', () => {
+  it('allows common documents and refuses executable web content', () => {
+    expect(isAllowedAttachmentType('application/pdf')).toBe(true);
+    expect(
+      isAllowedAttachmentType(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ),
+    ).toBe(true);
+    expect(isAllowedAttachmentType('text/html')).toBe(false);
+    expect(isAllowedAttachmentType('image/svg+xml')).toBe(false);
   });
 });

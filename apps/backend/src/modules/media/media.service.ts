@@ -3,7 +3,7 @@ import { BodyTooLargeError, readBoundedBytes } from '../../common/http/bounded-b
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
 import { parseIfNoneMatch } from './media.conditional';
-import { isAllowedMediaType, normaliseMediaPath } from './media.path';
+import { isAllowedAttachmentType, isAllowedMediaType, normaliseMediaPath } from './media.path';
 
 export interface MediaFile {
   kind: 'file';
@@ -73,7 +73,10 @@ export class MediaService {
    * this process every time — the most expensive path in the API measured in
    * bytes.
    */
-  async fetch(path: string, options: { ifNoneMatch?: string | null } = {}): Promise<MediaResult> {
+  async fetch(
+    path: string,
+    options: { ifNoneMatch?: string | null; attachment?: boolean } = {},
+  ): Promise<MediaResult> {
     const safe = normaliseMediaPath(path);
     if (safe === null) {
       // Refused before any request is made: the target of a server-side fetch
@@ -123,7 +126,11 @@ export class MediaService {
       }
 
       const contentType = response.headers.get('content-type');
-      if (!isAllowedMediaType(contentType)) {
+      if (
+        !(options.attachment
+          ? isAllowedAttachmentType(contentType)
+          : isAllowedMediaType(contentType))
+      ) {
         throw new MediaError('unsupported');
       }
 

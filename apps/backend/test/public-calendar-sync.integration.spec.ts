@@ -161,7 +161,7 @@ describe('PublicCalendarSyncService (integration)', () => {
       expect(cal2).toBeNull();
     });
 
-    it('retires a calendar once it no longer belongs to a channel', async () => {
+    it('keeps an independent calendar available for the website', async () => {
       strapi.de = [
         strapiEntry(),
         strapiEntry({ slug: 'cal-2', channel: { slug: 'other', colorHex: '#5B3FD0' } }),
@@ -175,7 +175,8 @@ describe('PublicCalendarSyncService (integration)', () => {
 
       expect(outcome.status).toBe('success');
       const row = await prisma.publicCalendar.findUnique({ where: { slug: 'beispielkalender-a' } });
-      expect(row?.isActive).toBe(false);
+      expect(row?.isActive).toBe(true);
+      expect(row?.channelSlug).toBeNull();
     });
 
     it('never serves a calendar that has no channel', async () => {

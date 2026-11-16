@@ -1,3 +1,4 @@
+import calendarEntry from '../src/api/calendar-entry/content-types/calendar-entry/schema.json';
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
@@ -19,6 +20,7 @@ test('every editorial content type supports drafts before publication', () => {
     channel,
     tag,
     publicCalendar,
+    calendarEntry,
   };
 
   for (const [name, schema] of Object.entries(schemas)) {

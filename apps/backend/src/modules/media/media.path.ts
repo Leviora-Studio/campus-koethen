@@ -134,3 +134,27 @@ export function isAllowedMediaType(value: string | null | undefined): boolean {
   const type = value.split(';', 1)[0]?.trim().toLowerCase() ?? '';
   return ALLOWED_TYPES.has(type);
 }
+
+/** Downloads only: active documents are never served inline on the API origin. */
+export function isAllowedAttachmentType(value: string | null): boolean {
+  const type = value?.split(';', 1)[0]?.trim().toLowerCase();
+  return (
+    isAllowedMediaType(value) ||
+    new Set([
+      'application/pdf',
+      'text/plain',
+      'text/calendar',
+      'text/csv',
+      'application/zip',
+      'application/msword',
+      'application/vnd.ms-excel',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.oasis.opendocument.text',
+      'application/vnd.oasis.opendocument.spreadsheet',
+      'application/vnd.oasis.opendocument.presentation',
+    ]).has(type ?? '')
+  );
+}

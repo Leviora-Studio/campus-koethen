@@ -1,3 +1,4 @@
+import { EditorialCalendarService } from './editorial-calendar.service';
 import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
@@ -40,6 +41,7 @@ export class PublicCalendarController {
   constructor(
     private readonly calendars: PublicCalendarService,
     @Inject(ENV) private readonly env: Env,
+    private readonly editorial?: EditorialCalendarService,
   ) {
     this.dateRange = PublicCalendarController.buildDateRangeSchema(
       env.PUBLIC_CALENDAR_API_MAX_RANGE_DAYS,
@@ -89,14 +91,16 @@ export class PublicCalendarController {
 
   @Get()
   @ApiOperation({
-    summary: 'List public calendars (read-only, synced from their public ICS feed).',
+    summary: 'List channel calendars, with optional Google import.',
     description:
-      'Only active, validated calendars that have synced at least once. The Google calendar id and feed URL are never exposed; each item carries a safe googleOpenUrl.',
+      'Active editorial calendars remain available without a Google sync. googleOpenUrl is an empty string for calendars without Google import. The Google calendar id and feed URL are never exposed.',
   })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PublicCalendarListResponseDto })
   async list(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
-    const { data, translationFallback } = await this.calendars.listCalendars(locale);
+    const { data, translationFallback } = await (this.editorial ?? this.calendars).listCalendars(
+      locale,
+    );
     const now = Date.now();
     return {
       data,
@@ -130,16 +134,15 @@ export class PublicCalendarController {
   ): Promise<ApiResponse<PublicCalendarEventDto[]>> {
     const slugs = this.parseCalendars(query.calendar, locale.resolvedLocale);
     const range = this.range(query, locale.resolvedLocale);
-    const { events, truncated } = await this.calendars.getAggregatedEvents(
-      slugs,
-      range.from,
-      range.to,
-    );
+    const { events, truncated, ...extra } = await (this.editorial
+      ? this.editorial.events(slugs, range.from, range.to, locale)
+      : this.calendars.getAggregatedEvents(slugs, range.from, range.to));
     return {
       data: events,
       meta: buildMeta({
         ...locale,
-        translationFallback: false,
+        translationFallback:
+          'translationFallback' in extra ? (extra.translationFallback as boolean) : false,
         from: range.from.toISOString().slice(0, 10),
         to: range.to.toISOString().slice(0, 10),
         truncated,
@@ -164,6 +167,39 @@ export class PublicCalendarController {
     return { data: { url }, meta: buildMeta({ ...locale, translationFallback: false }) };
   }
 
+  @Get(':slug/entries')
+  @ApiOperation({
+    summary:
+      'Neutral calendar entries from editorial appointments, event posts and Google; editorial appointments win duplicates.',
+  })
+  @ApiQuery({ name: 'from', required: false, description: 'YYYY-MM-DD' })
+  @ApiQuery({ name: 'to', required: false, description: 'YYYY-MM-DD' })
+  @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
+  @ApiOkResponse({ type: PublicCalendarEventsResponseDto })
+  async entries(
+    @RequestLocale() locale: LocaleResolution,
+    @Param('slug') slug: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiResponse<PublicCalendarEventDto[]>> {
+    if (!SLUG_PATTERN.test(slug) || !this.editorial)
+      throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
+    const catalogue = await this.editorial.listCalendars(locale, true);
+    if (!catalogue.data.some((c) => c.slug === slug))
+      throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
+    const range = this.range(query, locale.resolvedLocale);
+    const result = await this.editorial.events([slug], range.from, range.to, locale, true);
+    return {
+      data: result.events,
+      meta: buildMeta({
+        ...locale,
+        translationFallback: result.translationFallback,
+        truncated: result.truncated,
+        from: range.from.toISOString().slice(0, 10),
+        to: range.to.toISOString().slice(0, 10),
+      }),
+    };
+  }
+
   @Get(':slug/events')
   @ApiOperation({
     summary: 'Events of a single public calendar in a date range.',
@@ -182,13 +218,20 @@ export class PublicCalendarController {
     if (!SLUG_PATTERN.test(slug))
       throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
     const range = this.range(query, locale.resolvedLocale);
-    const result = await this.calendars.getCalendarEvents(slug, range.from, range.to);
+    const catalogue = this.editorial ? await this.editorial.listCalendars(locale) : null;
+    const calendar = catalogue?.data.find((c) => c.slug === slug);
+    const result = this.editorial
+      ? calendar
+        ? { calendar, ...(await this.editorial.events([slug], range.from, range.to, locale)) }
+        : null
+      : await this.calendars.getCalendarEvents(slug, range.from, range.to);
     if (!result) throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
     return {
       data: result.events,
       meta: buildMeta({
         ...locale,
-        translationFallback: false,
+        translationFallback:
+          'translationFallback' in result ? (result.translationFallback as boolean) : false,
         from: range.from.toISOString().slice(0, 10),
         to: range.to.toISOString().slice(0, 10),
         lastSuccessfulSyncAt: result.calendar.lastSuccessfulSyncAt,

@@ -25,6 +25,12 @@ function deEntry(overrides: Record<string, unknown> = {}): Record<string, unknow
 }
 
 describe('validateCatalog', () => {
+  it('does not reject an editorial-only calendar without a Google link', () => {
+    const result = validateCatalog([deEntry({ googleShareUrl: null })], []);
+    expect(result.definitions).toEqual([]);
+    expect(result.rejected).toBe(0);
+  });
+
   it('accepts a valid entry and overlays the English translation by slug, extracting channelSlug', () => {
     const result = validateCatalog([deEntry()], [{ ...deEntry(), name: 'Sample calendar A' }]);
     expect(result.definitions).toHaveLength(1);
@@ -38,15 +44,19 @@ describe('validateCatalog', () => {
     expect(def?.defaultSubscribed).toBe(true);
   });
 
-  it('rejects a calendar without a channel, since only channels are offered in the app', () => {
+  it('accepts independent calendars for the website', () => {
     const result = validateCatalog(
       [deEntry(), deEntry({ slug: 'ohne-kanal', channel: null }), deEntry({ slug: 'leer' })].map(
         (entry) => (entry.slug === 'leer' ? { ...entry, channel: undefined } : entry),
       ),
       [],
     );
-    expect(result.definitions.map((d) => d.slug)).toEqual(['beispielkalender-a']);
-    expect(result.rejected).toBe(2);
+    expect(result.definitions.map((d) => d.slug)).toEqual([
+      'beispielkalender-a',
+      'ohne-kanal',
+      'leer',
+    ]);
+    expect(result.rejected).toBe(0);
   });
 
   it("takes the colour from the calendar's channel, ignoring any calendar colour", () => {

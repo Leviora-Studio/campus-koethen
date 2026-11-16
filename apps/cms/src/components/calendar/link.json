@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_calendar_links",
+  "info": {
+    "displayName": "Calendar link"
+  },
+  "attributes": {
+    "label": {
+      "type": "string",
+      "required": true,
+      "maxLength": 160
+    },
+    "url": {
+      "type": "string",
+      "required": true,
+      "maxLength": 2048,
+      "regex": "^https://"
+    }
+  }
+}

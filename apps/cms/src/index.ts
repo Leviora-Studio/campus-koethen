@@ -1,3 +1,4 @@
+import { createCalendarEntryGuard } from './editorial/calendar-entry-guard';
 import type { Core } from '@strapi/strapi';
 import { ensureLocales } from './bootstrap/locales';
 import { ensureRoomAdminConfiguration } from './bootstrap/room-admin-configuration';
@@ -23,6 +24,8 @@ export default {
       warn: (message: string) => strapi.log.warn(`[rooms] ${message}`),
     });
     const editorialGuard = createEditorialGuard(strapi);
+    const entryGuard = createCalendarEntryGuard(strapi);
+    strapi.documents.use((context, next) => entryGuard(context as never, next as never));
     const calendarChannelGuard = createCalendarChannelGuard(strapiCalendarChannelLookup(strapi));
 
     strapi.documents.use((context, next) => roomGuard(context as never, next as never));

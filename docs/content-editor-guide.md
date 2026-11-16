@@ -61,16 +61,16 @@ Oben rechts im Editor wird die Locale umgeschaltet. Wichtig:
 
 `Content Manager → Channel → Create new entry`
 
-| Feld                | Hinweis                                                       |
-| ------------------- | ------------------------------------------------------------- |
-| `name`              | Eigenname, in allen Sprachen identisch                        |
-| `slug`              | **stabil**, klein, mit Bindestrichen, z. B. `campus-news`     |
-| `description`       | übersetzbar; benennt, wer hier publiziert                     |
-| `colorHex`          | `#RRGGBB`; Farbe der Beiträge **und** der Kalendertermine     |
-| `sortOrder`         | kleinere Zahl steht weiter oben                               |
-| `isActive`          | sichtbar in der App                                           |
-| `defaultSubscribed` | beim **ersten** Auftauchen automatisch abonniert              |
-| `publicCalendar`    | optional, 1:1-Zuordnung zu einem öffentlichen Google-Kalender |
+| Feld                | Hinweis                                                                           |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `name`              | Eigenname, in allen Sprachen identisch                                            |
+| `slug`              | **stabil**, klein, mit Bindestrichen, z. B. `campus-news`                         |
+| `description`       | übersetzbar; benennt, wer hier publiziert                                         |
+| `colorHex`          | `#RRGGBB`; Farbe der Beiträge **und** der Kalendertermine                         |
+| `sortOrder`         | kleinere Zahl steht weiter oben                                                   |
+| `isActive`          | sichtbar in der App                                                               |
+| `defaultSubscribed` | beim **ersten** Auftauchen automatisch abonniert                                  |
+| `publicCalendar`    | optional, 1:1-Zuordnung zu einem redaktionellen Kalender (Google-Import optional) |
 
 Ein öffentlicher Google-Kalender erscheint in der App **nur über seinen Kanal**:
 Seine Termine stehen im Reiter Events und im Kalender bei genau diesem Kanal und
@@ -223,3 +223,14 @@ bearbeitbar.
   App als veraltet gekennzeichnet. Es verschwindet nichts.
 
 Inhaltliche Fehler im Speiseplan müssen an der Quelle korrigiert werden.
+
+### Eigenständige Termine (ab 1.2.5)
+
+Unter **Calendar** einen Kalender anlegen und am Channel zuordnen. Der öffentliche
+Google-Link ist optional. Unter **Calendar Entry** einen Termin anlegen und diesen
+Kalender auswählen: Titel, Beschreibung, Ort, Anfang, Ende, IANA-Zeitzone,
+Ganztägigkeit, Bild, HTTPS-Links und Anhänge. Anschließend veröffentlichen.
+Ganztägige Termine werden mit UTC-Mitternacht und exklusivem Enddatum gepflegt;
+Details und das Website-API-Beispiel stehen in [public-calendars.md](public-calendars.md#editorial-calendars-125).
+Eigene Termine haben bei gleichem Titel und vollständigem Zeitraum Vorrang vor
+Event-Posts und Google-Terminen. Wiederholungen und Einladungen sind nicht vorgesehen.
