@@ -83,11 +83,15 @@ verwendet** – ihm wird nur der bereits geladene, größenbegrenzte Text überg
 ## 5. Strapi = Quelle, PostgreSQL = resilientes Read-Model
 
 Strapi ist die kanonische redaktionelle Quelle. Der Worker spiegelt **validierte** Definitionen in
-ein minimales operatives Read-Model (`PublicCalendar`), damit ein Kalender erst nach Validierung
-**und** erstem erfolgreichen ICS-Sync erscheint und ein Strapi-Ausfall die öffentliche API nicht
-lahmlegt. Eine fehlerhafte/leere/unvollständige Strapi-Antwort **löscht den letzten gültigen Katalog
-nie**; erst ein vollständig erfolgreicher Abruf fügt hinzu/aktualisiert/deaktiviert. Roh-ICS wird
-**nie** gespeichert.
+ein minimales operatives Read-Model (`PublicCalendar`) für Google-Importe. Google-Termine erscheinen
+erst nach Validierung und erfolgreichem ICS-Sync der aktuell verknüpften Quelle. Eigene Termine und
+der öffentliche Kalenderkatalog werden über die Strapi-REST-API mit einem kurzen Cache gelesen;
+ein Strapi-Ausfall kann deshalb einen Kalenderabruf fehlschlagen lassen. Eine
+fehlerhafte/leere/unvollständige Strapi-Antwort **löscht den letzten gültigen Importbestand nie**.
+Eine ausdrücklich entfernte optionale Google-Verknüpfung deaktiviert ihren Import. Roh-ICS wird
+**nie** gespeichert. Quellenwechsel und Änderungen der Freigabe von Beschreibung/Ort verwerfen
+alte Abrufvalidatoren. Die API prüft die aktuelle Quellenzuordnung und Freigaben ebenfalls, sodass
+alte Daten nicht bis zum nächsten Worker-Lauf ungeprüft ausgeliefert werden (Katalogcache: 30 Sekunden).
 
 ## 6. Worker-Sync & Reconciliation (10 Integrationstests, echte DB)
 
@@ -96,15 +100,19 @@ nie**; erst ein vollständig erfolgreicher Abruf fügt hinzu/aktualisiert/deakti
 - Pro Kalender: SyncRun `running` → ICS laden (bytebegrenzt) → validieren → parsen → im Zielfenster
   expandieren → **Transaktion**: upsert + Löschen **nur** im bestätigten Fenster für nicht mehr
   gesehene `occurrenceKey` → Status/`lastSuccessfulSyncAt` setzen.
-- **Gültiger leerer** Feed = erfolgreicher leerer Snapshot (kein Fehler).
+- **Leerer** Feed darf einen vorhandenen erfolgreichen Terminbestand nicht löschen. Ohne
+  vorherigen Bestand ist ein leerer Erstimport zulässig.
 - **Unveränderter Hash/304** = teure Parse-/Persistenzphase überspringen, Status/Zeitstempel trotzdem
-  aktualisieren.
+  aktualisieren. Mindestens am nächsten UTC-Tag wird der Feed erneut vollständig verarbeitet,
+  damit Serien auch bei unveränderter ICS-Datei in das weiterwandernde Zeitfenster hinein expandieren.
+- Quellenzuordnung und Datenstand werden innerhalb derselben Datenbanktransaktion geprüft.
+  Verspätete Antworten eines überholten Imports dürfen neuere Daten weder überschreiben noch löschen.
 - **Temporärer Fehler** (Timeout/Netz/5xx/429): letzten Stand behalten, Kalender `stale`, weiter
   ausliefern.
 - **Beschädigt/zu groß/Recurrence-Limit:** keine destruktive Übernahme; `stale` (mit Vorstand) bzw.
   `invalid` (ohne) — bei erstem Sync nicht öffentlich.
-- **Freigabe entzogen** (404/410/403): Status `revoked`/`unavailable`, Termine gelöscht, aus dem
-  öffentlichen Katalog entfernt.
+- **Freigabe entzogen** (404/410/403): Google-Status `revoked`/`unavailable`, importierte Termine
+  gelöscht. Eigene Strapi-Termine und der redaktionelle Kalender bleiben verfügbar.
 
 ## 7. Campus API
 
@@ -118,7 +126,8 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
   Das Abfrageintervall ist als **Überlappung** definiert (`startsAt <= to AND endsAt >= from`).
 - `GET /v1/calendars/events?calendar=…&calendar=…&from&to` — aggregiert; Slugs dedupliziert,
   begrenzt; **leere Auswahl ⇒ leere Liste** (nie „alle“); Überlappungsabfrage; pro Termin `calendarId`+`calendarSlug`;
-  deterministisch sortiert; keine Live-/N+1-Abfrage.
+  deterministisch sortiert. Redaktionelle Daten werden seitenweise über Strapi gelesen und kurz
+  zwischengespeichert; Google-Daten kommen aus dem operativen Read-Model.
 - `GET /v1/calendars/google-view-url?calendar=…` — serverseitig konstruierte
   `calendar.google.com/embed`-URL (ein `src` je Kalender, `ctz`), nur aktive/öffentliche Kalender.
 
@@ -220,7 +229,8 @@ Recurrence, invitations, attendees and reminders are not supported.
 - Date ranges and result counts use the existing calendar limits. Check
   `meta.truncated`; a truncated response is not a complete calendar export.
 - Duplicate identity: same calendar (channel in the app), whitespace-normalised,
-  case-sensitive title, exact UTC start AND end, and same all-day flag.
+  case-sensitive title, exact UTC start AND end, and same all-day flag. All-day
+  periods use civil dates; a post without an end occupies one full day.
   Priority: **editorial appointment > event post > Google**. Keep the winning
   entry whole. Different titles or durations are separate appointments.
 - Upload downloads use `/v1/media/files/:filename` with attachment disposition,
@@ -240,3 +250,9 @@ against locally loaded event posts.
 
 For browser-based website embedding, add the website origin to the backend
 `CORS_ALLOWED_ORIGINS` environment allowlist. No CMS token belongs in the website.
+
+The catalogue advertises `meta.maxCalendars` and `meta.maxRangeDays`. The app splits
+larger selections and date windows accordingly, preserves cache/staleness metadata,
+and warns if results remain incomplete. Missing entries in a truncated response
+never mark saved appointments as deleted. Editorial pagination and cache memory
+are bounded; the API reports `meta.truncated` if a limit prevents a complete result.

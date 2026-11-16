@@ -764,8 +764,9 @@ Fehlerdetails der Quelle.
 
 ## 9. Öffentliche Kalender
 
-Quelle sind **öffentliche** Google-Kalender, die die Redaktion in Strapi freigibt. Der Worker lädt
-deren **öffentlichen ICS-Feed** — siehe [public-calendars.md](public-calendars.md). Der Client
+Quelle sind in Strapi angelegte Kalender mit eigenen Terminen und optionalem Import eines
+**öffentlichen** Google-Kalenders. Der Worker lädt dessen **öffentlichen ICS-Feed** — siehe
+[public-calendars.md](public-calendars.md). Der Client
 sieht **niemals** die Feed-URL, einen ETag oder den `lastContentHash`.
 
 Eine bewusste Ausnahme ist die Google-Kalender-ID: Sie steckt base64-kodiert im `cid`-Parameter von
@@ -775,9 +776,10 @@ Kalender handelt, die die Redaktion öffentlich geteilt hat — die ID ergibt si
 öffentlichen Share-Link. Sie ist damit **kein** Geheimnis, anders als die Feed-URL und die
 Sync-Validatoren, die backendintern bleiben.
 
-Das Feature ist über `PUBLIC_CALENDAR_ENABLED` schaltbar und steht **standardmäßig auf `false`**.
-Ausgeliefert werden ausschließlich Kalender, die aktiv **und** validiert sind **und** mindestens
-einmal erfolgreich synchronisiert wurden.
+Der Google-Import ist über `PUBLIC_CALENDAR_ENABLED` schaltbar und steht **standardmäßig auf
+`false`**. Eigene Strapi-Termine benötigen keinen Google-Sync. Google-Termine werden erst nach
+erfolgreichem Import aus der aktuell zugeordneten Quelle ausgeliefert. Nach einem Quellenwechsel
+bleiben alte importierte Termine intern erhalten, werden aber nicht unter der neuen Quelle angezeigt.
 
 ### `GET /v1/calendars`
 
@@ -787,7 +789,7 @@ Der Katalog. Keine Parameter außer `locale`.
 {
   "data": [
     {
-      "id": "3d9a…", // Campus-UUID
+      "id": "3d9a…", // stabiler öffentlicher Schlüssel, aus dem Slug abgeleitet
       "slug": "stura-termine", // stabiler Bezeichner, Auswahlschlüssel der App
       "channelSlug": "campus-events", // Kanal, zu dem der Kalender gehört
       "name": "StuRa-Termine",
@@ -808,17 +810,19 @@ Der Katalog. Keine Parameter außer `locale`.
     "from": "2026-07-30",
     "to": "2027-01-26", // Ende des konfigurierten Kalender-Importfensters
     "maxRangeDays": 120, // größte Spanne je Terminabfrage
+    "maxCalendars": 50, // größte Kalenderzahl je Terminabfrage
   },
 }
 ```
 
-`defaultSubscribed` wertet die App **genau einmal** pro Slug aus — beim erstmaligen Auftauchen.
-Ein Backend-Update überschreibt eine bewusste Abwahl nie. Dieselbe Regel wie bei Posts-Kanälen.
+`defaultSubscribed` bleibt zur Kompatibilität im DTO. Die aktuelle App verwendet die gemeinsame
+Channel-Auswahl von Events und Kalender; bewusste Abwahlen bleiben erhalten.
 `channelSlug` verknüpft einen Kalender 1:1 mit einem redaktionellen Kanal und ist immer gesetzt:
 Kalender ohne Kanal liefert die API nicht aus. `colorHex` ist die Farbe dieses Kanals; ein Kalender
 hat keine eigene Farbe.
 Die Kalender-Liste teilt den Bereich bis `meta.to` in Abfragen von höchstens `meta.maxRangeDays`
-Tagen; ihre Reichweite ist damit nicht auf eine feste Tageszahl im Client begrenzt.
+Tagen und höchstens `meta.maxCalendars` Kalendern; ihre Reichweite ist damit nicht auf eine feste
+Tageszahl im Client begrenzt. `googleOpenUrl` ist ohne Google-Anbindung ein leerer String.
 
 ### `GET /v1/calendars/events`
 
@@ -847,8 +851,8 @@ stillschweigend gekürzt. Die Sortierung ist deterministisch, der Schnitt damit 
       "calendarId": "3d9a…",
       "calendarSlug": "stura-termine", // damit die App Farbe und Name zuordnen kann
       "title": "Sitzung des Studierendenrats",
-      "description": null, // nur bei includeEventDescription, immer Plain Text
-      "location": null, // nur bei includeEventLocation, immer Plain Text
+      "description": null, // bei Google nur mit includeEventDescription; immer Plain Text
+      "location": null, // bei Google nur mit includeEventLocation; immer Plain Text
       "start": "2026-08-04T16:00:00.000Z",
       "end": "2026-08-04T18:00:00.000Z",
       "allDay": false,
@@ -867,6 +871,9 @@ stillschweigend gekürzt. Die Sortierung ist deterministisch, der Schnitt damit 
 
 Die Sortierung ist deterministisch. Wiederholungen sind bereits serverseitig zu einzelnen Terminen
 expandiert; der Client kennt **keine** `RRULE`.
+Die Antwort enthält auch eigene Strapi-Termine und zusätzliche neutrale Terminfelder; siehe
+[`public-calendars.md`](public-calendars.md#editorial-calendars-125). `meta.dataStale` meldet
+veraltete Google-Quelldaten; `meta.truncated` kennzeichnet unvollständige Ergebnisse.
 
 ### `GET /v1/calendars/:slug/events`
 
@@ -876,6 +883,15 @@ auslieferbarer Slug ⇒ `404 PUBLIC_CALENDAR_NOT_FOUND`.
 Die Antwort trägt zusätzlich `lastSuccessfulSyncAt` und `dataStale` in `meta`, damit die App den
 Frischezustand genau dieses Kalenders anzeigen kann. Dieselbe Obergrenze und dasselbe
 `meta.truncated` wie bei der aggregierten Abfrage gelten auch hier.
+
+### `GET /v1/calendars/:slug/entries`
+
+Website-Endpunkt mit denselben Datums- und Sprachparametern. Liefert eigene Strapi-Termine,
+öffentliche Google-Termine und Event-Posts des zugeordneten Channels als neutrale Kalenderdaten.
+Auch veröffentlichte Kalender ohne Channel sind hier erreichbar. Gleicher Titel und Zeitraum
+werden zusammengeführt; eigener Strapi-Termin gewinnt vor Event-Post vor Google.
+Felder, Anhänge und Integrationshinweise stehen in
+[`public-calendars.md`](public-calendars.md#editorial-calendars-125).
 
 ### `GET /v1/calendars/google-view-url`
 

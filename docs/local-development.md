@@ -154,6 +154,8 @@ pnpm install --frozen-lockfile
 pnpm format:check
 pnpm lint
 pnpm typecheck
+# DATABASE_URL muss auf eine ausdrücklich isolierte temporäre Testdatenbank zeigen
+# (Name mit _test); niemals die Entwicklungsdatenbank verwenden.
 pnpm test
 pnpm --filter @campus/cms build
 
