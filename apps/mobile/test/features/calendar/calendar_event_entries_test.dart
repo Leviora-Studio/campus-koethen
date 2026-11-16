@@ -84,12 +84,13 @@ void main() {
 
   late List<RequestOptions> requests;
 
-  ProviderContainer container() {
+  ProviderContainer container({bool failChannels = false}) {
     requests = <RequestOptions>[];
     final FakeHttpAdapter adapter = FakeHttpAdapter((RequestOptions options) {
       requests.add(options);
       switch (options.path) {
         case '/posts/channels':
+          if (failChannels) return const FakeHttpResponse({}, statusCode: 503);
           return FakeHttpResponse(
             envelope(<Object>[
               _channel('fsr', 'Demo-FSR', '#C2185B'),
@@ -166,9 +167,9 @@ void main() {
       calendarEventMonthEntriesProvider(DateTime(2026, 5, 4)),
       (_, _) {},
     );
-    return c.read(
+    return (await c.read(
       calendarEventMonthEntriesProvider(DateTime(2026, 5, 4)).future,
-    );
+    )).value;
   }
 
   test('shows the event posts and calendar events of every selected channel, '
@@ -196,6 +197,22 @@ void main() {
     expect(post.sourceLabel, contains('Demo-StuRa'));
     expect((post.details! as PostEventDetails).article.slug, 'stura-sitzung');
   });
+
+  test(
+    'a channel-catalogue failure does not hide successfully loaded event sources',
+    () async {
+      final c = container(failChannels: true);
+      final entries = await month(c);
+      expect(
+        entries.where((entry) => entry.source == CalendarSource.postEvent),
+        isNotEmpty,
+      );
+      expect(
+        entries.where((entry) => entry.source == CalendarSource.publicCalendar),
+        isNotEmpty,
+      );
+    },
+  );
 
   test('a channel deselected in the event filter disappears from the '
       'calendar too', () async {

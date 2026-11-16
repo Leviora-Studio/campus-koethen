@@ -229,9 +229,9 @@ void main() {
     );
     await loadCatalogue(c);
 
-    final List<CalendarEntry> entries = await c.read(
+    final List<CalendarEntry> entries = (await c.read(
       calendarEventListEntriesProvider(DateTime(2026, 9, 24, 18)).future,
-    );
+    )).value;
 
     final List<RequestOptions> chunks = requests
         .where(
@@ -263,9 +263,9 @@ void main() {
       );
       await loadCatalogue(c);
 
-      final List<CalendarEntry> entries = await c.read(
+      final List<CalendarEntry> entries = (await c.read(
         calendarEventListEntriesProvider(DateTime(2026, 9, 24)).future,
-      );
+      )).value;
 
       expect(
         entries.map((CalendarEntry entry) => entry.title),

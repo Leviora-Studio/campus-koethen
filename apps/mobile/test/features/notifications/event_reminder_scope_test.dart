@@ -124,8 +124,10 @@ Future<ProviderContainer> containerWith({
       // Only the month the fixtures live in answers with anything; the rest of
       // the horizon is empty, exactly as an unfetched month would be.
       calendarEventMonthEntriesProvider.overrideWith(
-        (Ref ref, DateTime anchor) async =>
-            anchor.month == 7 ? live : const <CalendarEntry>[],
+        (Ref ref, DateTime anchor) async => Loaded(
+          value: anchor.month == 7 ? live : const <CalendarEntry>[],
+          meta: ApiMeta.empty,
+        ),
       ),
       ...extra,
     ],
@@ -319,7 +321,9 @@ void main() {
             ),
             calendarEventMonthEntriesProvider.overrideWith(
               (Ref ref, DateTime anchor) =>
-                  Future<List<CalendarEntry>>.error(Exception('offline')),
+                  Future<Loaded<List<CalendarEntry>>>.error(
+                    Exception('offline'),
+                  ),
             ),
           ],
         );

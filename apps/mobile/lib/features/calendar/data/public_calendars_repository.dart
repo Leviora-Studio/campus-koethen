@@ -10,6 +10,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/cached_endpoint.dart';
 import '../../../core/network/json.dart';
 import '../../../core/network/loaded.dart';
+import '../../../core/network/api_meta.dart';
 import '../../../core/network/network_providers.dart';
 import '../domain/public_calendar.dart';
 
@@ -43,43 +44,59 @@ class PublicCalendarsRepository {
     required List<String> slugs,
     required String from,
     required String to,
-  }) => _endpoint.load(
-    path: '/calendars/events',
-    cacheKey: CacheKeys.publicCalendarEvents(
-      locale: locale,
-      slugs: slugs,
-      from: from,
-      to: to,
-    ),
+    int maxCalendars = 1,
+  }) => _fetchEvents(
     locale: locale,
-    query: <String, Object?>{'calendar': slugs, 'from': from, 'to': to},
-    parse: PublicCalendarEvent.listFromJson,
+    slugs: slugs,
+    from: from,
+    to: to,
+    maxCalendars: maxCalendars,
   );
 
-  /// Aggregated events of the selected calendars for the server's own
-  /// default window: `from`/`to` are deliberately omitted from the request,
-  /// so the server-environment window applies. Callers must not call this
-  /// with an empty selection — an empty selection means "no events", never
-  /// all. The actually-resolved window is [Loaded.meta]`.from`/`.to`, which
-  /// governs both the cache key and any reconciliation against it; it may
-  /// differ from any previous call without requiring an app release.
   Future<Loaded<List<PublicCalendarEvent>>> fetchEventsDefaultWindow({
     required String locale,
     required List<String> slugs,
-  }) => _endpoint.load(
-    path: '/calendars/events',
-    // Keyed by "unresolved" until the first response is known; the caller
-    // that needs a window-stable key re-keys by the returned meta.from/to.
-    cacheKey: CacheKeys.publicCalendarEvents(
-      locale: locale,
-      slugs: slugs,
-      from: '-',
-      to: '-',
-    ),
-    locale: locale,
-    query: <String, Object?>{'calendar': slugs},
-    parse: PublicCalendarEvent.listFromJson,
-  );
+    int maxCalendars = 1,
+  }) => _fetchEvents(locale: locale, slugs: slugs, maxCalendars: maxCalendars);
+
+  Future<Loaded<List<PublicCalendarEvent>>> _fetchEvents({
+    required String locale,
+    required List<String> slugs,
+    String? from,
+    String? to,
+    required int maxCalendars,
+  }) async {
+    if (slugs.isEmpty) {
+      return const Loaded(value: <PublicCalendarEvent>[], meta: ApiMeta.empty);
+    }
+    final limit = maxCalendars.clamp(1, 100);
+    final unique = slugs.toSet().toList();
+    final results = <Loaded<List<PublicCalendarEvent>>>[];
+    String? resolvedFrom = from, resolvedTo = to;
+    for (int i = 0; i < unique.length; i += limit) {
+      final batch = unique.sublist(i, (i + limit).clamp(0, unique.length));
+      final result = await _endpoint.load<List<PublicCalendarEvent>>(
+        path: '/calendars/events',
+        locale: locale,
+        cacheKey: CacheKeys.publicCalendarEvents(
+          locale: locale,
+          slugs: batch,
+          from: resolvedFrom ?? '-',
+          to: resolvedTo ?? '-',
+        ),
+        query: <String, Object?>{
+          'calendar': batch,
+          'from': ?resolvedFrom,
+          'to': ?resolvedTo,
+        },
+        parse: PublicCalendarEvent.listFromJson,
+      );
+      results.add(result);
+      resolvedFrom ??= result.meta.from;
+      resolvedTo ??= result.meta.to;
+    }
+    return combineCalendarEventLoads(results);
+  }
 
   /// A backend-constructed combined Google Calendar embed URL. Not cached — it
   /// is cheap, selection-specific and only used on an explicit user action.
@@ -104,3 +121,29 @@ final Provider<PublicCalendarsRepository> publicCalendarsRepositoryProvider =
         cache: ref.watch(contentCacheProvider),
       ),
     );
+
+/// Preserve partial/offline provenance when a date window or calendar batch is split.
+Loaded<List<PublicCalendarEvent>> combineCalendarEventLoads(
+  List<Loaded<List<PublicCalendarEvent>>> parts,
+) {
+  if (parts.isEmpty) {
+    return const Loaded(value: <PublicCalendarEvent>[], meta: ApiMeta.empty);
+  }
+  final byId = <String, PublicCalendarEvent>{
+    for (final part in parts)
+      for (final event in part.value) event.id: event,
+  };
+  final dates = parts.map((p) => p.cachedAt).whereType<DateTime>().toList()
+    ..sort();
+  return Loaded(
+    value: byId.values.toList(),
+    fromCache: parts.any((p) => p.fromCache),
+    cachedAt: dates.firstOrNull,
+    meta: ApiMeta.fromJson({
+      ...parts.first.meta.toJson(),
+      'truncated': parts.any((p) => p.meta.truncated),
+      'dataStale': parts.any((p) => p.meta.dataStale),
+      'translationFallback': parts.any((p) => p.meta.translationFallback),
+    }),
+  );
+}

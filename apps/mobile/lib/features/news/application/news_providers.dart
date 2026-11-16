@@ -22,7 +22,7 @@ final FutureProvider<Loaded<List<NewsChannel>>> newsChannelsProvider =
           .read(channelSubscriptionProvider.notifier)
           .reconcile(loaded.value);
       return loaded;
-    });
+    }, retry: (_, _) => null);
 
 /// The full active tag list. Also the single place where a removed or
 /// deactivated tag prunes a stale persisted filter selection.

@@ -186,7 +186,7 @@ Future<ProviderContainer> harness({
             loaded(timetable ?? timetableWith(const <DateTime>[])),
       ),
       calendarEventMonthEntriesProvider.overrideWith(
-        (Ref ref, DateTime anchor) => publicEntries,
+        (Ref ref, DateTime anchor) => loaded(publicEntries),
       ),
       publicCalendarsCatalogProvider.overrideWith(
         (Ref ref) => loaded(const <PublicCalendar>[]),

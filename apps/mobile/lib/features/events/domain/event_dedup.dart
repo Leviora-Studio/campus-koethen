@@ -26,7 +26,14 @@ String? _dedupKey(UnifiedEvent event) {
   final String? channel = event.channelSlug;
   if (channel == null) return null;
   final String title = event.title.trim().replaceAll(RegExp(r'\s+'), ' ');
-  return '$channel|${event.allDay}|${event.start.toUtc().microsecondsSinceEpoch}|${(event.end ?? event.start).toUtc().microsecondsSinceEpoch}|$title';
+  DateTime start = event.start.toUtc(),
+      end = (event.end ?? event.start).toUtc();
+  if (event.allDay) {
+    start = DateTime.utc(start.year, start.month, start.day);
+    end = DateTime.utc(end.year, end.month, end.day);
+    if (!end.isAfter(start)) end = start.add(const Duration(days: 1));
+  }
+  return '$channel|${event.allDay}|${start.microsecondsSinceEpoch}|${end.microsecondsSinceEpoch}|$title';
 }
 
 /// [isDuplicateCalendarEvent] as a lookup instead of a scan.

@@ -53,6 +53,7 @@ class ApiMeta {
     this.from,
     this.to,
     this.maxRangeDays,
+    this.maxCalendars,
     this.truncated = false,
   });
 
@@ -93,6 +94,7 @@ class ApiMeta {
 
   /// Maximum span accepted by one public-calendar events request.
   final int? maxRangeDays;
+  final int? maxCalendars;
 
   /// `true` when the server hit its own result ceiling and cut the list short.
   /// The UI has to say so rather than present the result as complete.
@@ -116,6 +118,7 @@ class ApiMeta {
       from: asString(map['from']),
       to: asString(map['to']),
       maxRangeDays: asInt(map['maxRangeDays']),
+      maxCalendars: asInt(map['maxCalendars']),
       truncated: asBool(map['truncated']) ?? false,
     );
   }
@@ -134,6 +137,7 @@ class ApiMeta {
     if (from != null) 'from': from,
     if (to != null) 'to': to,
     if (maxRangeDays != null) 'maxRangeDays': maxRangeDays,
+    if (maxCalendars != null) 'maxCalendars': maxCalendars,
     'truncated': truncated,
   };
 }

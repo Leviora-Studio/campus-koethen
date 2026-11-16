@@ -42,7 +42,8 @@ void main() {
                 Loaded<Timetable>(value: timetable, meta: ApiMeta.empty),
           ),
           calendarEventMonthEntriesProvider.overrideWith(
-            (Ref ref, DateTime anchor) async => const <CalendarEntry>[],
+            (Ref ref, DateTime anchor) async =>
+                const Loaded(value: <CalendarEntry>[], meta: ApiMeta.empty),
           ),
         ],
       );

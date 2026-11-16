@@ -51,6 +51,53 @@ ProviderContainer _containerWith(SavedEventsStore store, {DateTime? now}) {
 }
 
 void main() {
+  test(
+    'a truncated live post response cannot orphan a saved event missing from the first pages',
+    () async {
+      final store = MemorySavedEventsStore();
+      await store.writeAll([_snapshot()]);
+      final adapter = FakeHttpAdapter(
+        (_) => FakeHttpResponse(
+          envelope(
+            [],
+            meta: {
+              'from': '2026-08-01',
+              'to': '2026-08-31',
+              'pagination': {
+                'page': 1,
+                'pageSize': 50,
+                'total': 550,
+                'totalPages': 11,
+              },
+            },
+          ),
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          savedEventsStoreProvider.overrideWithValue(store),
+          localeCodeProvider.overrideWithValue('de'),
+          contentCacheProvider.overrideWithValue(
+            SafeContentCache(MemoryContentCache()),
+          ),
+          apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(savedEventsControllerProvider.future);
+      final result = await container.read(eventPostsOverviewProvider.future);
+      expect(result.isTruncated, isTrue);
+      expect(
+        container
+            .read(savedEventsControllerProvider)
+            .requireValue
+            .single
+            .isOrphaned,
+        isFalse,
+      );
+    },
+  );
+
   group('snapshot completeness', () {
     // Regression for LEVIORA-115 F2: a snapshot has to be self-contained,
     // because the saved list is the one that has to work offline.

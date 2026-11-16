@@ -169,7 +169,7 @@ final Provider<List<CalendarEntry>> notificationEventEntriesProvider =
       for (int i = 0; i < kEventReminderHorizonMonths; i++) {
         final DateTime month = DateTime(now.year, now.month + i);
         live.addAll(
-          ref.watch(calendarEventMonthEntriesProvider(month)).value ??
+          ref.watch(calendarEventMonthEntriesProvider(month)).value?.value ??
               const <CalendarEntry>[],
         );
       }

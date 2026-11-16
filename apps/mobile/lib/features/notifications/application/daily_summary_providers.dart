@@ -179,7 +179,7 @@ Iterable<CalendarEntry> _eventEntries(
   final List<CalendarEntry> live = <CalendarEntry>[];
   for (final DateTime anchor in _monthAnchors(today, lastDay)) {
     live.addAll(
-      ref.watch(calendarEventMonthEntriesProvider(anchor)).value ??
+      ref.watch(calendarEventMonthEntriesProvider(anchor)).value?.value ??
           const <CalendarEntry>[],
     );
   }

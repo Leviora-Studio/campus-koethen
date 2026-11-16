@@ -419,7 +419,7 @@ final _calendarListDataProvider = Provider.family<CalendarData, DateTime>((
 CalendarData _buildCalendarData(
   Ref ref, {
   required List<DateTime> timetableWeekStarts,
-  required AsyncValue<List<CalendarEntry>> publicCalendarEntries,
+  required AsyncValue<Loaded<List<CalendarEntry>>> publicCalendarEntries,
   List<CalendarDateWindow>? timetableRanges,
   bool timetableMetadataLoading = false,
   DateTime? windowFrom,
@@ -514,7 +514,11 @@ CalendarData _buildCalendarData(
   bool publicLoading = false;
   bool publicError = false;
   publicCalendarEntries.when(
-    data: (List<CalendarEntry> entries) => publicEntries.addAll(entries),
+    data: (Loaded<List<CalendarEntry>> entries) {
+      publicEntries.addAll(entries.value);
+      publicError =
+          entries.fromCache || entries.meta.dataStale || entries.meta.truncated;
+    },
     loading: () => publicLoading = true,
     error: (_, _) => publicError = true,
   );

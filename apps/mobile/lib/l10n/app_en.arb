@@ -779,7 +779,7 @@
   "calendarSourcePublic": "Public calendar",
   "calendarEventChannelsShared": "This choice also applies to the Events tab.",
   "calendarNoPublicCalendars": "No channels are available right now.",
-  "calendarPublicUnavailable": "Events are currently unavailable.",
+  "calendarPublicUnavailable": "Events could not be loaded completely and up to date. Stored data remains visible where available.",
   "calendarPreparing": "Calendar is being prepared …",
   "calendarDataStale": "Outdated data",
   "calendarLastUpdated": "Last updated: {time}",

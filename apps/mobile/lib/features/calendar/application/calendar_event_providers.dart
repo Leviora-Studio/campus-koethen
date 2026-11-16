@@ -2,8 +2,8 @@
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/locale/locale_providers.dart';
+import '../../../core/network/api_meta.dart';
 import '../../../core/network/loaded.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/application/event_source_filter.dart';
@@ -19,40 +19,17 @@ import 'calendar_merge.dart';
 import 'calendar_providers.dart';
 import 'public_calendar_providers.dart';
 
-/// The calendar's "Events" source: everything the event overview offers, for
-/// the channels selected in the one shared event-source filter — their event
-/// posts and the events of their public calendars, deduplicated by the events
-/// feature's own rule (a post supersedes the identical calendar event).
-///
-/// The calendar only differs from the overview in *when*: it shows the window
-/// it is looking at, past days included, where the overview shows what is
-/// running or still to come.
-
-/// Event entries for the month around [anchor], already mapped to
-/// source-neutral [CalendarEntry] values.
-///
-/// Keyed by an explicit anchor rather than reading the calendar screen's
-/// focused day: the dashboard asks about *today* while the calendar screen may
-/// be browsing another month, and a shared focus would make one of them wrong.
-///
-/// Any two days of the same month ask for the identical window, so the family
-/// key is normalised to the first of the month before anything is requested.
-/// Retrying stays switched off on both entries: a failure is surfaced to the
-/// aggregator, which isolates it per source.
+/// The selected channels' posts and appointments, including partial/offline provenance.
 final calendarEventMonthEntriesProvider =
-    FutureProvider.family<List<CalendarEntry>, DateTime>(
-      (Ref ref, DateTime anchor) => ref.watch(
+    FutureProvider.family<Loaded<List<CalendarEntry>>, DateTime>(
+      (ref, anchor) => ref.watch(
         _monthEntriesProvider(DateTime(anchor.year, anchor.month)).future,
       ),
       retry: (_, _) => null,
     );
-
 final _monthEntriesProvider =
-    FutureProvider.family<List<CalendarEntry>, DateTime>((
-      Ref ref,
-      DateTime anchor,
-    ) {
-      final List<DateTime> weeks = monthWeekStarts(anchor);
+    FutureProvider.family<Loaded<List<CalendarEntry>>, DateTime>((ref, anchor) {
+      final weeks = monthWeekStarts(anchor);
       return _loadEventEntries(
         ref,
         window: (_) => CalendarDateWindow(
@@ -61,131 +38,141 @@ final _monthEntriesProvider =
         ),
       );
     }, retry: (_, _) => null);
-
-/// Event entries for the full horizon advertised by the backend.
-///
-/// The outer provider normalises its key to today at local midnight. Rebuilds
-/// during the same day therefore reuse the same backend responses, while the
-/// next day naturally advances both inclusive bounds by one.
 final calendarEventListEntriesProvider =
-    FutureProvider.family<List<CalendarEntry>, DateTime>(
-      (Ref ref, DateTime today) =>
+    FutureProvider.family<Loaded<List<CalendarEntry>>, DateTime>(
+      (ref, today) =>
           ref.watch(_listEntriesProvider(calendarDayKey(today)).future),
       retry: (_, _) => null,
     );
-
 final _listEntriesProvider =
-    FutureProvider.family<List<CalendarEntry>, DateTime>(
-      (Ref ref, DateTime today) => _loadEventEntries(
+    FutureProvider.family<Loaded<List<CalendarEntry>>, DateTime>(
+      (ref, today) => _loadEventEntries(
         ref,
-        window: (Loaded<List<PublicCalendar>>? catalogue) =>
+        window: (catalogue) =>
             calendarListWindow(today, catalogue?.meta.from, catalogue?.meta.to),
       ),
       retry: (_, _) => null,
     );
 
-/// Loads, filters and merges both halves of the source for one window.
-///
-/// The two halves are isolated from each other like the calendar's sources
-/// are: event posts still show when the public calendars fail, and the other
-/// way round. Only when neither could be had does the source report an error.
-Future<List<CalendarEntry>> _loadEventEntries(
+Future<Loaded<List<CalendarEntry>>> _loadEventEntries(
   Ref ref, {
-  required CalendarDateWindow Function(Loaded<List<PublicCalendar>>? catalogue)
-  window,
+  required CalendarDateWindow Function(Loaded<List<PublicCalendar>>?) window,
 }) async {
-  final String locale = ref.watch(localeCodeProvider);
-  final List<EventSourceOption> options = await ref.watch(
-    eventSourceOptionsProvider.future,
-  );
-  final Set<String> selected = EventSourceFilterRules.effectiveSelection(
-    available: options,
-    selected: ref.watch(eventSourceFilterProvider).selectedKeys,
-  );
-  if (selected.isEmpty) return const <CalendarEntry>[];
-
-  Loaded<List<PublicCalendar>>? catalogue;
-  try {
-    catalogue = await ref.watch(publicCalendarsCatalogProvider.future);
-  } catch (_) {
-    catalogue = null; // The event posts can still be shown.
+  final locale = ref.watch(localeCodeProvider);
+  final options = await _settle(ref.watch(eventSourceOptionsProvider.future));
+  final state = ref.watch(eventSourceFilterProvider);
+  Set<String>? selected = options == null
+      ? null
+      : EventSourceFilterRules.effectiveSelection(
+          available: options,
+          selected: state.selectedKeys,
+        );
+  if (selected?.isEmpty ?? false) {
+    return const Loaded(value: <CalendarEntry>[], meta: ApiMeta.empty);
   }
-  final List<PublicCalendar> calendars =
-      catalogue?.value ?? const <PublicCalendar>[];
-  final Map<String, PublicCalendar> bySlug = <String, PublicCalendar>{
-    for (final PublicCalendar calendar in calendars)
-      if (calendar.channelSlug case final String channel
-          when selected.contains(channel))
-        calendar.slug: calendar,
+  final catalogue = await _settle(
+    ref.watch(publicCalendarsCatalogProvider.future),
+  );
+  final bySlug = <String, PublicCalendar>{
+    for (final c in catalogue?.value ?? <PublicCalendar>[])
+      if (c.channelSlug != null &&
+          (selected == null || selected.contains(c.channelSlug)))
+        c.slug: c,
   };
-
-  // Old backend versions do not advertise their request limit; they used
-  // 120-day list requests, so keep that safe fallback during rollout. The
-  // event-post endpoint shares the calendar's range limit.
-  final List<CalendarDateWindow> parts = splitCalendarWindow(
+  final parts = splitCalendarWindow(
     window(catalogue),
     catalogue?.meta.maxRangeDays ?? 120,
   );
-
-  final (List<NewsArticle>? posts, List<PublicCalendarEvent>? events) = await (
-    _settle(_loadPosts(ref, locale, parts)),
+  final (posts, events) = await (
+    _settle(_loadPosts(ref, locale, parts, selected?.join(','))),
     bySlug.isEmpty
-        ? Future<List<PublicCalendarEvent>?>.value(
-            catalogue == null ? null : const <PublicCalendarEvent>[],
+        ? Future<Loaded<List<PublicCalendarEvent>>?>.value(
+            catalogue == null
+                ? null
+                : const Loaded(
+                    value: <PublicCalendarEvent>[],
+                    meta: ApiMeta.empty,
+                  ),
           )
         : _settle(
-            _loadCalendarEvents(ref, locale, bySlug.keys.toList(), parts),
+            _loadCalendarEvents(
+              ref,
+              locale,
+              bySlug.keys.toList(),
+              parts,
+              catalogue?.meta.maxCalendars ?? 1,
+            ),
           ),
   ).wait;
   if (posts == null && events == null) {
-    throw StateError(
-      'Neither event posts nor public calendars could be loaded',
-    );
+    throw StateError('Neither event source could be loaded');
   }
-
-  final List<NewsArticle> selectedPosts = <NewsArticle>[
-    for (final NewsArticle post in posts ?? const <NewsArticle>[])
-      if (post.isEventPost && selected.contains(post.primaryChannel.slug)) post,
+  if (selected == null) {
+    // A channel-catalogue failure must not hide independent source successes or
+    // overwrite persisted opt-outs with an incomplete temporary catalogue.
+    final available = <String>{
+      for (final c in bySlug.values) c.channelSlug!,
+      for (final p in posts?.articles ?? <NewsArticle>[]) p.primaryChannel.slug,
+    };
+    selected = EventSourceFilterRules.reconcile(state, [
+      for (final key in available) EventSourceOption(key: key, label: key),
+    ]).selectedKeys;
+  }
+  final selectedPosts = [
+    for (final p in posts?.articles ?? <NewsArticle>[])
+      if (p.isEventPost && selected.contains(p.primaryChannel.slug)) p,
   ];
-  final List<PublicCalendarEvent> calendarEvents = <PublicCalendarEvent>[
-    for (final PublicCalendarEvent event
-        in events ?? const <PublicCalendarEvent>[])
-      if (bySlug.containsKey(event.calendarSlug)) event,
+  final selectedEvents = [
+    for (final e in events?.value ?? <PublicCalendarEvent>[])
+      if (bySlug.containsKey(e.calendarSlug) &&
+          selected.contains(bySlug[e.calendarSlug]!.channelSlug))
+        e,
   ];
-
-  final List<UnifiedEvent> merged = mergeEventSources(
+  final merged = mergeEventSources(
     postEvents: selectedPosts.map(postToUnifiedEvent).toList(),
-    calendarEvents: <UnifiedEvent>[
-      for (final PublicCalendarEvent event in calendarEvents)
+    calendarEvents: [
+      for (final e in selectedEvents)
         calendarToUnifiedEvent(
-          event,
-          channelSlug: bySlug[event.calendarSlug]!.channelSlug,
+          e,
+          channelSlug: bySlug[e.calendarSlug]!.channelSlug,
         ),
     ],
   );
-  final Set<String> keptCalendarEventIds = {
-    for (final event in merged)
-      if (event.calendarEventId case final String id) id,
+  final keptPosts = {
+    for (final e in merged)
+      if (e.postSlug != null) e.postSlug!,
   };
-  final Set<String> keptPostSlugs = {
-    for (final event in merged)
-      if (event.postSlug case final String slug) slug,
+  final keptEvents = {
+    for (final e in merged)
+      if (e.calendarEventId != null) e.calendarEventId!,
   };
-
-  return <CalendarEntry>[
-    ...eventPostsToCalendarEntries(
-      selectedPosts.where((post) => keptPostSlugs.contains(post.slug)).toList(),
+  return Loaded(
+    value: [
+      ...eventPostsToCalendarEntries(
+        selectedPosts.where((p) => keptPosts.contains(p.slug)),
+      ),
+      ...publicCalendarEventsToCalendarEntries(
+        selectedEvents.where((e) => keptEvents.contains(e.id)).toList(),
+        bySlug,
+      ),
+    ],
+    fromCache:
+        (catalogue?.fromCache ?? false) ||
+        (posts?.fromCache ?? false) ||
+        (events?.fromCache ?? false),
+    meta: ApiMeta(
+      truncated:
+          (posts?.isTruncated ?? false) || (events?.meta.truncated ?? false),
+      dataStale:
+          options == null ||
+          posts == null ||
+          events == null ||
+          (catalogue?.meta.dataStale ?? false) ||
+          events.meta.dataStale,
     ),
-    ...publicCalendarEventsToCalendarEntries(
-      calendarEvents
-          .where((PublicCalendarEvent e) => keptCalendarEventIds.contains(e.id))
-          .toList(),
-      bySlug,
-    ),
-  ];
+  );
 }
 
-/// [future]'s value, or `null` when it failed.
 Future<T?> _settle<T>(Future<T> future) async {
   try {
     return await future;
@@ -194,77 +181,95 @@ Future<T?> _settle<T>(Future<T> future) async {
   }
 }
 
-/// Every event post overlapping [parts], each once even when it spans two.
-Future<List<NewsArticle>> _loadPosts(
+/// Split incomplete windows rather than silently discarding page 11 onward.
+Future<EventPostsResult> _loadPosts(
   Ref ref,
   String locale,
   List<CalendarDateWindow> parts,
+  String? channels,
 ) async {
-  final EventPostsRepository repository = ref.watch(
-    eventPostsRepositoryProvider,
-  );
-  final List<EventPostsResult> results = await Future.wait(
-    parts.map(
-      (CalendarDateWindow part) => repository.fetchAllEventPosts(
-        locale: locale,
-        from: _isoDate(part.from),
-        to: _isoDate(part.to),
-      ),
-    ),
-  );
-  final Map<String, NewsArticle> bySlug = <String, NewsArticle>{
-    for (final EventPostsResult result in results)
-      for (final NewsArticle article in result.articles) article.slug: article,
+  final repository = ref.watch(eventPostsRepositoryProvider);
+  int remainingSplits = 16;
+  Future<List<EventPostsResult>> load(CalendarDateWindow part) async {
+    final response = await repository.fetchAllEventPosts(
+      locale: locale,
+      channelsParameter: channels,
+      from: _isoDate(part.from),
+      to: _isoDate(part.to),
+    );
+    if (response.isTruncated &&
+        !response.fromCache &&
+        part.from.isBefore(part.to) &&
+        remainingSplits-- > 0) {
+      final days =
+          DateTime.utc(part.to.year, part.to.month, part.to.day)
+              .difference(
+                DateTime.utc(part.from.year, part.from.month, part.from.day),
+              )
+              .inDays +
+          1;
+      final halves = await Future.wait(
+        splitCalendarWindow(part, (days / 2).ceil()).map(load),
+      );
+      return halves.expand((v) => v).toList();
+    }
+    return [response];
+  }
+
+  final results = (await Future.wait(
+    parts.map(load),
+  )).expand((v) => v).toList();
+  final bySlug = {
+    for (final result in results)
+      for (final article in result.articles) article.slug: article,
   };
-  return bySlug.values.toList(growable: false);
+  return EventPostsResult(
+    articles: bySlug.values.toList(),
+    isTruncated: results.any((r) => r.isTruncated),
+    from: results.firstOrNull?.from,
+    to: results.lastOrNull?.to,
+    fromCache: results.any((r) => r.fromCache),
+  );
 }
 
-/// The events of [slugs] across [parts]. A part the server cut short is split
-/// in half until every event fits.
-Future<List<PublicCalendarEvent>> _loadCalendarEvents(
+Future<Loaded<List<PublicCalendarEvent>>> _loadCalendarEvents(
   Ref ref,
   String locale,
   List<String> slugs,
   List<CalendarDateWindow> parts,
+  int maxCalendars,
 ) async {
-  final PublicCalendarsRepository repository = ref.watch(
-    publicCalendarsRepositoryProvider,
-  );
-
-  Future<List<PublicCalendarEvent>> load(CalendarDateWindow part) async {
-    final Loaded<List<PublicCalendarEvent>> response = await repository
-        .fetchEvents(
-          locale: locale,
-          slugs: slugs,
-          from: _isoDate(part.from),
-          to: _isoDate(part.to),
-        );
-    if (!response.meta.truncated) return response.value;
-    if (!part.from.isBefore(part.to)) {
-      throw StateError('Calendar event response remains truncated for one day');
+  final repository = ref.watch(publicCalendarsRepositoryProvider);
+  int remainingSplits = 16;
+  Future<Loaded<List<PublicCalendarEvent>>> load(
+    CalendarDateWindow part,
+  ) async {
+    final response = await repository.fetchEvents(
+      locale: locale,
+      slugs: slugs,
+      from: _isoDate(part.from),
+      to: _isoDate(part.to),
+      maxCalendars: maxCalendars,
+    );
+    if (!response.meta.truncated ||
+        response.fromCache ||
+        !part.from.isBefore(part.to) ||
+        remainingSplits-- <= 0) {
+      return response;
     }
-    final int days =
+    final days =
         DateTime.utc(part.to.year, part.to.month, part.to.day)
             .difference(
               DateTime.utc(part.from.year, part.from.month, part.from.day),
             )
             .inDays +
         1;
-    final List<List<PublicCalendarEvent>> halves = await Future.wait(
-      splitCalendarWindow(part, (days / 2).ceil()).map(load),
+    return combineCalendarEventLoads(
+      await Future.wait(splitCalendarWindow(part, (days / 2).ceil()).map(load)),
     );
-    return halves.expand((chunk) => chunk).toList(growable: false);
   }
 
-  final List<List<PublicCalendarEvent>> chunks = await Future.wait(
-    parts.map(load),
-  );
-  final Map<String, PublicCalendarEvent> byId = <String, PublicCalendarEvent>{
-    for (final List<PublicCalendarEvent> chunk in chunks)
-      for (final PublicCalendarEvent event in chunk) event.id: event,
-  };
-  return byId.values.toList(growable: false);
+  return combineCalendarEventLoads(await Future.wait(parts.map(load)));
 }
 
-/// The `YYYY-MM-DD` form of a calendar day.
 String _isoDate(DateTime day) => day.toIso8601String().substring(0, 10);

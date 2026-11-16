@@ -65,6 +65,35 @@ void main() {
     expect(calendarToUnifiedEvent(event).isEditorial, isTrue);
   });
 
+  test(
+    'all-day duplicates compare the full civil date range, including an implicit one-day end',
+    () {
+      final p = post(
+        title: 'Demo all-day',
+        start: DateTime.utc(2026, 11, 16, 12),
+        allDay: true,
+      );
+      final c = calendarEvent(
+        title: 'Demo all-day',
+        start: DateTime.utc(2026, 11, 16),
+        end: DateTime.utc(2026, 11, 17),
+        allDay: true,
+      );
+      expect(isDuplicateCalendarEvent(postEvent: p, calendarEvent: c), isTrue);
+      expect(
+        isDuplicateCalendarEvent(
+          postEvent: p,
+          calendarEvent: calendarEvent(
+            title: 'Demo all-day',
+            start: DateTime.utc(2026, 11, 16),
+            end: DateTime.utc(2026, 11, 18),
+            allDay: true,
+          ),
+        ),
+        isFalse,
+      );
+    },
+  );
   group('isDuplicateCalendarEvent', () {
     test('exact time-bound match is a duplicate', () {
       final UnifiedEvent p = post(start: DateTime.utc(2026, 8, 10, 18, 0));

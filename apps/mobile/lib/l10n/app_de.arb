@@ -1462,7 +1462,7 @@
   },
   "calendarNoPublicCalendars": "Zurzeit sind keine Channels verfügbar.",
   "@calendarNoPublicCalendars": {},
-  "calendarPublicUnavailable": "Events sind derzeit nicht verfügbar.",
+  "calendarPublicUnavailable": "Events konnten nicht vollständig aktuell geladen werden. Gespeicherte Daten bleiben nach Möglichkeit sichtbar.",
   "@calendarPublicUnavailable": {},
   "calendarPreparing": "Kalender wird vorbereitet …",
   "@calendarPreparing": {},

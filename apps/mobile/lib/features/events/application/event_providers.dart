@@ -43,7 +43,7 @@ final FutureProvider<EventPostsResult> eventPostsOverviewProvider =
       // Only a genuine live success (never a cache fallback served after a
       // failed request) may touch the saved list's orphan flag — see the
       // repository-level rule this delegates to.
-      if (!result.fromCache) {
+      if (!result.fromCache && !result.isTruncated) {
         await _reconcileSavedPostEvents(ref, result);
       }
       return result;
@@ -93,9 +93,8 @@ final FutureProvider<Loaded<List<PublicCalendarEvent>>>
 eventCalendarsOverviewProvider =
     FutureProvider<Loaded<List<PublicCalendarEvent>>>((Ref ref) async {
       final String locale = ref.watch(localeCodeProvider);
-      final List<PublicCalendar> catalog = (await ref.watch(
-        publicCalendarsCatalogProvider.future,
-      )).value;
+      final catalogue = await ref.watch(publicCalendarsCatalogProvider.future);
+      final List<PublicCalendar> catalog = catalogue.value;
       final List<String> slugs = catalog
           .where((PublicCalendar c) => c.channelSlug != null)
           .map((PublicCalendar c) => c.slug)
@@ -108,8 +107,12 @@ eventCalendarsOverviewProvider =
       }
       final Loaded<List<PublicCalendarEvent>> loaded = await ref
           .watch(publicCalendarsRepositoryProvider)
-          .fetchEventsDefaultWindow(locale: locale, slugs: slugs);
-      if (!loaded.fromCache) {
+          .fetchEventsDefaultWindow(
+            locale: locale,
+            slugs: slugs,
+            maxCalendars: catalogue.meta.maxCalendars ?? 1,
+          );
+      if (!loaded.fromCache && !loaded.meta.truncated) {
         await _reconcileSavedCalendarEvents(ref, loaded);
       }
       return loaded;
@@ -145,6 +148,7 @@ Future<void> _reconcileSavedCalendarEvents(
 /// calendar read.
 final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
     FutureProvider<List<EventSourceOption>>((Ref ref) async {
+      final filter = ref.read(eventSourceFilterProvider.notifier);
       final List<NewsChannel> channels = (await ref.watch(
         newsChannelsProvider.future,
       )).value;
@@ -164,9 +168,9 @@ final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
           );
         }
       }
-      await ref.read(eventSourceFilterProvider.notifier).reconcile(options);
+      if (ref.mounted) await filter.reconcile(options);
       return options;
-    });
+    }, retry: (_, _) => null);
 
 /// The loaded event posts, indexed by slug.
 ///
