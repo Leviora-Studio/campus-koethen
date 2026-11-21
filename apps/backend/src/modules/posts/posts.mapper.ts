@@ -13,6 +13,7 @@ import {
 } from './posts.types';
 import { asString } from '../../common/util/coerce';
 import { publicMediaUrl } from '../media/media.path';
+import { mapLocationRef } from '../locations/location';
 
 /**
  * Strapi -> public DTO mapping for posts, channels, and tags.
@@ -79,6 +80,7 @@ export function mapChannel(raw: Raw): ChannelDto {
     sortOrder: num(raw['sortOrder']) ?? 0,
     defaultSubscribed: raw['defaultSubscribed'] === true,
     publicCalendarSlug,
+    location: mapLocationRef(raw['location']),
   };
 }
 

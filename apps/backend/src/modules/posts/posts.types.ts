@@ -4,6 +4,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResponseMetaDto } from '../../common/dto/meta.dto';
 import { ContentBlock } from '../../common/content/content-blocks';
+import { LocationDto } from '../locations/locations.types';
 
 /**
  * Public shapes returned by /v1/posts*.
@@ -57,6 +58,14 @@ export class ChannelDto {
     description: 'Slug of the associated public Google calendar, if linked 1-to-1.',
   })
   publicCalendarSlug!: string | null;
+
+  @ApiProperty({
+    type: LocationDto,
+    nullable: true,
+    description:
+      'Campus location of the channel, or null while none (or an inactive one) is set. A channel and its calendar always share it.',
+  })
+  location!: LocationDto | null;
 }
 
 export class ChannelRefDto {

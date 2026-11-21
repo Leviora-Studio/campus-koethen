@@ -10,6 +10,7 @@ import { StrapiClient } from '../strapi/strapi.client';
 import { calendarPeriod, mergeCalendarEntries, parseEditorialEntry } from './calendar-entries';
 import { PublicCalendarService, computeEventKey } from './public-calendar.service';
 import { PublicCalendarDto, PublicCalendarEventDto } from './public-calendar.types';
+import { LOCATION_POPULATE, mapLocationRef } from '../locations/location';
 import {
   tryExtractCalendarId,
   buildSingleOpenUrl,
@@ -28,6 +29,8 @@ const calendarSchema = z.object({
   channel: z
     .object({ slug: z.string(), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/) })
     .nullish(),
+  // Validated by mapLocationRef: an unusable location must not drop the calendar.
+  location: z.unknown().optional(),
 });
 const de: LocaleResolution = { requestedLocale: 'de', resolvedLocale: 'de' };
 
@@ -95,7 +98,7 @@ export class EditorialCalendarService {
         'includeEventLocation',
       ],
       sort: ['sortOrder:asc', 'slug:asc'],
-      populate: { channel: { fields: ['slug', 'colorHex'] } },
+      populate: { channel: { fields: ['slug', 'colorHex'] }, location: LOCATION_POPULATE },
     });
     const imported = await this.google.listCalendars(locale, true);
     const translations =
@@ -150,6 +153,7 @@ export class EditorialCalendarService {
         dataStale: c.googleShareUrl ? (matches ? cached!.dataStale : true) : false,
         lastSuccessfulSyncAt: matches ? cached!.lastSuccessfulSyncAt : null,
         googleOpenUrl: google?.ok ? buildSingleOpenUrl(google.calendarId) : '',
+        location: mapLocationRef(c.location),
       });
     }
     return { data, translationFallback, googleSources };

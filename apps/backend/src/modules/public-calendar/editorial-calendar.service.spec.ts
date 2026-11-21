@@ -67,6 +67,37 @@ describe('editorial calendars', () => {
       {},
     );
   });
+  it('serves the location of a calendar and keeps calendars whose location is unusable', async () => {
+    const { service, get } = fixture();
+    get.mockImplementation(async (path: string) => ({
+      data: path.includes('calendar-entries')
+        ? []
+        : [
+            { ...calendar, location: { slug: 'demo-ort', name: 'Demo-Ort', isActive: true } },
+            { ...calendar, slug: 'demo-b', location: { slug: 'Kaputt', name: 'Kaputt' } },
+            {
+              ...calendar,
+              slug: 'demo-c',
+              location: { slug: 'alt', name: 'Alt', isActive: false },
+            },
+            { ...calendar, slug: 'demo-d' },
+          ],
+      meta: { pagination: { pageCount: 1 } },
+    }));
+
+    const { data } = await service.listCalendars(locale);
+
+    expect(data.map((c) => [c.slug, c.location])).toEqual([
+      ['demo', { slug: 'demo-ort', name: 'Demo-Ort' }],
+      ['demo-b', null],
+      ['demo-c', null],
+      ['demo-d', null],
+    ]);
+    const [, query] = get.mock.calls[0]! as unknown as [string, Record<string, unknown>];
+    expect(query['populate']).toMatchObject({
+      location: { fields: ['slug', 'name', 'isActive'] },
+    });
+  });
   it('never queries all editorial entries for an empty selection', async () => {
     const { service, get } = fixture();
     expect((await service.events([], new Date(), new Date(), locale)).events).toEqual([]);

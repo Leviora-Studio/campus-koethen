@@ -105,7 +105,8 @@ Verstöße gegen diese Regeln sind Blocker, keine Stilfragen.
   `public-calendar`, `room`.
 - `location` (Standort) ist optional an `channel` und `public-calendar`; ein Channel und sein
   Kalender müssen denselben Standort haben (`src/editorial/channel-location-guard.ts`). Die
-  Campus API liest das Feld derzeit nicht.
+  Campus API liefert ihn an Kanälen und Kalendern aus und listet die aktiven Standorte unter
+  `/v1/locations`.
 - `room` ist technische Referenzdatenhaltung: katalogverwaltete Felder gehören
   `packages/campus-map` und sind serverseitig gegen normale Bearbeitungswege geschützt,
   redaktionelle Felder und Kontaktrelationen bleiben editierbar
@@ -155,6 +156,7 @@ src/
     public-calendar/ /v1/calendars/*, Katalog- und Event-Sync, ICS-Client + RFC-5545-Parser,
                      Google-Freigabelink-Validierung
     rooms/           /v1/rooms/*, Raumkatalog aus Strapi, RoomReference für Kontakte
+    locations/       /v1/locations, Standort-Mapping und `location`-Filter für Kanäle/Kalender
   cli/               administrative Kommandos: OpenAPI erzeugen, Mensen seeden,
                      Mensa- und Stundenplan-Sync manuell auslösen
   main.ts            API-Bootstrap

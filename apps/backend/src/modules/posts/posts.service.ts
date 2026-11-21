@@ -6,6 +6,7 @@ import { TtlCache } from '../../common/cache/ttl-cache';
 import { ApiError } from '../../common/errors/api-error';
 import { LocaleResolution } from '../../common/locale/locale';
 import { StrapiClient, StrapiListResponse, StrapiRequestError } from '../strapi/strapi.client';
+import { LOCATION_POPULATE } from '../locations/location';
 import { mapChannel, mapPostDetail, mapPostListItem, mapTag } from './posts.mapper';
 import { ChannelDto, PostDetailDto, PostListItemDto, TagDto } from './posts.types';
 import { asString } from '../../common/util/coerce';
@@ -178,7 +179,7 @@ export class PostsService {
     const baseQuery = {
       filters: { isActive: { $eq: true } },
       sort: ['sortOrder:asc', 'name:asc'],
-      populate: { publicCalendar: { fields: ['slug'] } },
+      populate: { publicCalendar: { fields: ['slug'] }, location: LOCATION_POPULATE },
       pagination: { pageSize: 100 },
     };
 
@@ -218,6 +219,7 @@ export class PostsService {
               sortOrder: raw['sortOrder'],
               defaultSubscribed: raw['defaultSubscribed'],
               publicCalendar: raw['publicCalendar'],
+              location: raw['location'],
             }
           : raw,
       );

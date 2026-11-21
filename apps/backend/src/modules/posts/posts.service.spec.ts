@@ -79,6 +79,25 @@ describe('PostsService', () => {
       expect(JSON.stringify(calls[0]!.query)).toContain('publicCalendar');
     });
 
+    it('populates the location and keeps it in the English catalogue', async () => {
+      const location = { slug: 'demo-ort', name: 'Demo-Ort', isActive: true };
+      const { client, calls } = makeClient(({ query }) =>
+        query['locale'] === 'en'
+          ? { data: [channel('campus-news', { description: 'English', location: null })] }
+          : { data: [channel('campus-news', { description: 'Deutsch', location })] },
+      );
+
+      const result = await new PostsService(client).getChannels(en);
+
+      expect(calls[0]!.query['populate']).toMatchObject({
+        location: { fields: ['slug', 'name', 'isActive'] },
+      });
+      expect(result.data[0]).toMatchObject({
+        description: 'English',
+        location: { slug: 'demo-ort', name: 'Demo-Ort' },
+      });
+    });
+
     it('marks a translation fallback when an English channel description is missing', async () => {
       const { client } = makeClient(({ query }) =>
         query['locale'] === 'en'

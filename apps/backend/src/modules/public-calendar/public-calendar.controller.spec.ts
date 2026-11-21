@@ -97,6 +97,41 @@ describe('PublicCalendarController date range', () => {
     expect(all.meta).toMatchObject({ from: '2026-09-24', to: '2027-03-23', maxRangeDays: 120 });
   });
 
+  it('filters both catalogues by location', async () => {
+    const inA = {
+      slug: 'kalender-a',
+      channelSlug: 'kanal',
+      location: { slug: 'demo-ort', name: 'Demo-Ort' },
+    };
+    const inB = {
+      slug: 'kalender-b',
+      channelSlug: '',
+      location: { slug: 'anderer-ort', name: 'Anderer Ort' },
+    };
+    const none = { slug: 'kalender-c', channelSlug: 'kanal-c', location: null };
+    const listCalendars = jest.fn(async (_locale: unknown, includeUnmapped = false) => ({
+      data: includeUnmapped ? [inA, inB, none] : [inA, none],
+      translationFallback: false,
+    }));
+    const controller = new PublicCalendarController(
+      {} as PublicCalendarService,
+      {
+        PUBLIC_CALENDAR_API_MAX_RANGE_DAYS: 120,
+        PUBLIC_CALENDAR_LOOKAHEAD_DAYS: 180,
+        PUBLIC_CALENDAR_API_MAX_CALENDARS: 50,
+        PUBLIC_CALENDAR_ENABLED: true,
+      } as Env,
+      { listCalendars } as unknown as EditorialCalendarService,
+    );
+
+    expect((await controller.all(locale, { location: 'anderer-ort' })).data).toEqual([inB]);
+    expect((await controller.list(locale, { location: 'demo-ort' })).data).toEqual([inA]);
+    expect((await controller.all(locale, {})).data).toHaveLength(3);
+    await expect(controller.all(locale, { location: 'Kein Slug' })).rejects.toBeInstanceOf(
+      ApiError,
+    );
+  });
+
   it('still honours an explicit range', async () => {
     const { controller, getAggregatedEvents } = harness();
 

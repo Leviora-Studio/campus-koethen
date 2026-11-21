@@ -57,6 +57,13 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "location",
+            "required": false,
+            "in": "query",
+            "description": "One location slug from GET /v1/locations. Only channels of that location are listed; channels without a location are left out.",
+            "schema": {}
           }
         ],
         "responses": {
@@ -712,6 +719,13 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "location",
+            "required": false,
+            "in": "query",
+            "description": "One location slug from GET /v1/locations. Only calendars of that location are listed; calendars without a location are left out.",
+            "schema": {}
           }
         ],
         "responses": {
@@ -748,6 +762,13 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "location",
+            "required": false,
+            "in": "query",
+            "description": "One location slug from GET /v1/locations. Only calendars of that location are listed; calendars without a location are left out.",
+            "schema": {}
           }
         ],
         "responses": {
@@ -1070,6 +1091,42 @@
         ]
       }
     },
+    "/v1/locations": {
+      "get": {
+        "description": "The slugs accepted by the `location` filter of GET /v1/posts/channels, GET /v1/calendars and GET /v1/calendars/all. A location name is a place name and the same in every language.",
+        "operationId": "LocationsController_list_v1",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "de",
+                "en"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active locations ordered by name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active campus locations.",
+        "tags": [
+          "locations"
+        ]
+      }
+    },
     "/v1/media/uploads/{filename}": {
       "get": {
         "description": "Images only, from the CMS upload directory only. The path is validated against a strict allowlist before anything is fetched, so it cannot be pointed at another target. Cached for a day: editorial images are replaced by uploading a new file, which changes the name. Send the ETag back as `If-None-Match` to revalidate: a still-current image answers 304 without a body instead of being transferred again.",
@@ -1220,6 +1277,25 @@
   "servers": [],
   "components": {
     "schemas": {
+      "LocationDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "koethen",
+            "description": "Stable, never localised."
+          },
+          "name": {
+            "type": "string",
+            "example": "Köthen",
+            "description": "Place name, the same in every language."
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ]
+      },
       "ChannelDto": {
         "type": "object",
         "properties": {
@@ -1253,6 +1329,16 @@
             "type": "string",
             "nullable": true,
             "description": "Slug of the associated public Google calendar, if linked 1-to-1."
+          },
+          "location": {
+            "nullable": true,
+            "description": "Campus location of the channel, or null while none (or an inactive one) is set. A channel and its calendar always share it.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LocationDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1260,7 +1346,8 @@
           "name",
           "colorHex",
           "sortOrder",
-          "defaultSubscribed"
+          "defaultSubscribed",
+          "location"
         ]
       },
       "PaginationMetaDto": {
@@ -2788,6 +2875,16 @@
           "googleOpenUrl": {
             "type": "string",
             "description": "Safe HTTPS link to open this calendar in Google Calendar."
+          },
+          "location": {
+            "nullable": true,
+            "description": "Campus location of the calendar, or null while none (or an inactive one) is set. Always the same as its channel's.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LocationDto"
+              }
+            ]
           }
         },
         "required": [
@@ -2800,7 +2897,8 @@
           "defaultSubscribed",
           "dataState",
           "dataStale",
-          "googleOpenUrl"
+          "googleOpenUrl",
+          "location"
         ]
       },
       "PublicCalendarListResponseDto": {
@@ -3079,6 +3177,24 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/RoomDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "LocationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationDto"
+            }
           },
           "meta": {
             "$ref": "#/components/schemas/ResponseMetaDto"

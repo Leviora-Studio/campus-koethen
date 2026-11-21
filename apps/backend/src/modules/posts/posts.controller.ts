@@ -17,6 +17,7 @@ import {
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
 import { PostsService } from './posts.service';
+import { filterByLocation, parseLocationFilter } from '../locations/location';
 import {
   ChannelDto,
   ChannelsResponseDto,
@@ -57,15 +58,25 @@ export class PostsController {
     description:
       'Channels are fully dynamic. A channel added in the CMS appears here — and therefore in the app — without any code change.',
   })
+  @ApiQuery({
+    name: 'location',
+    required: false,
+    description:
+      'One location slug from GET /v1/locations. Only channels of that location are listed; channels without a location are left out.',
+  })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({
     description: 'Active channels ordered by sortOrder, then name.',
     type: ChannelsResponseDto,
   })
-  async channels(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<ChannelDto[]>> {
+  async channels(
+    @RequestLocale() locale: LocaleResolution,
+    @Query() query: Record<string, unknown> = {},
+  ): Promise<ApiResponse<ChannelDto[]>> {
+    const location = parseLocationFilter(query['location'], locale.resolvedLocale);
     const result = await this.posts.getChannels(locale);
     return {
-      data: result.data,
+      data: filterByLocation(result.data, location),
       meta: buildMeta({ ...locale, translationFallback: result.translationFallback }),
     };
   }

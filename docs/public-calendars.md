@@ -226,6 +226,9 @@ Recurrence, invitations, attendees and reminders are not supported.
 - **Website catalogue:** `GET /v1/calendars/all?locale=de` lists every published, active
   calendar, including calendars without a channel (`channelSlug` is then an empty string).
   `GET /v1/calendars` stays the channel-based app catalogue.
+- **Locations:** every catalogue entry carries `location` (`{ slug, name }` or `null`).
+  `GET /v1/locations` lists the active locations; `?location=<slug>` on
+  `GET /v1/calendars/all` (and `GET /v1/calendars`) keeps only calendars of that location.
 - **Website:** `GET /v1/calendars/:slug/entries?from=2026-11-01&to=2026-11-30&locale=de`
   additionally includes event posts of the linked channel, projected onto neutral
   appointment fields. No post blocks, tags or navigation options are returned.

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResponseMetaDto } from '../../common/dto/meta.dto';
+import { LocationDto } from '../locations/locations.types';
 
 /**
  * A fully-validated public-calendar definition, as mirrored from Strapi into
@@ -38,6 +39,13 @@ export class PublicCalendarDto {
   @ApiProperty() dataStale!: boolean;
   @ApiProperty({ description: 'Safe HTTPS link to open this calendar in Google Calendar.' })
   googleOpenUrl!: string;
+  @ApiProperty({
+    type: LocationDto,
+    nullable: true,
+    description:
+      "Campus location of the calendar, or null while none (or an inactive one) is set. Always the same as its channel's.",
+  })
+  location!: LocationDto | null;
 }
 
 export class CalendarLinkDto {

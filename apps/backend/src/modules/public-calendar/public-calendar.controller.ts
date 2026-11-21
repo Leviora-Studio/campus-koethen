@@ -10,6 +10,7 @@ import { isoDate, parseWith, refineDateRange } from '../../common/validation/que
 import { ENV } from '../../config/app-config.module';
 import { Env } from '../../config/env.schema';
 import { PublicCalendarService } from './public-calendar.service';
+import { filterByLocation, parseLocationFilter } from '../locations/location';
 import {
   GoogleViewUrlDataDto,
   GoogleViewUrlResponseDto,
@@ -95,10 +96,19 @@ export class PublicCalendarController {
     description:
       'Active editorial calendars remain available without a Google sync. googleOpenUrl is an empty string for calendars without Google import. The Google calendar id and feed URL are never exposed.',
   })
+  @ApiQuery({
+    name: 'location',
+    required: false,
+    description:
+      'One location slug from GET /v1/locations. Only calendars of that location are listed; calendars without a location are left out.',
+  })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PublicCalendarListResponseDto })
-  async list(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
-    return this.catalogue(locale, false);
+  async list(
+    @RequestLocale() locale: LocaleResolution,
+    @Query() query: Record<string, unknown> = {},
+  ): Promise<ApiResponse<PublicCalendarDto[]>> {
+    return this.catalogue(locale, false, query);
   }
 
   @Get('all')
@@ -107,23 +117,33 @@ export class PublicCalendarController {
     description:
       'Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex the default colour. Use the slugs with GET /v1/calendars/{slug}/entries.',
   })
+  @ApiQuery({
+    name: 'location',
+    required: false,
+    description:
+      'One location slug from GET /v1/locations. Only calendars of that location are listed; calendars without a location are left out.',
+  })
   @ApiQuery({ name: 'locale', required: false, enum: ['de', 'en'] })
   @ApiOkResponse({ type: PublicCalendarListResponseDto })
-  async all(@RequestLocale() locale: LocaleResolution): Promise<ApiResponse<PublicCalendarDto[]>> {
-    return this.catalogue(locale, true);
+  async all(
+    @RequestLocale() locale: LocaleResolution,
+    @Query() query: Record<string, unknown> = {},
+  ): Promise<ApiResponse<PublicCalendarDto[]>> {
+    return this.catalogue(locale, true, query);
   }
 
   private async catalogue(
     locale: LocaleResolution,
     includeUnmapped: boolean,
+    query: Record<string, unknown>,
   ): Promise<ApiResponse<PublicCalendarDto[]>> {
-    const { data, translationFallback } = await (this.editorial ?? this.calendars).listCalendars(
-      locale,
-      includeUnmapped,
-    );
+    const location = parseLocationFilter(query['location'], locale.resolvedLocale);
+    const { data: calendars, translationFallback } = await (
+      this.editorial ?? this.calendars
+    ).listCalendars(locale, includeUnmapped);
     const now = Date.now();
     return {
-      data,
+      data: filterByLocation(calendars, location),
       meta: buildMeta({
         ...locale,
         translationFallback,

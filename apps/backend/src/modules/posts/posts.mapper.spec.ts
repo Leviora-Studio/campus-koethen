@@ -16,6 +16,7 @@ describe('posts mappers', () => {
       isActive: true,
       defaultSubscribed: true,
       publicCalendar: { id: 10, documentId: 'cal_1', slug: 'campus-calendar' },
+      location: { id: 4, documentId: 'loc_1', slug: 'demo-ort', name: 'Demo-Ort', isActive: true },
       locale: 'de',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-02T00:00:00.000Z',
@@ -32,6 +33,7 @@ describe('posts mappers', () => {
         sortOrder: 10,
         defaultSubscribed: true,
         publicCalendarSlug: 'campus-calendar',
+        location: { slug: 'demo-ort', name: 'Demo-Ort' },
       });
     });
 
@@ -44,8 +46,10 @@ describe('posts mappers', () => {
       expect(mapChannel(raw)).not.toHaveProperty('isActive');
     });
 
-    it('normalises a missing description to null and missing publicCalendar to null', () => {
-      expect(mapChannel({ ...raw, description: undefined, publicCalendar: null })).toEqual({
+    it('normalises a missing description, publicCalendar and location to null', () => {
+      expect(
+        mapChannel({ ...raw, description: undefined, publicCalendar: null, location: null }),
+      ).toEqual({
         slug: 'campus-news',
         name: 'Campus News',
         description: null,
@@ -53,7 +57,14 @@ describe('posts mappers', () => {
         sortOrder: 10,
         defaultSubscribed: true,
         publicCalendarSlug: null,
+        location: null,
       });
+    });
+
+    it('serves no location while it is inactive', () => {
+      expect(
+        mapChannel({ ...raw, location: { ...raw.location, isActive: false } }).location,
+      ).toBeNull();
     });
   });
 

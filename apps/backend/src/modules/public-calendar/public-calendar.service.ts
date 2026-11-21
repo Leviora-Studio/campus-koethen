@@ -200,6 +200,9 @@ export class PublicCalendarService implements OnModuleInit {
         lastSuccessfulSyncAt: row.lastSuccessfulSyncAt?.toISOString() ?? null,
         dataStale: stale,
         googleOpenUrl: buildSingleOpenUrl(row.googleCalendarId),
+        // The operational read model mirrors only the Google import; the
+        // location is editorial and served by the Strapi-backed catalogue.
+        location: null,
       };
       return [dto];
     });
@@ -305,6 +308,7 @@ export class PublicCalendarService implements OnModuleInit {
         lastSuccessfulSyncAt: row.lastSuccessfulSyncAt?.toISOString() ?? null,
         dataStale: stale,
         googleOpenUrl: buildSingleOpenUrl(row.googleCalendarId),
+        location: null,
       },
       events: events.map((e) => this.toEventDto(e, slug, perCalendar)),
       truncated,

@@ -185,6 +185,11 @@ Erstellen und Entfernen stehen in
 
 Nur **aktive** Kanäle, sortiert nach `sortOrder`, dann `name`.
 
+| Parameter  | Typ          | Standard | Regeln                                                                        |
+| ---------- | ------------ | -------- | ----------------------------------------------------------------------------- |
+| `location` | ein Slug     | _fehlt_  | Slug aus `GET /v1/locations`, max. 80 Zeichen; ungültig oder mehrfach ⇒ `400` |
+| `locale`   | `de` \| `en` | `de`     |                                                                               |
+
 ```jsonc
 {
   "data": [
@@ -196,6 +201,7 @@ Nur **aktive** Kanäle, sortiert nach `sortOrder`, dann `name`.
       "sortOrder": 10,
       "defaultSubscribed": true,
       "publicCalendarSlug": "campus-calendar", // oder null
+      "location": { "slug": "koethen", "name": "Köthen" }, // oder null
     },
   ],
   "meta": { "requestedLocale": "de", "resolvedLocale": "de", "translationFallback": false },
@@ -205,6 +211,27 @@ Nur **aktive** Kanäle, sortiert nach `sortOrder`, dann `name`.
 `slug` ist stabil und **nicht** lokalisiert. `defaultSubscribed` wird vom Client pro Slug
 **genau einmal** ausgewertet — beim erstmaligen Auftauchen. `publicCalendarSlug` verknüpft einen
 Kanal 1:1 mit einem öffentlichen Google-Kalender.
+
+`location` ist der Standort des Kanals, oder `null`, solange keiner (oder nur ein stillgelegter)
+gesetzt ist. Ein Kanal und sein Kalender haben immer denselben Standort. Mit `?location=koethen`
+liefert die API nur die Kanäle dieses Standorts; Kanäle ohne Standort fallen dann heraus. Ein
+unbekannter Slug ergibt eine leere Liste, kein `404`.
+
+### `GET /v1/locations`
+
+Nur **aktive** Standorte, sortiert nach `name`, dann `slug`. Gedacht für Websites, die ihre
+Kanäle und Kalender nach Standort filtern: Die Slugs sind die Werte für den Parameter `location`
+von `GET /v1/posts/channels`, `GET /v1/calendars` und `GET /v1/calendars/all`.
+
+```jsonc
+{
+  "data": [{ "slug": "koethen", "name": "Köthen" }],
+  "meta": { "requestedLocale": "de", "resolvedLocale": "de", "translationFallback": false },
+}
+```
+
+Der Name ist ein Ortsname und in allen Sprachen gleich; `translationFallback` ist daher immer
+`false`. `slug` ist stabil und **nicht** lokalisiert.
 
 ### `GET /v1/posts/tags`
 
@@ -783,7 +810,8 @@ bleiben alte importierte Termine intern erhalten, werden aber nicht unter der ne
 
 ### `GET /v1/calendars`
 
-Der Katalog. Keine Parameter außer `locale`.
+Der Katalog. Parameter: `locale` und optional `location` (ein Slug aus `GET /v1/locations`,
+gleiche Regeln wie bei `GET /v1/posts/channels`).
 
 ```jsonc
 {
@@ -800,6 +828,7 @@ Der Katalog. Keine Parameter außer `locale`.
       "lastSuccessfulSyncAt": "2026-07-30T06:10:00.000Z",
       "dataStale": false,
       "googleOpenUrl": "https://calendar.google.com/…", // serverseitig konstruiert
+      "location": { "slug": "koethen", "name": "Köthen" }, // oder null
     },
   ],
   "meta": {
@@ -820,6 +849,9 @@ Channel-Auswahl von Events und Kalender; bewusste Abwahlen bleiben erhalten.
 `channelSlug` verknüpft einen Kalender 1:1 mit einem redaktionellen Kanal und ist immer gesetzt:
 Kalender ohne Kanal liefert die API nicht aus. `colorHex` ist die Farbe dieses Kanals; ein Kalender
 hat keine eigene Farbe.
+`location` ist der Standort des Kalenders, oder `null`, solange keiner (oder nur ein stillgelegter)
+gesetzt ist; bei einem Kalender mit Kanal ist es immer derselbe wie beim Kanal. Mit
+`?location=koethen` liefert die API nur die Kalender dieses Standorts.
 Die Kalender-Liste teilt den Bereich bis `meta.to` in Abfragen von höchstens `meta.maxRangeDays`
 Tagen und höchstens `meta.maxCalendars` Kalendern; ihre Reichweite ist damit nicht auf eine feste
 Tageszahl im Client begrenzt. `googleOpenUrl` ist ohne Google-Anbindung ein leerer String.
@@ -827,7 +859,8 @@ Tageszahl im Client begrenzt. `googleOpenUrl` ist ohne Google-Anbindung ein leer
 ### `GET /v1/calendars/all`
 
 Website-Katalog: **alle** veröffentlichten, aktiven Kalender, auch solche ohne Channel. Gleiche
-Felder und gleiche `meta` wie `GET /v1/calendars`, Parameter nur `locale`. Bei Kalendern ohne
+Felder und gleiche `meta` wie `GET /v1/calendars`, Parameter `locale` und optional `location`.
+Eine Website eines Standorts fragt z. B. `GET /v1/calendars/all?location=koethen`. Bei Kalendern ohne
 Channel ist `channelSlug` ein leerer String und `colorHex` die Standardfarbe. Die Slugs sind für
 `GET /v1/calendars/:slug/entries` gedacht. Der App-Katalog `GET /v1/calendars` bleibt
 unverändert kanalbasiert.

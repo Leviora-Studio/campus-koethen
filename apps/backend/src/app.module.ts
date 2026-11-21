@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { CanteenModule } from './modules/canteen/canteen.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { HealthModule } from './modules/health/health.module';
+import { LocationsModule } from './modules/locations/locations.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { PublicCalendarModule } from './modules/public-calendar/public-calendar.module';
 import { MediaModule } from './modules/media/media.module';
@@ -31,6 +32,7 @@ import { UserTestDataModule } from './modules/user-test-data/user-test-data.modu
     TimetableModule,
     PublicCalendarModule,
     RoomsModule,
+    LocationsModule,
     MediaModule,
     UserTestDataModule,
   ],
