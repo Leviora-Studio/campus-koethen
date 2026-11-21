@@ -174,7 +174,9 @@ lastSuccessfulSyncAt, dataStale, googleOpenUrl`. `channelSlug` verknüpft einen 
    seines Channels.
 5. Den Kalender am **Channel** zuordnen (Feld `publicCalendar` des Channels). Ohne Channel erscheint
    er nirgends in der App. Je Channel ist genau ein Kalender möglich: Strapi lehnt eine zweite
-   Zuordnung beim Speichern ab und nennt den bereits zugeordneten Kalender.
+   Zuordnung beim Speichern ab und nennt den bereits zugeordneten Kalender. Channel und Kalender
+   müssen vorher **denselben Standort** (Feld `location`, Typ **Location**) haben; fehlt er auf
+   einer Seite oder unterscheidet er sich, lehnt Strapi die Verknüpfung mit einem Hinweis ab.
 6. **includeEventDescription** und **includeEventLocation** datensparsam entscheiden. Die Felder
    steuern ausdrücklich, ob Beschreibungen bzw. Orte importierter Termine in API und App erscheinen.
 7. **Speichern und Veröffentlichen** (Draft & Publish).
@@ -206,6 +208,8 @@ The existing `public-calendar` collection is now displayed as **Calendar**; its
 technical UID and slugs remain unchanged. `googleShareUrl` is optional. A calendar
 can contain editorial appointments without any Google import or successful ICS sync.
 Assign the calendar to a channel to offer it in the app (one calendar per channel).
+Channel and calendar must name the same **Location** before they can be linked;
+a linked pair can never point at two different locations.
 
 Create appointments in **Calendar Entry** and select their calendar. Fields:
 `title`, stable `slug`, plain-text `description`, `location`, `start`, `end`,

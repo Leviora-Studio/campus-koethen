@@ -8,6 +8,10 @@ import {
   createCalendarChannelGuard,
   strapiCalendarChannelLookup,
 } from './editorial/calendar-channel-guard';
+import {
+  createChannelLocationGuard,
+  strapiChannelLocationLookup,
+} from './editorial/channel-location-guard';
 import { createEditorialGuard } from './editorial/post-guard';
 
 export default {
@@ -18,6 +22,7 @@ export default {
    *  1. Room guard: protects catalogue-managed technical fields
    *  2. Editorial guard: enforces post requirements, reserved slugs, primary channels, and event times
    *  3. Calendar-channel guard: one public calendar per channel
+   *  4. Channel-location guard: a channel and its calendar share one location
    */
   register({ strapi }: { strapi: Core.Strapi }) {
     const roomGuard = createRoomGuard({
@@ -27,10 +32,12 @@ export default {
     const entryGuard = createCalendarEntryGuard(strapi);
     strapi.documents.use((context, next) => entryGuard(context as never, next as never));
     const calendarChannelGuard = createCalendarChannelGuard(strapiCalendarChannelLookup(strapi));
+    const channelLocationGuard = createChannelLocationGuard(strapiChannelLocationLookup(strapi));
 
     strapi.documents.use((context, next) => roomGuard(context as never, next as never));
     strapi.documents.use((context, next) => editorialGuard(context as never, next as never));
     strapi.documents.use((context, next) => calendarChannelGuard(context as never, next as never));
+    strapi.documents.use((context, next) => channelLocationGuard(context as never, next as never));
   },
 
   /**

@@ -124,6 +124,17 @@
       "relation": "oneToMany",
       "target": "api::calendar-entry.calendar-entry",
       "mappedBy": "calendar"
+    },
+    "location": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::location.location",
+      "inversedBy": "calendars",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
     }
   }
 }

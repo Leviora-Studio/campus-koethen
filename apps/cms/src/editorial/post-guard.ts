@@ -7,6 +7,7 @@ export const POST_UID = 'api::post.post';
 export const CHANNEL_UID = 'api::channel.channel';
 export const TAG_UID = 'api::tag.tag';
 export const PUBLIC_CALENDAR_UID = 'api::public-calendar.public-calendar';
+export const LOCATION_UID = 'api::location.location';
 
 export const RESERVED_POST_SLUGS = ['channels', 'tags', 'events'] as const;
 

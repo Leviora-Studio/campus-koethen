@@ -61,16 +61,17 @@ Oben rechts im Editor wird die Locale umgeschaltet. Wichtig:
 
 `Content Manager → Channel → Create new entry`
 
-| Feld                | Hinweis                                                                           |
-| ------------------- | --------------------------------------------------------------------------------- |
-| `name`              | Eigenname, in allen Sprachen identisch                                            |
-| `slug`              | **stabil**, klein, mit Bindestrichen, z. B. `campus-news`                         |
-| `description`       | übersetzbar; benennt, wer hier publiziert                                         |
-| `colorHex`          | `#RRGGBB`; Farbe der Beiträge **und** der Kalendertermine                         |
-| `sortOrder`         | kleinere Zahl steht weiter oben                                                   |
-| `isActive`          | sichtbar in der App                                                               |
-| `defaultSubscribed` | beim **ersten** Auftauchen automatisch abonniert                                  |
-| `publicCalendar`    | optional, 1:1-Zuordnung zu einem redaktionellen Kalender (Google-Import optional) |
+| Feld                | Hinweis                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| `name`              | Eigenname, in allen Sprachen identisch                                                    |
+| `slug`              | **stabil**, klein, mit Bindestrichen, z. B. `campus-news`                                 |
+| `description`       | übersetzbar; benennt, wer hier publiziert                                                 |
+| `colorHex`          | `#RRGGBB`; Farbe der Beiträge **und** der Kalendertermine                                 |
+| `sortOrder`         | kleinere Zahl steht weiter oben                                                           |
+| `isActive`          | sichtbar in der App                                                                       |
+| `defaultSubscribed` | beim **ersten** Auftauchen automatisch abonniert                                          |
+| `publicCalendar`    | optional, 1:1-Zuordnung zu einem redaktionellen Kalender (Google-Import optional)         |
+| `location`          | optional, Standort des Kanals (z. B. Köthen); siehe [Standort anlegen](#standort-anlegen) |
 
 Ein öffentlicher Google-Kalender erscheint in der App **nur über seinen Kanal**:
 Seine Termine stehen im Reiter Events und im Kalender bei genau diesem Kanal und
@@ -78,6 +79,10 @@ tragen dessen Farbe. Ein Kalender ohne Kanal wird nicht angezeigt. Jeder Kanal
 hat höchstens einen Kalender: Ist einem Kanal schon ein Kalender zugeordnet,
 lehnt Strapi das Speichern einer zweiten Zuordnung mit einem Hinweis ab — erst
 die bestehende Zuordnung entfernen.
+
+Kanal und Kalender lassen sich nur verknüpfen, wenn **beide denselben Standort**
+haben. Fehlt der Standort auf einer Seite oder unterscheidet er sich, lehnt Strapi
+das Speichern ab und sagt, was zuerst zu setzen ist.
 
 Ein neuer Kanal erscheint **ohne App-Update und ohne Code-Änderung**. Vor der
 Veröffentlichung die englische Beschreibung ergänzen und beide Sprachfassungen
@@ -112,6 +117,37 @@ Veröffentlichung die englische Fassung ergänzen. Zum Start sind mindestens
 ändern**, aus denselben Gründen wie beim Kanal. Ein deaktivierter oder
 gelöschter Tag löscht **keine** Beiträge — er verschwindet nur aus deren
 Tag-Liste.
+
+### Standort anlegen
+
+`Content Manager → Location → Create new entry`
+
+| Feld        | Hinweis                                                           |
+| ----------- | ----------------------------------------------------------------- |
+| `name`      | Ortsname, in allen Sprachen identisch, z. B. „Köthen“             |
+| `slug`      | **stabil**, klein, mit Bindestrichen, z. B. `koethen`             |
+| `isActive`  | Standort in Gebrauch                                              |
+| `channels`  | Kanäle an diesem Standort (dasselbe wie das Feld `location` dort) |
+| `calendars` | Kalender an diesem Standort                                       |
+
+Ein Standort hat weder Sprachfassungen noch Entwurf/Veröffentlichung: Er gilt
+sofort nach dem Speichern. Kanäle und Kalender wählen ihren Standort im Feld
+`location`; bestehende Einträge bleiben ohne Standort, bis er gesetzt wird.
+
+**Regel:** Ein Kanal und sein Kalender haben immer denselben Standort.
+
+- **Verknüpfen** (`publicCalendar` am Kanal oder `channel` am Kalender) geht nur,
+  wenn beide schon denselben Standort haben. Sonst zuerst bei Kanal **und**
+  Kalender denselben Standort wählen, dann verknüpfen.
+- **Bestehende Paare ohne Standort** bekommen ihn nacheinander: erst am Kanal,
+  dann denselben am Kalender (oder umgekehrt).
+- **Standort eines verknüpften Paars wechseln:** Den Standort auf einer Seite
+  entfernen, die andere Seite umstellen, dann die erste nachziehen — oder die
+  Verknüpfung vorher lösen. Ein Kanal und sein Kalender mit zwei
+  verschiedenen Standorten lehnt Strapi immer ab, auch wenn die Zuordnung in
+  der Standort-Ansicht geändert wird.
+
+**Standort stilllegen:** `isActive` auf `false` setzen, den `slug` nicht ändern.
 
 ## 5. Beitrag schreiben und veröffentlichen
 

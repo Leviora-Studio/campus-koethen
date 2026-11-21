@@ -101,8 +101,11 @@ Verstöße gegen diese Regeln sind Blocker, keine Stilfragen.
 ### 3.1 `apps/cms` — Strapi 5 Community
 
 - TypeScript, Draft & Publish für Posts, offizielle i18n-Plugin-Funktionen für `de`/`en`.
-- Content-Types: `channel`, `tag`, `post`, `contact-area`, `contact-person`,
+- Content-Types: `channel`, `tag`, `location`, `post`, `contact-area`, `contact-person`,
   `public-calendar`, `room`.
+- `location` (Standort) ist optional an `channel` und `public-calendar`; ein Channel und sein
+  Kalender müssen denselben Standort haben (`src/editorial/channel-location-guard.ts`). Die
+  Campus API liest das Feld derzeit nicht.
 - `room` ist technische Referenzdatenhaltung: katalogverwaltete Felder gehören
   `packages/campus-map` und sind serverseitig gegen normale Bearbeitungswege geschützt,
   redaktionelle Felder und Kontaktrelationen bleiben editierbar
