@@ -361,6 +361,25 @@ describe('PublicCalendarSyncService (integration)', () => {
       expect(await prisma.publicCalendarEvent.count()).toBe(1);
       expect((await prisma.publicCalendar.findFirstOrThrow()).operationalStatus).toBe('stale');
     });
+    it('reconciles a valid feed whose events all lie before the window', async () => {
+      // A calendar with nothing coming up is a normal state, not a broken feed:
+      // the feed still carries events, they have only aged out of the window.
+      await seedReadyCalendar();
+      ics.next = okBody(
+        icsWith([
+          {
+            uid: 'past',
+            dayOffset: -(env.PUBLIC_CALENDAR_LOOKBACK_DAYS + 30),
+            summary: 'Vergangener Beispieltermin',
+          },
+        ]),
+      );
+      const outcome = await sync.syncCalendarEvents('beispielkalender-a');
+      expect(outcome.status).toBe('empty');
+      expect(outcome.removed).toBe(1);
+      expect(await prisma.publicCalendarEvent.count()).toBe(0);
+      expect((await prisma.publicCalendar.findFirstOrThrow()).operationalStatus).toBe('ready');
+    });
     it('does not publish a response fetched before a concurrent source change', async () => {
       await seedReadyCalendar();
       ics.fetchCalendar = async () => {

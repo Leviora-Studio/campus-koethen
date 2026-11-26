@@ -1,4 +1,4 @@
-import { IcsParseError, ParseOptions, ParsedEvent, parseIcs } from './ics-parser';
+import { IcsParseError, ParseOptions, ParsedEvent, parseIcs, parseIcsFeed } from './ics-parser';
 
 function first(events: ParsedEvent[]): ParsedEvent {
   const e = events[0];
@@ -46,6 +46,35 @@ describe('parseIcs — invalid input', () => {
   it('accepts a valid but empty VCALENDAR as zero events', () => {
     const events = parseIcs(ics([...VCAL_OPEN, ...VCAL_CLOSE]), baseOptions());
     expect(events).toEqual([]);
+  });
+});
+
+describe('parseIcsFeed — source event count', () => {
+  const pastEvent = [
+    'BEGIN:VEVENT',
+    'UID:evt-past-1',
+    'DTSTAMP:20250301T120000Z',
+    'DTSTART:20250610T080000Z',
+    'DTEND:20250610T093000Z',
+    'SUMMARY:Vergangener Beispieltermin',
+    'END:VEVENT',
+  ];
+
+  it('counts usable events even when none of them reaches the window', () => {
+    const feed = parseIcsFeed(ics([...VCAL_OPEN, ...pastEvent, ...VCAL_CLOSE]), baseOptions());
+    expect(feed.events).toEqual([]);
+    expect(feed.sourceEventCount).toBe(1);
+  });
+
+  it('reports zero for a feed without any event', () => {
+    const feed = parseIcsFeed(ics([...VCAL_OPEN, ...VCAL_CLOSE]), baseOptions());
+    expect(feed.sourceEventCount).toBe(0);
+  });
+
+  it('does not count an event the parser cannot use because it has no UID', () => {
+    const withoutUid = pastEvent.filter((line) => !line.startsWith('UID:'));
+    const feed = parseIcsFeed(ics([...VCAL_OPEN, ...withoutUid, ...VCAL_CLOSE]), baseOptions());
+    expect(feed.sourceEventCount).toBe(0);
   });
 });
 

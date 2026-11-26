@@ -56,6 +56,19 @@ export interface ParsedEvent {
   occurrenceKey: string;
 }
 
+/** The expanded window plus what the feed itself carried. */
+export interface ParsedFeed {
+  /** Occurrences inside the requested window. */
+  events: ParsedEvent[];
+  /**
+   * Usable VEVENTs (those with a UID) in the whole feed, regardless of the
+   * window. It tells an empty feed apart from one whose events merely lie
+   * outside the window: only the first is suspect, the second is a calendar
+   * that simply has nothing coming up.
+   */
+  sourceEventCount: number;
+}
+
 export interface ParseOptions {
   windowStart: Date;
   windowEnd: Date;
@@ -243,6 +256,10 @@ function assertTimeZonesResolvable(vevent: ICAL.Component): void {
 }
 
 export function parseIcs(raw: string, options: ParseOptions): ParsedEvent[] {
+  return parseIcsFeed(raw, options).events;
+}
+
+export function parseIcsFeed(raw: string, options: ParseOptions): ParsedFeed {
   // Validate the fallback zone up front; an invalid one is a config error.
   try {
     getDateTimeFormat(options.fallbackTimeZone);
@@ -286,10 +303,12 @@ export function parseIcs(raw: string, options: ParseOptions): ParsedEvent[] {
   const masters = new Map<string, ICAL.Component>();
   const overrides = new Map<string, ICAL.Component[]>();
   const orphanOverrides: ICAL.Component[] = [];
+  let sourceEventCount = 0;
 
   for (const vevent of vevents) {
     const uid = vevent.getFirstPropertyValue('uid');
     if (typeof uid !== 'string' || uid.length === 0) continue;
+    sourceEventCount += 1;
     assertTimeZonesResolvable(vevent);
     if (vevent.getFirstProperty('recurrence-id')) {
       const list = overrides.get(uid) ?? [];
@@ -478,7 +497,7 @@ export function parseIcs(raw: string, options: ParseOptions): ParsedEvent[] {
     );
   }
 
-  return result;
+  return { events: result, sourceEventCount };
 }
 
 function stringOrNull(value: unknown): string | null {

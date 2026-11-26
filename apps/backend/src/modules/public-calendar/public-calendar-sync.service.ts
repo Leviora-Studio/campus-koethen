@@ -6,7 +6,7 @@ import { Env } from '../../config/env.schema';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StrapiClient, StrapiListResponse } from '../strapi/strapi.client';
 import { GooglePublicIcsClient, IcsClientError } from './google-public-ics.client';
-import { IcsParseError, ParsedEvent, parseIcs } from './ics-parser';
+import { IcsParseError, ParsedEvent, parseIcsFeed } from './ics-parser';
 import { CalendarDefinition } from './public-calendar.types';
 import { validateCatalog } from './public-calendar.strapi';
 
@@ -352,7 +352,7 @@ export class PublicCalendarSyncService {
         return { slug, status: 'notModified', received: 0, written: 0, removed: 0 };
       }
 
-      const events = parseIcs(fetched.body, {
+      const { events, sourceEventCount } = parseIcsFeed(fetched.body, {
         windowStart: win.from,
         windowEnd: win.to,
         fallbackTimeZone: this.env.PUBLIC_CALENDAR_FALLBACK_TIME_ZONE,
@@ -365,8 +365,12 @@ export class PublicCalendarSyncService {
         maxTextLength: this.env.PUBLIC_CALENDAR_MAX_TEXT_LENGTH,
       });
 
+      // Only a feed without a single event is suspect. One whose events all lie
+      // outside the window is valid: the calendar just has nothing coming up,
+      // and refusing it would leave the calendar stale until someone adds an
+      // appointment — while serving occurrences the source no longer has.
       if (
-        !events.length &&
+        !sourceEventCount &&
         (await this.prisma.publicCalendarEvent.count({ where: { calendarId: calendar.id } }))
       ) {
         throw new IcsParseError(

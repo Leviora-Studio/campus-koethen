@@ -101,7 +101,11 @@ alte Daten nicht bis zum nächsten Worker-Lauf ungeprüft ausgeliefert werden (K
   expandieren → **Transaktion**: upsert + Löschen **nur** im bestätigten Fenster für nicht mehr
   gesehene `occurrenceKey` → Status/`lastSuccessfulSyncAt` setzen.
 - **Leerer** Feed darf einen vorhandenen erfolgreichen Terminbestand nicht löschen. Ohne
-  vorherigen Bestand ist ein leerer Erstimport zulässig.
+  vorherigen Bestand ist ein leerer Erstimport zulässig. „Leer“ heißt: Der Feed enthält
+  **keinen einzigen** verwertbaren VEVENT. Ein gültiger Feed, dessen Termine nur außerhalb des
+  Zielfensters liegen (Kalender ohne anstehende Termine), ist **nicht** leer und wird normal
+  abgeglichen — sonst bliebe der Kalender dauerhaft `stale` und zeigte Termine, die die Quelle
+  nicht mehr enthält.
 - **Unveränderter Hash/304** = teure Parse-/Persistenzphase überspringen, Status/Zeitstempel trotzdem
   aktualisieren. Mindestens am nächsten UTC-Tag wird der Feed erneut vollständig verarbeitet,
   damit Serien auch bei unveränderter ICS-Datei in das weiterwandernde Zeitfenster hinein expandieren.
