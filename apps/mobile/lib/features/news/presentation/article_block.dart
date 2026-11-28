@@ -46,11 +46,13 @@ import 'post_engagement_panel.dart';
 class ArticleBlock extends ConsumerWidget {
   const ArticleBlock({
     required this.article,
+    this.channelLocationNames = const {},
     this.showFullContent = false,
     super.key,
   });
 
   final NewsArticle article;
+  final Map<String, String> channelLocationNames;
 
   /// Shows the complete article without the feed's expand/collapse control.
   ///
@@ -99,6 +101,7 @@ class ArticleBlock extends ConsumerWidget {
             // the block.
             _Byline(
               channels: article.channels,
+              channelLocationNames: channelLocationNames,
               age: age,
               locale: locale,
               l10n: l10n,
@@ -227,12 +230,14 @@ class _EventWhen extends StatelessWidget {
 class _Byline extends StatelessWidget {
   const _Byline({
     required this.channels,
+    required this.channelLocationNames,
     required this.age,
     required this.locale,
     required this.l10n,
   });
 
   final List<NewsChannelRef> channels;
+  final Map<String, String> channelLocationNames;
   final ArticleAge? age;
   final String locale;
   final AppLocalizations l10n;
@@ -251,7 +256,11 @@ class _Byline extends StatelessWidget {
               spacing: AppSpacing.md,
               children: <Widget>[
                 for (final NewsChannelRef channel in channels)
-                  _ChannelLink(channel: channel, l10n: l10n),
+                  _ChannelLink(
+                    channel: channel,
+                    locationName: channelLocationNames[channel.slug],
+                    l10n: l10n,
+                  ),
               ],
             ),
           )
@@ -274,20 +283,29 @@ class _Byline extends StatelessWidget {
 
 /// One channel handle, as a real link to that channel's profile screen.
 ///
-/// Shows the editorial channel name exactly as supplied by the API.
+/// Shows the channel name followed by its assigned campus location.
 class _ChannelLink extends StatelessWidget {
-  const _ChannelLink({required this.channel, required this.l10n});
+  const _ChannelLink({
+    required this.channel,
+    required this.locationName,
+    required this.l10n,
+  });
 
   final NewsChannelRef channel;
+  final String? locationName;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     final AppColors colors = context.colors;
 
+    final String label = locationName == null
+        ? channel.name
+        : '${channel.name} · $locationName';
+
     return Semantics(
       link: true,
-      label: l10n.newsChannelLinkSemanticLabel(channel.name),
+      label: l10n.newsChannelLinkSemanticLabel(label),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -314,7 +332,7 @@ class _ChannelLink extends StatelessWidget {
               ],
               Flexible(
                 child: Text(
-                  channel.name,
+                  label,
                   style: Theme.of(
                     context,
                   ).textTheme.labelMedium?.copyWith(color: colors.primary),

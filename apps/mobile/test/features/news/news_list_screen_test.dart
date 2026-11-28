@@ -20,10 +20,13 @@ import '../../support/news_harness.dart';
 import '../../support/pump_app.dart';
 import '../../support/throwing_content_cache.dart';
 
-FakeHttpAdapter workingApi({List<Map<String, dynamic>>? articles}) {
+FakeHttpAdapter workingApi({
+  List<Map<String, dynamic>>? articles,
+  List<Map<String, dynamic>>? channels,
+}) {
   return FakeHttpAdapter((RequestOptions options) {
     if (options.path.endsWith('/posts/channels')) {
-      return FakeHttpResponse(envelope(channelsFixture));
+      return FakeHttpResponse(envelope(channels ?? channelsFixture));
     }
     if (options.path.endsWith('/posts/tags')) {
       return FakeHttpResponse(envelope(tagsFixture));
@@ -147,6 +150,31 @@ void main() {
     expect(find.byTooltip('Filter'), findsOneWidget);
     expect(find.byTooltip('Filter'), findsOneWidget);
     expect(find.byType(AppBar), findsNothing);
+  });
+
+  testWidgets('shows the location after each channel name in the feed', (
+    WidgetTester tester,
+  ) async {
+    final List<Map<String, dynamic>> channels = channelsFixture;
+    channels[0]['location'] = {'slug': 'koethen', 'name': 'Köthen'};
+    channels[1]['location'] = {'slug': 'dessau', 'name': 'Dessau'};
+    final Map<String, dynamic> article = articlesFixture.single;
+    article['channels'] = [
+      ...(article['channels'] as List<Object>),
+      {'slug': 'fb5-news', 'name': 'FB5 News'},
+    ];
+
+    await _pumpFeed(
+      tester,
+      adapter: workingApi(articles: [article], channels: channels),
+    );
+
+    expect(find.text('Campus News · Köthen'), findsOneWidget);
+    expect(find.text('FB5 News · Dessau'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Kanal Campus News · Köthen öffnen'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the filter sheet offers "Alle" plus every active tag', (

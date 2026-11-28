@@ -240,6 +240,7 @@ class _ChannelArticles extends ConsumerWidget {
       );
     }
 
+    final locationNames = ref.watch(newsChannelLocationNamesProvider);
     final bool showFooter = state.hasMore || state.loadMoreFailed;
 
     return ListView.separated(
@@ -278,6 +279,7 @@ class _ChannelArticles extends ConsumerWidget {
           child: ArticleBlock(
             key: ValueKey<String>(article.slug),
             article: article,
+            channelLocationNames: locationNames,
           ),
         );
       },

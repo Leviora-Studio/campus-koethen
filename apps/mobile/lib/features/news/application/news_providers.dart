@@ -24,6 +24,15 @@ final FutureProvider<Loaded<List<NewsChannel>>> newsChannelsProvider =
       return loaded;
     }, retry: (_, _) => null);
 
+/// Joins the feed's lightweight channel references to the channel catalogue.
+final newsChannelLocationNamesProvider = Provider<Map<String, String>>((ref) {
+  final channels = ref.watch(newsChannelsProvider).value?.value ?? [];
+  return {
+    for (final channel in channels)
+      if (channel.location case final location?) channel.slug: location.name,
+  };
+});
+
 /// The full active tag list. Also the single place where a removed or
 /// deactivated tag prunes a stale persisted filter selection.
 final FutureProvider<Loaded<List<NewsTag>>> newsTagsProvider =

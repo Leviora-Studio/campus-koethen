@@ -216,6 +216,7 @@ class _FeedBody extends ConsumerWidget {
       cachedAt: state.cachedAt,
       translationFallback: state.translationFallback,
     );
+    final locationNames = ref.watch(newsChannelLocationNamesProvider);
     final bool showFooter = state.hasMore || state.loadMoreFailed;
 
     return ListView.separated(
@@ -253,6 +254,7 @@ class _FeedBody extends ConsumerWidget {
           child: ArticleBlock(
             key: ValueKey<String>(article.slug),
             article: article,
+            channelLocationNames: locationNames,
           ),
         );
       },
