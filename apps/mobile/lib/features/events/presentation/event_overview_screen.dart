@@ -76,20 +76,79 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
   }
 
   Future<void> _chooseMonth() async {
-    final today = DateUtils.dateOnly(
-      ref.read(eventsClockProvider).now().toLocal(),
-    );
-    final date = await showDatePicker(
+    final today = ref.read(eventsClockProvider).now().toLocal();
+    final initialMonth = _month ?? today;
+    int selectedMonth = initialMonth.month;
+    int selectedYear = initialMonth.year;
+    final month = await showDialog<DateTime>(
       context: context,
-      initialDate: _month ?? today,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(today.year + 3, 12, 31),
-      helpText: context.l10n.eventBrowseMonth,
+      builder: (BuildContext context) {
+        final l10n = context.l10n;
+        final material = MaterialLocalizations.of(context);
+        final locale = Localizations.localeOf(context).languageCode;
+        return AlertDialog(
+          title: Text(l10n.eventBrowseMonth),
+          scrollable: true,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              DropdownButtonFormField<int>(
+                initialValue: selectedMonth,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: l10n.eventMonthField),
+                items: <DropdownMenuItem<int>>[
+                  for (int month = 1; month <= 12; month++)
+                    DropdownMenuItem<int>(
+                      value: month,
+                      child: Text(
+                        AppDateFormats.month(
+                          DateTime(today.year, month),
+                          locale,
+                        ),
+                      ),
+                    ),
+                ],
+                onChanged: (int? value) {
+                  if (value != null) selectedMonth = value;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DropdownButtonFormField<int>(
+                initialValue: selectedYear,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: l10n.eventYearField),
+                items: <DropdownMenuItem<int>>[
+                  for (int year = 2020; year <= today.year + 3; year++)
+                    DropdownMenuItem<int>(
+                      value: year,
+                      child: Text(material.formatYear(DateTime(year))),
+                    ),
+                ],
+                onChanged: (int? value) {
+                  if (value != null) selectedYear = value;
+                },
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(material.cancelButtonLabel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(DateTime(selectedYear, selectedMonth)),
+              child: Text(material.okButtonLabel),
+            ),
+          ],
+        );
+      },
     );
-    if (date != null && mounted) {
+    if (month != null && mounted) {
       setState(() {
         _showSaved = false;
-        _month = DateTime(date.year, date.month);
+        _month = month;
       });
     }
   }

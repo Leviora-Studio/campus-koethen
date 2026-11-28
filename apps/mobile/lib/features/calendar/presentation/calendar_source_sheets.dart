@@ -20,6 +20,8 @@ import '../application/calendar_providers.dart';
 import '../domain/calendar_entry.dart';
 import 'event_channel_list.dart';
 
+const double _sourceSheetMaxHeightRatio = 0.72;
+
 /// Opens the list of everything the calendar is merged from.
 ///
 /// The three sources used to be a permanent band of buttons above the calendar.
@@ -31,8 +33,9 @@ import 'event_channel_list.dart';
 Future<void> showCalendarSourcesSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
+    scrollControlDisabledMaxHeightRatio: _sourceSheetMaxHeightRatio,
     showDragHandle: true,
+    useSafeArea: true,
     builder: (BuildContext context) => const _SourcesSheet(),
   );
 }
@@ -106,8 +109,10 @@ Future<void> showCalendarSourceSheet(
 ) {
   return showModalBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
+    isScrollControlled: source != CalendarSource.publicCalendar,
+    scrollControlDisabledMaxHeightRatio: _sourceSheetMaxHeightRatio,
     showDragHandle: true,
+    useSafeArea: true,
     builder: (BuildContext context) => switch (source) {
       CalendarSource.timetable => const _TimetableSourceSheet(),
       CalendarSource.moodle => const _MoodleSourceSheet(),

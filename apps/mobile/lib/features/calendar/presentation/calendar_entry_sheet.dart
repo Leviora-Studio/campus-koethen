@@ -35,6 +35,7 @@ Future<void> showCalendarEntrySheet(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
+  useSafeArea: true,
   builder: (BuildContext context) => _CalendarEntryPopup(entry: entry),
 );
 
@@ -90,14 +91,28 @@ class _PostSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SafeArea(
     top: false,
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
-      child: ArticleBlock(article: article, showFullContent: true),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: CloseButton(),
+          ),
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: ArticleBlock(article: article, showFullContent: true),
+          ),
+        ),
+      ],
     ),
   );
 }

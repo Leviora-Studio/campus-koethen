@@ -78,6 +78,13 @@ abstract final class AppDateFormats {
     () => DateFormat.MMMd(locale),
   ).format(value.toLocal());
 
+  /// Standalone month label, e.g. `März` · `March`.
+  static String month(DateTime value, String locale) => _cached(
+    'month',
+    locale,
+    () => DateFormat.LLLL(locale),
+  ).format(value.toLocal());
+
   /// e.g. `Mai 2026` · `May 2026` — which week the strip is showing.
   static String monthAndYear(DateTime value, String locale) => _cached(
     'monthAndYear',

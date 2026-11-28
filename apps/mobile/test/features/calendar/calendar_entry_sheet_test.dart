@@ -138,7 +138,7 @@ CalendarEntry publicEntry({String? location, String? description}) =>
       ),
     );
 
-NewsArticle eventPost() => NewsArticle(
+NewsArticle eventPost({int extraParagraphs = 0}) => NewsArticle(
   slug: 'sommerfest',
   title: 'Sommerfest',
   tag: const NewsTagRef(slug: 'event', name: 'Event'),
@@ -150,6 +150,8 @@ NewsArticle eventPost() => NewsArticle(
     ParagraphBlock(<InlineNode>[
       const InlineText(text: 'Der vollständige Beitrag.'),
     ]),
+    for (int i = 1; i <= extraParagraphs; i++)
+      ParagraphBlock(<InlineNode>[InlineText(text: 'Demo-Absatz $i')]),
   ],
   eventStart: DateTime(2026, 5, 11, 18),
 );
@@ -333,11 +335,26 @@ void main() {
       "event overview's window", (WidgetTester tester) async {
     await pumpPopup(
       tester,
-      eventPostsToCalendarEntries(<NewsArticle>[eventPost()]).single,
+      eventPostsToCalendarEntries(<NewsArticle>[
+        eventPost(extraParagraphs: 48),
+      ]).single,
     );
 
     expect(find.text('Der vollständige Beitrag.'), findsOneWidget);
     expect(find.byType(CalendarEntrySheet), findsNothing);
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -800),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Der vollständige Beitrag.').hitTestable(), findsNothing);
+
+    final close = find.byType(CloseButton).hitTestable();
+    expect(close, findsOneWidget);
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Öffnen').hitTestable(), findsOneWidget);
   });
 
   group('a saved event in the calendar', () {

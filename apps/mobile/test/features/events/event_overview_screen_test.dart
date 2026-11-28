@@ -171,14 +171,24 @@ void main() {
   ) async {
     await _pumpOverview(
       tester,
+      surfaceSize: const Size(390, 800),
+      events: <UnifiedEvent>[_event()],
       monthEntries: [
         CalendarEntry(
           id: 'publicCalendar:demo:past-demo',
           source: CalendarSource.publicCalendar,
           calendarSlug: 'demo',
           title: 'Vergangener Demo-Termin',
-          start: DateTime(_now.year, _now.month, 1, 8),
-          end: DateTime(_now.year, _now.month, 1, 9),
+          start: DateTime(2025, 8, 25, 8),
+          end: DateTime(2025, 8, 25, 9),
+        ),
+        CalendarEntry(
+          id: 'publicCalendar:demo:other-month',
+          source: CalendarSource.publicCalendar,
+          calendarSlug: 'demo',
+          title: 'Anderer Demo-Monat',
+          start: DateTime(2025, 9, 1, 8),
+          end: DateTime(2025, 9, 1, 9),
         ),
       ],
     );
@@ -186,9 +196,28 @@ void main() {
     expect(find.text('Vergangener Demo-Termin'), findsNothing);
     await tester.tap(find.byTooltip('Monat für die Eventliste wählen'));
     await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsNothing);
+    final fields = find.byType(DropdownButtonFormField<int>);
+    expect(fields, findsNWidgets(2));
+    await tester.tap(fields.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('August').last);
+    await tester.pumpAndSettle();
+    await tester.tap(fields.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2025').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(find.text('Vergangener Demo-Termin'), findsOneWidget);
+    expect(find.text('Anderer Demo-Monat'), findsNothing);
+    expect(find.text('August 2025'), findsOneWidget);
+    expect(find.text('Sommerfest'), findsNothing);
+
+    await tester.tap(find.byTooltip('Anstehende Events anzeigen'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vergangener Demo-Termin'), findsNothing);
+    expect(find.text('Sommerfest'), findsOneWidget);
   });
 
   group('overview states', () {

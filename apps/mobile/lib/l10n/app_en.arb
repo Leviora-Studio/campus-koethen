@@ -14,6 +14,8 @@
   "postEmojiHint": "Enter an emoji using your keyboard",
   "postEngagementFailed": "Your selection could not be sent. Try again.",
   "eventBrowseMonth": "Choose a month for the event list",
+  "eventMonthField": "Month",
+  "eventYearField": "Year",
   "eventShowUpcoming": "Show upcoming events",
   "eventNoEventsInMonth": "No events this month",
   "campusAllLocations": "All locations",

@@ -18,6 +18,8 @@ import 'package:campus_koethen/features/calendar/presentation/week_grid_view.dar
 import 'package:campus_koethen/core/widgets/screen_scaffold.dart';
 import 'package:campus_koethen/core/widgets/time_rail.dart';
 import 'package:campus_koethen/features/calendar/presentation/week_strip.dart';
+import 'package:campus_koethen/features/events/application/event_providers.dart';
+import 'package:campus_koethen/features/events/application/event_source_filter.dart';
 import 'package:campus_koethen/features/timetable/application/timetable_week.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +39,7 @@ Future<ProviderContainer> pumpCalendar(
   WidgetTester tester, {
   KeyValueStore? store,
   Locale locale = AppLocales.german,
+  List<EventSourceOption>? eventSources,
 }) async {
   tester.view.physicalSize = const Size(390, 1200);
   tester.view.devicePixelRatio = 1;
@@ -50,7 +53,11 @@ Future<ProviderContainer> pumpCalendar(
     const CalendarScreen(),
     locale: locale,
     keyValueStore: store,
-    overrides: <Override>[apiClientProvider.overrideWithValue(_emptyApi())],
+    overrides: <Override>[
+      apiClientProvider.overrideWithValue(_emptyApi()),
+      if (eventSources != null)
+        eventSourceOptionsProvider.overrideWith((ref) async => eventSources),
+    ],
   );
   await tester.pumpAndSettle();
   return container;
@@ -461,18 +468,57 @@ void main() {
       expect(find.text('Im Kalender anzeigen'), findsNothing);
     });
 
-    testWidgets("events leads to the Events tab's channel choice", (
-      WidgetTester tester,
-    ) async {
-      await pumpCalendar(tester);
-      await openSources(tester);
+    testWidgets(
+      'keeps the drag handle in reach with a long event source list',
+      (WidgetTester tester) async {
+        await pumpCalendar(
+          tester,
+          eventSources: [
+            for (int i = 1; i <= 24; i++)
+              EventSourceOption(key: 'demo-$i', label: 'Demo-Channel $i'),
+          ],
+        );
+        tester.view.physicalSize = const Size(390, 800);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Events'));
-      await tester.pumpAndSettle();
+        final sheet = find.byType(BottomSheet);
+        final dismissLabel = MaterialLocalizations.of(
+          tester.element(find.byType(CalendarScreen)),
+        ).modalBarrierDismissLabel;
+        final dragHandle = find.descendant(
+          of: sheet,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics && widget.properties.label == dismissLabel,
+          ),
+        );
 
-      expect(find.text('Events nach Channel'), findsOneWidget);
-      expect(find.text('Ausgewählte in Google Kalender öffnen'), findsNothing);
-    });
+        await openSources(tester);
+        await tester.drag(dragHandle, const Offset(0, 520));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        await openSources(tester);
+
+        await tester.tap(find.text('Events'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Events nach Channel'), findsOneWidget);
+        expect(tester.getTopLeft(sheet).dy, greaterThan(100));
+        final handlePosition = tester.getCenter(dragHandle);
+        await tester.scrollUntilVisible(
+          find.text('Demo-Channel 24'),
+          300,
+          scrollable: find
+              .descendant(of: sheet, matching: find.byType(Scrollable))
+              .first,
+        );
+        expect(find.text('Demo-Channel 24').hitTestable(), findsOneWidget);
+        expect(tester.getCenter(dragHandle), handlePosition);
+        await tester.drag(dragHandle, const Offset(0, 520));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+      },
+    );
   });
 
   group('week view', _weekViewTests);
