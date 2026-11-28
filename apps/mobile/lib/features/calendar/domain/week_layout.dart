@@ -15,6 +15,8 @@ class PlacedEntry {
     required this.entry,
     required this.startMinute,
     required this.endMinute,
+    required this.overlapStartMinute,
+    required this.overlapEndMinute,
     required this.lane,
     required this.laneCount,
   });
@@ -24,6 +26,10 @@ class PlacedEntry {
   /// Minutes since midnight.
   final int startMinute;
   final int endMinute;
+
+  /// Extent of the overlapping group this entry belongs to.
+  final int overlapStartMinute;
+  final int overlapEndMinute;
 
   final int lane;
   final int laneCount;
@@ -216,6 +222,8 @@ abstract final class WeekLayout {
             entry: timed[i],
             startMinute: starts[i],
             endMinute: ends[i],
+            overlapStartMinute: starts[clusterStart],
+            overlapEndMinute: clusterEnd,
             lane: lanes[i],
             laneCount: laneCount,
           ),

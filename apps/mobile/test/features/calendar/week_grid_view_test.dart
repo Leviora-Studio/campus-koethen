@@ -358,6 +358,48 @@ void main() {
     );
   });
 
+  testWidgets('crowded overlaps open a list without widening the week', (
+    WidgetTester tester,
+  ) async {
+    final List<CalendarEntry> entries = <CalendarEntry>[
+      _entry(title: 'Demo A', dayOffset: 0, fromH: 9, toH: 9, toM: 15),
+      _entry(title: 'Demo B', dayOffset: 0, fromH: 9, toH: 9, toM: 15),
+      for (int i = 1; i <= 9; i++)
+        _entry(title: 'Demo $i', dayOffset: 0, fromH: 10, toH: 10, toM: 15),
+      for (final title in ['Demo C', 'Demo D', 'Demo E'])
+        _entry(title: title, dayOffset: 0, fromH: 10, fromM: 30, toH: 11),
+    ];
+    await pumpGrid(tester, entries);
+
+    expect(tester.takeException(), isNull);
+    final ScrollableState sideways = tester.state(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.right,
+      ),
+    );
+    expect(sideways.position.maxScrollExtent, closeTo(0, 0.1));
+    expect(find.text('Demo A').hitTestable(), findsOneWidget);
+    expect(find.text('Demo B').hitTestable(), findsOneWidget);
+    expect(find.text('+3').hitTestable(), findsOneWidget);
+
+    final last = find.text('Demo 9');
+    expect(last, findsNothing);
+    await tester.tap(find.text('+9'));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    expect(find.text('9 Termine'), findsOneWidget);
+    expect(find.text('Demo C'), findsNothing);
+    await tester.scrollUntilVisible(
+      last,
+      250,
+      scrollable: find.descendant(of: sheet, matching: find.byType(Scrollable)),
+    );
+    await tester.tap(last);
+    await tester.pumpAndSettle();
+    expect(find.byType(CalendarEntrySheet), findsOneWidget);
+  });
+
   testWidgets('a long entry shows its title in full too', (
     WidgetTester tester,
   ) async {

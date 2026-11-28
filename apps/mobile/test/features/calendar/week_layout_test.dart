@@ -675,7 +675,8 @@ void _expectSamePlacement(List<CalendarEntry> entries, {String? reason}) {
 }
 
 String _describe(PlacedEntry p) =>
-    '${p.entry.id}@${p.startMinute}-${p.endMinute} lane ${p.lane}/${p.laneCount}';
+    '${p.entry.id}@${p.startMinute}-${p.endMinute} '
+    'lane ${p.lane}/${p.laneCount} group ${p.overlapStartMinute}-${p.overlapEndMinute}';
 
 /// The implementation `WeekLayout.placeDay` replaced, kept verbatim.
 ///
@@ -738,6 +739,8 @@ List<PlacedEntry> _reference(Iterable<CalendarEntry> entries) {
           entry: cluster[i],
           startMinute: startOf(cluster[i]),
           endMinute: endOf(cluster[i]),
+          overlapStartMinute: startOf(cluster.first),
+          overlapEndMinute: clusterEnd,
           lane: lanes[i],
           laneCount: laneEnds.length,
         ),

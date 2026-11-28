@@ -2452,6 +2452,12 @@
   "requestsNoAttachments": "Keine Anhänge.",
   "calendarViewWeek": "Woche",
   "calendarWeekAllDay": "Ganztägig",
+  "calendarWeekOverlapCount": "{count} Termine",
+  "@calendarWeekOverlapCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "calendarWeekSemantic": "{title}, {start} bis {end}",
   "@calendarWeekSemantic": {
     "placeholders": {

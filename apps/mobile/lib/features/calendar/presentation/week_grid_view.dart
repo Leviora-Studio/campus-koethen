@@ -14,14 +14,14 @@ import '../domain/calendar_entry.dart';
 import '../domain/week_layout.dart';
 import 'calendar_entry_sheet.dart';
 
+const double _entryLaneInset = AppSizes.hairline;
+const double _minVisibleLaneWidth = AppSpacing.xxl;
+
 /// A week as a time grid: one column per drawn day over an hour axis.
 ///
-/// The drawn days **share the available width**, so the teaching week is on
-/// screen at a glance — a week you have to scroll sideways to finish is not a
-/// week you can see. Only when a column would fall below a touch target does
-/// the grid stop shrinking and scroll horizontally instead, which on a narrow
-/// phone is what the weekend does. The hour gutter stays put either way, so
-/// the time is never scrolled off.
+/// The drawn days share the available width. Dense overlaps open as a list.
+/// On narrow screens the grid can scroll sideways to fit all day headers.
+/// The hour gutter stays put during horizontal scrolling.
 ///
 /// Vertically the grid draws the **whole day**, 00:00 to 24:00, and scrolls
 /// through it: no phone is tall enough for 24 hours at a readable hour height,
@@ -477,6 +477,13 @@ class _DayColumn extends StatelessWidget {
     final double lineHeight = probe.height;
     probe.dispose();
 
+    final Map<int, List<PlacedEntry>> crowded = <int, List<PlacedEntry>>{};
+    for (final PlacedEntry item in placed) {
+      if (width / item.laneCount < _minVisibleLaneWidth) {
+        (crowded[item.overlapStartMinute] ??= <PlacedEntry>[]).add(item);
+      }
+    }
+
     return SizedBox(
       width: width,
       child: DecoratedBox(
@@ -504,12 +511,25 @@ class _DayColumn extends StatelessWidget {
                   color: colors.outline.withValues(alpha: 0.36),
                 ),
               ),
-            for (final PlacedEntry item in placed)
+            for (final List<PlacedEntry> group in crowded.values)
+              Positioned(
+                top: (group.first.overlapStartMinute - gridStart) * pxPerMinute,
+                height:
+                    (group.first.overlapEndMinute -
+                        group.first.overlapStartMinute) *
+                    pxPerMinute,
+                left: _entryLaneInset,
+                right: _entryLaneInset,
+                child: _OverlapCard(entries: group),
+              ),
+            for (final PlacedEntry item in placed.where(
+              (item) => !crowded.containsKey(item.overlapStartMinute),
+            ))
               Positioned(
                 top: (item.startMinute - gridStart) * pxPerMinute,
                 height: item.durationMinutes * pxPerMinute,
-                left: (width / item.laneCount) * item.lane + 1,
-                width: width / item.laneCount - 2,
+                left: (width / item.laneCount) * item.lane + _entryLaneInset,
+                width: width / item.laneCount - 2 * _entryLaneInset,
                 child: Semantics(
                   label: <String>[
                     l10n.calendarWeekSemantic(
@@ -559,13 +579,15 @@ class _DayColumn extends StatelessWidget {
                                 return Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    // Icon and text, never colour alone.
-                                    Icon(
-                                      _iconFor(item.entry.source),
-                                      size: 12,
-                                      color: foreground,
-                                    ),
-                                    const SizedBox(width: AppSpacing.xxs),
+                                    if (constraints.maxWidth >=
+                                        AppSpacing.xxl + AppSpacing.sm) ...[
+                                      Icon(
+                                        _iconFor(item.entry.source),
+                                        size: 12,
+                                        color: foreground,
+                                      ),
+                                      const SizedBox(width: AppSpacing.xxs),
+                                    ],
                                     Expanded(
                                       child: Text(
                                         item.entry.title,
@@ -600,6 +622,98 @@ class _DayColumn extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OverlapCard extends StatelessWidget {
+  const _OverlapCard({required this.entries});
+
+  final List<PlacedEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final countLabel = context.l10n.calendarWeekOverlapCount(entries.length);
+    final count = MaterialLocalizations.of(
+      context,
+    ).formatDecimal(entries.length);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: colors.secondaryContainer,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _open(context, countLabel),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            child: Text(
+              '+$count',
+              semanticsLabel: countLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colors.onSecondaryContainer,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _open(
+    BuildContext context,
+    String title,
+  ) => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (BuildContext context) {
+      final l10n = context.l10n;
+      final locale = Localizations.localeOf(context).languageCode;
+      return SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              title: Text(title, style: Theme.of(context).textTheme.titleLarge),
+              trailing: const CloseButton(),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: entries.length,
+                itemBuilder: (context, index) {
+                  final CalendarEntry entry = entries[index].entry;
+                  final start = AppDateFormats.time(entry.start, locale);
+                  final end = entry.end;
+                  return ListTile(
+                    leading: Icon(_DayColumn._iconFor(entry.source)),
+                    title: Text(entry.title),
+                    subtitle: Text(
+                      <String>[
+                        end == null
+                            ? start
+                            : l10n.timetableTimeRange(
+                                start,
+                                AppDateFormats.time(end, locale),
+                              ),
+                        if (entry.isCancelled) l10n.timetableStatusCancelled,
+                      ].join(' · '),
+                    ),
+                    trailing: const Icon(AppIcons.chevron_right),
+                    onTap: () => showCalendarEntrySheet(context, entry),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 /// One all-day entry in the band above the grid.
