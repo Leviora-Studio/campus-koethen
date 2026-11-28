@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_koethen/core/network/network_providers.dart';
 import 'package:campus_koethen/features/news/application/post_engagement_controller.dart';
 import 'package:campus_koethen/features/news/data/post_engagement.dart';
@@ -15,6 +17,7 @@ void main() {
       String? reaction;
       String? vote;
       final install = 'a' * 64;
+      final installation = Completer<String>();
       final adapter = FakeHttpAdapter((request) {
         expect(request.headers['x-campus-installation'], install);
         if (request.method == 'PUT') {
@@ -49,21 +52,28 @@ void main() {
       });
       await pumpScreen(
         tester,
-        const Scaffold(
+        Scaffold(
           body: PostEngagementPanel(
             slug: 'demo-post',
-            poll: PostPoll(
-              key: 'demo',
-              question: 'Demo question?',
-              options: {'first': 'Demo A', 'second': 'Demo B'},
-            ),
+            poll: PostPoll.fromJson({
+              'key': 'demo',
+              'question': 'Demo question?',
+              'options': [
+                {'key': 'first', 'label': 'Demo A'},
+                {'key': 'second', 'label': 'Demo B'},
+              ],
+            }),
           ),
         ),
         overrides: [
-          postInstallationProvider.overrideWith((ref) async => install),
+          postInstallationProvider.overrideWith((ref) => installation.future),
           apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
         ],
       );
+      expect(find.text('Demo A'), findsOneWidget);
+      expect(find.text('Demo B'), findsOneWidget);
+      expect(find.text('0'), findsNothing);
+      installation.complete(install);
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reagieren'));
       await tester.pumpAndSettle();

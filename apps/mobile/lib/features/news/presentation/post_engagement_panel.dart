@@ -132,6 +132,8 @@ class _PostEngagementPanelState extends ConsumerState<PostEngagementPanel> {
       postEngagementProvider.select((state) => state[widget.slug]),
     );
     final poll = widget.poll;
+    // Dart AOT can hoist a guarded field read out of the option loop.
+    final voteCounts = engagement?.votes ?? const <(String, String), int>{};
     final reactions = engagement?.reactions.entries.toList() ?? [];
     reactions.sort((a, b) => b.value.compareTo(a.value));
     return Column(
@@ -166,9 +168,7 @@ class _PostEngagementPanelState extends ConsumerState<PostEngagementPanel> {
                       Expanded(child: Text(option.value)),
                       const SizedBox(width: AppSpacing.sm),
                       if (engagement != null)
-                        Text(
-                          '${engagement.votes[(poll.key, option.key)] ?? 0}',
-                        ),
+                        Text('${voteCounts[(poll.key, option.key)] ?? 0}'),
                     ],
                   ),
                 ),
