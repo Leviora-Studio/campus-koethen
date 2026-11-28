@@ -31,7 +31,7 @@ class PublicCalendarsRepository {
   Future<Loaded<List<PublicCalendar>>> fetchCalendars({
     required String locale,
   }) => _endpoint.load(
-    path: '/calendars',
+    path: '/calendars/all',
     cacheKey: CacheKeys.publicCalendars(locale),
     locale: locale,
     parse: PublicCalendar.listFromJson,

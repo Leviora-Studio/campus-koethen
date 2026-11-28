@@ -96,6 +96,7 @@ class NewsFeedController extends AsyncNotifier<NewsFeedState> {
   @override
   Future<NewsFeedState> build() async {
     _locale = ref.watch(localeCodeProvider);
+    final location = ref.watch(newsLocationFilterProvider);
     // Both catalogues are requested before either is awaited: they are separate
     // endpoints that do not depend on one another, and awaiting the first
     // before asking for the second put two full round trips in front of the
@@ -129,10 +130,22 @@ class NewsFeedController extends AsyncNotifier<NewsFeedState> {
       );
     }
 
-    _channelsParameter = ChannelSubscriptionRules.queryValue(
-      available: channels.value,
-      selected: subscriptions.selectedSlugs,
-    );
+    final locationChannels = channels.value
+        .where((channel) => channel.location?.slug == location)
+        .toList();
+    final available = locationChannels.isNotEmpty && location != null
+        ? locationChannels
+        : channels.value;
+    _channelsParameter =
+        available.length == channels.value.length &&
+            available.every(
+              (channel) => subscriptions.selectedSlugs.contains(channel.slug),
+            )
+        ? null
+        : ChannelSubscriptionRules.queryValue(
+            available: available,
+            selected: subscriptions.selectedSlugs,
+          );
 
     final Loaded<NewsPage> first = await _repository.fetchArticles(
       locale: _locale,

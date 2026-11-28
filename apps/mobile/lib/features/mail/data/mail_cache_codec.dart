@@ -27,6 +27,7 @@ abstract final class MailCacheCodec {
     'id': h.id,
     'subject': h.subject,
     'from': address(h.from),
+    'to': h.to.map(address).toList(),
     'date': h.date?.toUtc().toIso8601String(),
     'isSeen': h.isSeen,
     'hasAttachments': h.hasAttachments,
@@ -37,6 +38,7 @@ abstract final class MailCacheCodec {
         id: (json['id'] as String?) ?? '',
         subject: (json['subject'] as String?) ?? '',
         from: addressFrom(_map(json['from'])),
+        to: _list(json['to']).map(addressFrom).toList(),
         date: _date(json['date']),
         isSeen: json['isSeen'] == true,
         hasAttachments: json['hasAttachments'] == true,
@@ -67,6 +69,12 @@ abstract final class MailCacheCodec {
     'cc': d.cc.map(address).toList(),
     'date': d.date?.toUtc().toIso8601String(),
     'body': d.body,
+    'richBodyChecked': d.richBodyChecked,
+    if (d.html != null) 'html': d.html,
+    if (d.inlineImages.isNotEmpty)
+      'inlineImages': d.inlineImages.map(
+        (key, value) => MapEntry(key, base64Encode(value)),
+      ),
     'attachments': d.attachments.map(attachment).toList(),
   };
 
@@ -79,6 +87,12 @@ abstract final class MailCacheCodec {
         cc: _list(json['cc']).map(addressFrom).toList(),
         date: _date(json['date']),
         body: (json['body'] as String?) ?? '',
+        html: json['html'] as String?,
+        richBodyChecked:
+            json['richBodyChecked'] == true || json['html'] is String,
+        inlineImages: _map(
+          json['inlineImages'],
+        ).map((key, value) => MapEntry(key, base64Decode(value as String))),
         attachments: _list(json['attachments']).map(attachmentFrom).toList(),
       );
 
@@ -112,6 +126,7 @@ abstract final class MailCacheCodec {
         id: (json['id'] as String?) ?? '',
         subject: (json['subject'] as String?) ?? '',
         from: addressFrom(_map(json['from'])),
+        to: _list(json['to']).map(addressFrom).toList(),
         date: _date(json['date']),
         isSeen: true,
         hasAttachments: _list(json['attachments']).isNotEmpty,

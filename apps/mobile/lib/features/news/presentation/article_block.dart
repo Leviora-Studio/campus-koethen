@@ -13,6 +13,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/hex_color.dart';
 import '../../../core/widgets/content_blocks_view.dart';
 import '../../../core/widgets/panel.dart';
 import '../../../l10n/l10n.dart';
@@ -25,6 +26,7 @@ import '../domain/article_age.dart';
 import '../domain/news_preview.dart';
 import 'news_age_text.dart';
 import 'post_image_preview.dart';
+import 'post_engagement_panel.dart';
 
 /// One article in the feed, drawn as its own card.
 ///
@@ -142,6 +144,8 @@ class ArticleBlock extends ConsumerWidget {
               expanded: expanded,
               onToggle: showFullContent ? null : onToggle,
             ),
+            if (!showFullContent)
+              PostEngagementPanel(slug: article.slug, poll: article.poll),
           ],
         ),
       ),
@@ -297,11 +301,26 @@ class _ChannelLink extends StatelessWidget {
           // changing the visible line height (the rect a test reads off the
           // Text below is unaffected by the Padding wrapping it).
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Text(
-            channel.name,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: colors.primary),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (parseHexColor(channel.colorHex) case final Color color) ...[
+                Icon(
+                  AppIcons.circle_outlined,
+                  size: AppSpacing.sm,
+                  color: color,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Flexible(
+                child: Text(
+                  channel.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: colors.primary),
+                ),
+              ),
+            ],
           ),
         ),
       ),

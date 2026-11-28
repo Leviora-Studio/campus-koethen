@@ -8,9 +8,7 @@ import '../../../core/network/loaded.dart';
 import '../data/public_calendars_repository.dart';
 import '../domain/public_calendar.dart';
 
-/// The public-calendar catalogue: every calendar the Campus API serves, each
-/// belonging to one channel. Which of them the reader sees is decided per
-/// channel by the shared event-source filter, not here.
+/// Every public calendar, including calendars without a linked channel.
 final FutureProvider<Loaded<List<PublicCalendar>>>
 publicCalendarsCatalogProvider = FutureProvider<Loaded<List<PublicCalendar>>>((
   Ref ref,

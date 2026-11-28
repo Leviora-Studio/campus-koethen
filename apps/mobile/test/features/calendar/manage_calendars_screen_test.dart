@@ -72,7 +72,7 @@ FakeHttpAdapter _api() => FakeHttpAdapter((RequestOptions options) {
       }),
     );
   }
-  if (options.path.endsWith('/calendars')) {
+  if (options.path.endsWith('/calendars/all')) {
     return FakeHttpResponse(
       envelope(<Map<String, dynamic>>[
         calendarJson(slug: 'beispielkalender-a', name: 'Beispielkalender A'),

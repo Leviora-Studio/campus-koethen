@@ -79,7 +79,7 @@ Flutter ──/v1──► Campus API (NestJS) ──► campus_app_* (PostgreSQ
                  ├──► service.ssc.hs-anhalt.de    HIS-QIS-Notenspiegel (Bestandsportal)
 Flutter ─────────┼──► sscportal.ssc.hs-anhalt.de  HISinOne-Notenspiegel (neueres Portal)
                  ├──► moodle.hs-anhalt.de         Moodle-Webservice (nur lesend)
-                 └──► REQUESTS_BASE_URL           Anträge und Feedback (HTTPS)
+                 └──► REQUESTS_BASE_URL           Feedback und bestehende Vorgänge (HTTPS)
 ```
 
 Ein Konto spricht **immer nur eines** der beiden Notenportale — welches, wird einmalig bei der
@@ -138,7 +138,7 @@ docs/                          Produkt-, Architektur- und Betriebsdokumentation
 | [student-mail.md](docs/student-mail.md)                           | Studenten-E-Mail-Client (IMAP/SMTP, direkt vom Gerät)      |
 | [grades.md](docs/grades.md)                                       | Notenspiegel HIS-QIS **und** HISinOne (direkt vom Gerät)   |
 | [moodle.md](docs/moodle.md)                                       | Moodle-Integration und quellenübergreifender Kalender      |
-| [requests.md](docs/requests.md)                                   | Anträge und Feedback ans Gremiensystem (direkt vom Gerät)  |
+| [requests.md](docs/requests.md)                                   | Feedback direkt und Link zum Finanzantragsportal           |
 | [local-development.md](docs/local-development.md)                 | Lokaler Stack, Schritt für Schritt                         |
 | [content-editor-guide.md](docs/content-editor-guide.md)           | Handbuch für die Redaktion in Strapi                       |
 | [legal/dependency-licenses.md](docs/legal/dependency-licenses.md) | Lizenzbewertung der Abhängigkeiten                         |

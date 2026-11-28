@@ -31,7 +31,7 @@ ProviderContainer containerWith(KeyValueStore store) {
 
 void main() {
   group('ChannelSubscriptionRules.reconcile', () {
-    test('applies defaultSubscribed on a slug\'s first ever appearance', () {
+    test('selects every channel on its first appearance', () {
       final ChannelSubscriptionState state = ChannelSubscriptionRules.reconcile(
         ChannelSubscriptionState.empty,
         <NewsChannel>[
@@ -41,7 +41,11 @@ void main() {
         ],
       );
 
-      expect(state.selectedSlugs, <String>{'campus-news', 'fb5-news'});
+      expect(state.selectedSlugs, <String>{
+        'campus-news',
+        'fb5-news',
+        'quiet-channel',
+      });
       expect(state.seenSlugs, <String>{
         'campus-news',
         'fb5-news',
@@ -136,7 +140,7 @@ void main() {
         channel('other'),
       ]);
 
-      expect(state.selectedSlugs, isEmpty);
+      expect(state.selectedSlugs, <String>{'other'});
     });
   });
 

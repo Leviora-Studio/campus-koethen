@@ -12,10 +12,6 @@ import 'package:campus_koethen/features/news/data/news_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Events are offered per channel only. A public calendar without a channel —
-/// still served by an older backend, or read from the cache — has no filter
-/// option it could belong to and is therefore not shown at all.
-///
 /// All calendars and events below are fictional demo data.
 void main() {
   PublicCalendar calendar(String slug, String? channelSlug) => PublicCalendar(
@@ -39,7 +35,7 @@ void main() {
         end: DateTime.utc(2026, 9, 2, 20),
       );
 
-  test('events of a calendar without a channel are left out', () async {
+  test('includes calendars with and without a linked channel', () async {
     final ProviderContainer c = ProviderContainer(
       overrides: [
         publicCalendarsCatalogProvider.overrideWith(
@@ -79,7 +75,9 @@ void main() {
 
     expect(events.map((UnifiedEvent e) => e.calendarEventId), <String>[
       'mit-kanal',
+      'ohne-kanal',
     ]);
-    expect(events.single.channelSlug, 'fsr');
+    expect(events.first.filterSourceKey, 'fsr');
+    expect(events.last.filterSourceKey, 'calendar:lose-termine');
   });
 }

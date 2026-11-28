@@ -113,9 +113,9 @@ export class PublicCalendarController {
 
   @Get('all')
   @ApiOperation({
-    summary: 'List every published, active calendar for websites, with or without a channel.',
+    summary: 'List every published, active calendar, with or without a channel.',
     description:
-      'Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex the default colour. Use the slugs with GET /v1/calendars/{slug}/entries.',
+      'Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex is their effective calendar colour. Use the slugs with GET /v1/calendars/{slug}/entries.',
   })
   @ApiQuery({
     name: 'location',
@@ -263,7 +263,7 @@ export class PublicCalendarController {
     if (!SLUG_PATTERN.test(slug))
       throw new ApiError('PUBLIC_CALENDAR_NOT_FOUND', locale.resolvedLocale);
     const range = this.range(query, locale.resolvedLocale);
-    const catalogue = this.editorial ? await this.editorial.listCalendars(locale) : null;
+    const catalogue = this.editorial ? await this.editorial.listCalendars(locale, true) : null;
     const calendar = catalogue?.data.find((c) => c.slug === slug);
     const result = this.editorial
       ? calendar

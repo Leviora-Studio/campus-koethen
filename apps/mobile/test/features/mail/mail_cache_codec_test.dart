@@ -54,6 +54,7 @@ void main() {
       id: '7',
       subject: 'Hi',
       from: const MailAddress(email: 'a@b.de'),
+      to: const [MailAddress(email: 'demo@example.test')],
       date: DateTime.utc(2026, 1, 2, 3, 4),
       isSeen: true,
       hasAttachments: true,
@@ -64,6 +65,7 @@ void main() {
       ),
     );
     expect(decoded.id, '7');
+    expect(decoded.to.single.email, 'demo@example.test');
     expect(decoded.isSeen, isTrue);
     expect(decoded.hasAttachments, isTrue);
     expect(decoded.date, DateTime.utc(2026, 1, 2, 3, 4));

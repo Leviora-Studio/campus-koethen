@@ -14,7 +14,7 @@ export interface CalendarDefinition {
   channelSlug: string | null;
   nameDe: string;
   nameEn: string | null;
-  /** The channel's colour; a calendar has none of its own. */
+  /** The effective colour of the calendar. */
   colorHex: string;
   sortOrder: number;
   defaultSubscribed: boolean;
@@ -29,7 +29,10 @@ export class PublicCalendarDto {
   @ApiProperty() slug!: string;
   @ApiProperty({ description: 'The channel this calendar belongs to.' }) channelSlug!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ example: '#5B3FD0', description: "The colour of the calendar's channel." })
+  @ApiProperty({
+    example: '#5B3FD0',
+    description: 'The linked channel’s colour, or the calendar’s own colour.',
+  })
   colorHex!: string;
   @ApiProperty() sortOrder!: number;
   @ApiProperty() defaultSubscribed!: boolean;

@@ -847,8 +847,7 @@ gleiche Regeln wie bei `GET /v1/posts/channels`).
 `defaultSubscribed` bleibt zur Kompatibilität im DTO. Die aktuelle App verwendet die gemeinsame
 Channel-Auswahl von Events und Kalender; bewusste Abwahlen bleiben erhalten.
 `channelSlug` verknüpft einen Kalender 1:1 mit einem redaktionellen Kanal und ist immer gesetzt:
-Kalender ohne Kanal liefert die API nicht aus. `colorHex` ist die Farbe dieses Kanals; ein Kalender
-hat keine eigene Farbe.
+Dieser Katalog enthält Kalender mit Kanal und liefert dessen Farbe als `colorHex`.
 `location` ist der Standort des Kalenders, oder `null`, solange keiner (oder nur ein stillgelegter)
 gesetzt ist; bei einem Kalender mit Kanal ist es immer derselbe wie beim Kanal. Mit
 `?location=koethen` liefert die API nur die Kalender dieses Standorts.
@@ -858,12 +857,12 @@ Tageszahl im Client begrenzt. `googleOpenUrl` ist ohne Google-Anbindung ein leer
 
 ### `GET /v1/calendars/all`
 
-Website-Katalog: **alle** veröffentlichten, aktiven Kalender, auch solche ohne Channel. Gleiche
+Katalog für App und Website mit **allen** veröffentlichten, aktiven Kalendern, einschließlich eigenständiger Kalender. Gleiche
 Felder und gleiche `meta` wie `GET /v1/calendars`, Parameter `locale` und optional `location`.
 Eine Website eines Standorts fragt z. B. `GET /v1/calendars/all?location=koethen`. Bei Kalendern ohne
-Channel ist `channelSlug` ein leerer String und `colorHex` die Standardfarbe. Die Slugs sind für
-`GET /v1/calendars/:slug/entries` gedacht. Der App-Katalog `GET /v1/calendars` bleibt
-unverändert kanalbasiert.
+Channel ist `channelSlug` ein leerer String. `colorHex` enthält die in Strapi eingetragene Farbe
+des Kalenders. Kalender ohne eigene Farbe verwenden den Standardwert. Die App verwendet den
+vollständigen Katalog und teilt Standort- und Quellenauswahl zwischen Events und Kalender.
 
 ### `GET /v1/calendars/events`
 

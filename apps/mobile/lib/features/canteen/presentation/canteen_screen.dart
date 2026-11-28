@@ -1,6 +1,7 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'canteen_card_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -117,7 +118,25 @@ class _CanteenScreenState extends ConsumerState<CanteenScreen>
           _FilterAction(slug: slug),
         ],
       ],
-      controls: slug == null ? null : _DayNavigator(),
+      controls: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.metrics.screenPadding,
+              ),
+              child: TextButton.icon(
+                onPressed: () => showCanteenCardSheet(context),
+                icon: const Icon(AppIcons.contactless_outlined),
+                label: Text(l10n.canteenCardTitle),
+              ),
+            ),
+          ),
+          if (slug != null) _DayNavigator(),
+        ],
+      ),
       body: switch (canteens) {
         AsyncLoading<Loaded<List<Canteen>>>() when !canteens.hasValue =>
           const LoadingView(),

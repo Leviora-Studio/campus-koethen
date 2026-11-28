@@ -40,7 +40,7 @@ Map<String, dynamic> _calendar(String slug, String? channelSlug) =>
       'slug': slug,
       'channelSlug': channelSlug,
       'name': 'Kalender $slug',
-      'colorHex': '#C2185B',
+      'colorHex': channelSlug == null ? '#5B3FD0' : '#C2185B',
       'sortOrder': 0,
       'defaultSubscribed': true,
       'dataStale': false,
@@ -97,7 +97,7 @@ void main() {
               _channel('stura', 'Demo-StuRa', '#1E88E5'),
             ]),
           );
-        case '/calendars':
+        case '/calendars/all':
           return FakeHttpResponse(
             envelope(<Object>[
               _calendar('fsr-termine', 'fsr'),
@@ -185,6 +185,7 @@ void main() {
         'postEvent:stura-sitzung',
         'postEvent:fsr-doppelt',
         'publicCalendar:fsr-termine:einzeln',
+        'publicCalendar:lose-termine:lose',
       ]),
       reason: 'the post wins over the identical calendar event',
     );
@@ -227,22 +228,26 @@ void main() {
 
     expect(entries.map((CalendarEntry e) => e.id), <String>[
       'postEvent:stura-sitzung',
+      'publicCalendar:lose-termine:lose',
     ]);
     expect(
-      requests.where((RequestOptions r) => r.path == '/calendars/events'),
-      isEmpty,
-      reason: 'no selected channel has a calendar left to ask about',
+      requests
+          .where((RequestOptions r) => r.path == '/calendars/events')
+          .expand((r) => r.queryParameters['calendar'] as List<Object?>),
+      everyElement('lose-termine'),
     );
   });
 
-  test('a calendar without a channel never reaches the calendar', () async {
+  test('a standalone calendar keeps its own configured colour', () async {
     final ProviderContainer c = container();
 
     final List<CalendarEntry> entries = await month(c);
 
     expect(
-      entries.where((CalendarEntry e) => e.calendarSlug == 'lose-termine'),
-      isEmpty,
+      entries
+          .singleWhere((CalendarEntry e) => e.calendarSlug == 'lose-termine')
+          .colorArgb,
+      0xFF5B3FD0,
     );
   });
 
@@ -258,6 +263,7 @@ void main() {
     expect(options.map((EventSourceOption o) => o.key), <String>[
       'fsr',
       'stura',
+      'calendar:lose-termine',
     ]);
   });
 }

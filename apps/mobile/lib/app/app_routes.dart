@@ -78,8 +78,6 @@ abstract final class AppRoutes {
 
   /// The two forms. An existing draft is continued through a `draft` query
   /// parameter; without one the screen starts a new draft.
-  static const String requestApplicationName = 'request-application';
-  static const String requestApplicationPath = 'application';
   static const String requestFeedbackName = 'request-feedback';
   static const String requestFeedbackPath = 'feedback';
 

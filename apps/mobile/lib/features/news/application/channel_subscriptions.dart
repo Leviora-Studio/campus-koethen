@@ -71,7 +71,7 @@ class ChannelSubscriptionState {
 abstract final class ChannelSubscriptionRules {
   /// Folds a freshly fetched channel list into the stored state.
   ///
-  /// * A slug that has never been seen adopts its `defaultSubscribed` value and
+  /// * A slug that has never been seen is selected by default and
   ///   is recorded as seen, so the default is never applied a second time.
   /// * A slug the user deselected stays deselected, no matter which other
   ///   channels appear later.
@@ -95,7 +95,7 @@ abstract final class ChannelSubscriptionRules {
 
     for (final NewsChannel channel in channels) {
       final bool firstAppearance = seen.add(channel.slug);
-      if (firstAppearance && channel.defaultSubscribed) {
+      if (firstAppearance) {
         selected.add(channel.slug);
       }
     }

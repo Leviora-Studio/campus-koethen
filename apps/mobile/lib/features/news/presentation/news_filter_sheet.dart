@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_dimensions.dart';
+import '../../../core/widgets/campus_location_filter.dart';
+import '../application/news_providers.dart';
 import '../../../l10n/l10n.dart';
 import 'channel_picker_sheet.dart';
 import 'tag_filter_list.dart';
@@ -30,6 +32,8 @@ class NewsFilterSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = context.l10n;
+    final channels = ref.watch(newsChannelsProvider).value?.value ?? [];
+    final location = ref.watch(newsLocationFilterProvider);
     final TextTheme text = Theme.of(context).textTheme;
 
     return SafeArea(
@@ -51,8 +55,13 @@ class NewsFilterSheet extends ConsumerWidget {
                 child: Text(l10n.newsFilterTitle, style: text.titleLarge),
               ),
             ),
+            CampusLocationFilter(
+              locations: channels.map((channel) => channel.location),
+              selected: location,
+              onChanged: ref.read(newsLocationFilterProvider.notifier).select,
+            ),
             const TagFilterList(),
-            const Flexible(child: ChannelPickerList()),
+            Flexible(child: ChannelPickerList(location: location)),
           ],
         ),
       ),

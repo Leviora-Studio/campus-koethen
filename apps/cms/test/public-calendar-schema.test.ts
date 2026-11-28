@@ -6,10 +6,12 @@ import { test } from 'node:test';
 
 import publicCalendarSchema from '../src/api/public-calendar/content-types/public-calendar/schema.json';
 
-// A calendar's events take their colour from the channel it belongs to, so the
-// calendar itself offers no colour choice that could disagree with it.
-test('public calendars have no colour of their own', () => {
+test('public calendars have a validated, non-localized fallback colour', () => {
   const attributes = publicCalendarSchema.attributes as Record<string, unknown>;
 
-  assert.equal('colorHex' in attributes, false);
+  assert.deepEqual(attributes.colorHex, {
+    type: 'string',
+    regex: '^#[0-9a-fA-F]{6}$',
+    pluginOptions: { i18n: { localized: false } },
+  });
 });

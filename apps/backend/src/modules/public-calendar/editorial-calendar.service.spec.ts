@@ -98,6 +98,23 @@ describe('editorial calendars', () => {
       location: { fields: ['slug', 'name', 'isActive'] },
     });
   });
+  it('exposes the effective colour for linked and standalone calendars', async () => {
+    const { service, get } = fixture();
+    get.mockResolvedValue({
+      data: [
+        { ...calendar, colorHex: '#34ab78' },
+        { ...calendar, slug: 'standalone', channel: null, colorHex: '#34ab78' },
+        { ...calendar, slug: 'legacy', channel: null },
+      ],
+      meta: { pagination: { pageCount: 1 } },
+    } as never);
+    const { data } = await service.listCalendars(locale, true);
+    expect(data.map((entry) => [entry.slug, entry.colorHex])).toEqual([
+      ['demo', '#123456'],
+      ['standalone', '#34AB78'],
+      ['legacy', '#5B3FD0'],
+    ]);
+  });
   it('never queries all editorial entries for an empty selection', async () => {
     const { service, get } = fixture();
     expect((await service.events([], new Date(), new Date(), locale)).events).toEqual([]);

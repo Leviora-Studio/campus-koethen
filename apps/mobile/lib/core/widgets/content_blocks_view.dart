@@ -76,12 +76,30 @@ class _ContentBlocksViewState extends ConsumerState<ContentBlocksView> {
 
   @override
   Widget build(BuildContext context) {
+    final visible = widget.blocks
+        .where((block) {
+          if (block is! ParagraphBlock) return true;
+          return block.children.any(
+            (node) => switch (node) {
+              InlineText(:final text) => text.trim().isNotEmpty,
+              InlineLink(:final text) => text.trim().isNotEmpty,
+            },
+          );
+        })
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        for (final ContentBlock block in widget.blocks) ...<Widget>[
+        for (final (index, block) in visible.indexed) ...<Widget>[
+          if (index != 0)
+            SizedBox(
+              height:
+                  block is ParagraphBlock &&
+                      visible[index - 1] is ParagraphBlock
+                  ? AppSpacing.xs
+                  : AppSpacing.md,
+            ),
           _buildBlock(context, block),
-          const SizedBox(height: AppSpacing.md),
         ],
       ],
     );

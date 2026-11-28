@@ -10,18 +10,23 @@ import { CalendarDefinition } from './public-calendar.types';
  * here and re-derives the calendar id from the share link. A single invalid
  * entry is dropped (and counted), never taking the rest of the catalogue down.
  *
- * The app offers channel calendars; independent calendars remain available
- * to website readers. A linked calendar inherits its channel colour.
+ * A linked calendar inherits its channel colour.
  */
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+export const CALENDAR_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
+export function effectiveCalendarColor(channelColor?: string, calendarColor?: string | null) {
+  const color = channelColor ?? calendarColor;
+  return color && CALENDAR_COLOR_PATTERN.test(color) ? color.toUpperCase() : '#5B3FD0';
+}
 
 /** Strapi 5 returns flat attributes. Unknown extra keys are ignored. */
 const strapiEntrySchema = z
   .object({
     slug: z.string(),
     name: z.string().min(1),
+    colorHex: z.string().nullish().catch(null),
     googleShareUrl: z.string().nullish(),
     sortOrder: z.coerce.number().int().default(0),
     isActive: z.boolean().default(true),
@@ -84,7 +89,7 @@ export function validateCatalog(
     if (
       !SLUG_PATTERN.test(entry.slug) ||
       (channel != null &&
-        (!SLUG_PATTERN.test(channel.slug) || !COLOR_PATTERN.test(channel.colorHex)))
+        (!SLUG_PATTERN.test(channel.slug) || !CALENDAR_COLOR_PATTERN.test(channel.colorHex)))
     ) {
       rejected += 1;
       continue;
@@ -103,7 +108,7 @@ export function validateCatalog(
       channelSlug: channel?.slug ?? null,
       nameDe: entry.name,
       nameEn: en?.name ?? null,
-      colorHex: channel?.colorHex.toUpperCase() ?? '#5B3FD0',
+      colorHex: effectiveCalendarColor(channel?.colorHex, entry.colorHex),
       sortOrder: entry.sortOrder,
       defaultSubscribed: entry.defaultSubscribed,
       includeEventDescription: entry.includeEventDescription,

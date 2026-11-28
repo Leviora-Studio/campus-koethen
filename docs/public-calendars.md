@@ -227,9 +227,10 @@ Recurrence, invitations, attendees and reminders are not supported.
 
 - Existing `/v1/calendars/events` and `/v1/calendars/:slug/events` return Google
   occurrences plus editorial appointments. Existing post endpoints stay unchanged.
-- **Website catalogue:** `GET /v1/calendars/all?locale=de` lists every published, active
-  calendar, including calendars without a channel (`channelSlug` is then an empty string).
-  `GET /v1/calendars` stays the channel-based app catalogue.
+- **App and website catalogue:** `GET /v1/calendars/all?locale=de` lists every published,
+  active calendar. A linked channel determines its colour. Standalone calendars use their
+  configured `colorHex` or the default colour and have an empty `channelSlug`.
+  `GET /v1/calendars` continues to serve the channel-only catalogue.
 - **Locations:** every catalogue entry carries `location` (`{ slug, name }` or `null`).
   `GET /v1/locations` lists the active locations; `?location=<slug>` on
   `GET /v1/calendars/all` (and `GET /v1/calendars`) keeps only calendars of that location.

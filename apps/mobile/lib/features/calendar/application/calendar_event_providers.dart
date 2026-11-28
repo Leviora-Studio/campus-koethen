@@ -27,6 +27,10 @@ final calendarEventMonthEntriesProvider =
       ),
       retry: (_, _) => null,
     );
+void invalidateCalendarEventMonth(WidgetRef ref, DateTime month) {
+  ref.invalidate(_monthEntriesProvider(DateTime(month.year, month.month)));
+}
+
 final _monthEntriesProvider =
     FutureProvider.family<Loaded<List<CalendarEntry>>, DateTime>((ref, anchor) {
       final weeks = monthWeekStarts(anchor);
@@ -59,12 +63,13 @@ Future<Loaded<List<CalendarEntry>>> _loadEventEntries(
   required CalendarDateWindow Function(Loaded<List<PublicCalendar>>?) window,
 }) async {
   final locale = ref.watch(localeCodeProvider);
+  final location = ref.watch(eventLocationFilterProvider);
   final options = await _settle(ref.watch(eventSourceOptionsProvider.future));
   final state = ref.watch(eventSourceFilterProvider);
   Set<String>? selected = options == null
       ? null
       : EventSourceFilterRules.effectiveSelection(
-          available: options,
+          available: eventOptionsAtLocation(options, location),
           selected: state.selectedKeys,
         );
   if (selected?.isEmpty ?? false) {
@@ -75,16 +80,36 @@ Future<Loaded<List<CalendarEntry>>> _loadEventEntries(
   );
   final bySlug = <String, PublicCalendar>{
     for (final c in catalogue?.value ?? <PublicCalendar>[])
-      if (c.channelSlug != null &&
-          (selected == null || selected.contains(c.channelSlug)))
-        c.slug: c,
+      if (selected == null || selected.contains(c.filterSourceKey)) c.slug: c,
   };
   final parts = splitCalendarWindow(
     window(catalogue),
     catalogue?.meta.maxRangeDays ?? 120,
   );
+  final selectedChannels = selected
+      ?.where((key) => !key.startsWith('calendar:'))
+      .toSet();
+  final allChannels = options
+      ?.where((option) => !option.key.startsWith('calendar:'))
+      .length;
+  final channelQuery =
+      selectedChannels != null &&
+          selectedChannels.isNotEmpty &&
+          (selectedChannels.length == allChannels ||
+              selectedChannels.length > 25)
+      ? null
+      : selectedChannels?.join(',');
   final (posts, events) = await (
-    _settle(_loadPosts(ref, locale, parts, selected?.join(','))),
+    selectedChannels?.isEmpty == true
+        ? Future.value(
+            const EventPostsResult(
+              articles: [],
+              isTruncated: false,
+              from: null,
+              to: null,
+            ),
+          )
+        : _settle(_loadPosts(ref, locale, parts, channelQuery)),
     bySlug.isEmpty
         ? Future<Loaded<List<PublicCalendarEvent>>?>.value(
             catalogue == null
@@ -111,33 +136,30 @@ Future<Loaded<List<CalendarEntry>>> _loadEventEntries(
     // A channel-catalogue failure must not hide independent source successes or
     // overwrite persisted opt-outs with an incomplete temporary catalogue.
     final available = <String>{
-      for (final c in bySlug.values) c.channelSlug!,
-      for (final p in posts?.articles ?? <NewsArticle>[]) p.primaryChannel.slug,
+      for (final c in bySlug.values) c.filterSourceKey,
+      for (final p in posts?.articles ?? <NewsArticle>[]) ...[
+        p.primaryChannel.slug,
+        ...p.channels.map((channel) => channel.slug),
+      ],
     };
     selected = EventSourceFilterRules.reconcile(state, [
       for (final key in available) EventSourceOption(key: key, label: key),
     ]).selectedKeys;
   }
-  final selectedPosts = [
-    for (final p in posts?.articles ?? <NewsArticle>[])
-      if (p.isEventPost && selected.contains(p.primaryChannel.slug)) p,
-  ];
-  final selectedEvents = [
-    for (final e in events?.value ?? <PublicCalendarEvent>[])
-      if (bySlug.containsKey(e.calendarSlug) &&
-          selected.contains(bySlug[e.calendarSlug]!.channelSlug))
-        e,
-  ];
-  final merged = mergeEventSources(
-    postEvents: selectedPosts.map(postToUnifiedEvent).toList(),
-    calendarEvents: [
-      for (final e in selectedEvents)
-        calendarToUnifiedEvent(
-          e,
-          channelSlug: bySlug[e.calendarSlug]!.channelSlug,
-        ),
-    ],
+  final eventPosts = (posts?.articles ?? <NewsArticle>[]).where(
+    (post) => post.isEventPost,
   );
+  final calendarEvents = (events?.value ?? <PublicCalendarEvent>[]).where(
+    (event) => bySlug.containsKey(event.calendarSlug),
+  );
+  final merged = selectAndMergeEvents([
+    ...eventPosts.map(postToUnifiedEvent),
+    for (final event in calendarEvents)
+      calendarToUnifiedEvent(
+        event,
+        channelSlug: bySlug[event.calendarSlug]!.channelSlug,
+      ),
+  ], selected);
   final keptPosts = {
     for (final e in merged)
       if (e.postSlug != null) e.postSlug!,
@@ -149,10 +171,10 @@ Future<Loaded<List<CalendarEntry>>> _loadEventEntries(
   return Loaded(
     value: [
       ...eventPostsToCalendarEntries(
-        selectedPosts.where((p) => keptPosts.contains(p.slug)),
+        eventPosts.where((p) => keptPosts.contains(p.slug)),
       ),
       ...publicCalendarEventsToCalendarEntries(
-        selectedEvents.where((e) => keptEvents.contains(e.id)).toList(),
+        calendarEvents.where((e) => keptEvents.contains(e.id)).toList(),
         bySlug,
       ),
     ],

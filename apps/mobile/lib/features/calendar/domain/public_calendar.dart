@@ -4,6 +4,7 @@
 import 'package:meta/meta.dart';
 
 import '../../../core/network/json.dart';
+import '../../../core/network/campus_location.dart';
 
 /// A public calendar as delivered by `GET /v1/calendars`.
 ///
@@ -23,6 +24,7 @@ class PublicCalendar {
     this.dataStale = false,
     this.lastSuccessfulSyncAt,
     this.channelSlug,
+    this.location,
   });
 
   final String id;
@@ -40,6 +42,12 @@ class PublicCalendar {
   /// calendar into the same event source as that channel — see the `events`
   /// feature. Never used to derive content otherwise.
   final String? channelSlug;
+  final CampusLocation? location;
+
+  String get filterSourceKey =>
+      channelSlug ?? standaloneCalendarSourceKey(slug);
+
+  static String standaloneCalendarSourceKey(String slug) => 'calendar:$slug';
 
   static PublicCalendar? fromJson(Object? json) {
     final Map<String, dynamic>? map = asJsonMap(json);
@@ -62,6 +70,7 @@ class PublicCalendar {
       lastSuccessfulSyncAt: asDateTime(map['lastSuccessfulSyncAt']),
       googleOpenUrl: googleOpenUrl,
       channelSlug: asString(map['channelSlug']),
+      location: CampusLocation.fromJson(map['location']),
     );
   }
 

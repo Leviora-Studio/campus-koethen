@@ -364,7 +364,7 @@ void main() {
     final Iterable<InkWell> inkWells = tester.widgetList<InkWell>(
       find.byType(InkWell),
     );
-    expect(inkWells.where((InkWell w) => w.onTap != null), hasLength(1));
+    expect(inkWells.where((InkWell w) => w.onTap != null), hasLength(2));
   });
 
   testWidgets('opening a post image does not expand the article', (
@@ -396,7 +396,10 @@ void main() {
   ) async {
     await _pumpCard(tester, _article(content: _longArticle));
 
-    expect(_semanticsLabels(tester, isButton: true), <String>['Mehr anzeigen']);
+    expect(_semanticsLabels(tester, isButton: true), <String>[
+      'Mehr anzeigen',
+      'Reagieren',
+    ]);
   });
 
   testWidgets('exposes the card open/closed state to a screen reader', (

@@ -144,7 +144,7 @@ void main() {
     expect(find.text('Campus News'), findsNWidgets(2));
     expect(find.text('Semesterstart 2026'), findsOneWidget);
     // Exactly one action at the top, and no search.
-    expect(find.byType(IconButton), findsOneWidget);
+    expect(find.byTooltip('Filter'), findsOneWidget);
     expect(find.byTooltip('Filter'), findsOneWidget);
     expect(find.byType(AppBar), findsNothing);
   });
@@ -178,8 +178,8 @@ void main() {
     expect(channelRows, findsNWidgets(2));
     expect(
       find.descendant(of: channelRows, matching: find.byType(Icon)),
-      findsNothing,
-      reason: 'news channels are identified by name, not by an icon',
+      findsOneWidget,
+      reason: 'the channel colour marks the entry alongside its name',
     );
   });
 

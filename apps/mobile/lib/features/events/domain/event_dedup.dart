@@ -87,3 +87,19 @@ List<UnifiedEvent> mergeEventSources({
     ),
   ];
 }
+
+/// Applies the shared source selection before comparing equivalent entries.
+List<UnifiedEvent> selectAndMergeEvents(
+  Iterable<UnifiedEvent> events,
+  Set<String>? sourceKeys,
+) {
+  final posts = <UnifiedEvent>[];
+  final calendars = <UnifiedEvent>[];
+  for (final event in events) {
+    if (sourceKeys != null && !event.matchesSelectedSources(sourceKeys)) {
+      continue;
+    }
+    (event.kind == UnifiedEventKind.postEvent ? posts : calendars).add(event);
+  }
+  return mergeEventSources(postEvents: posts, calendarEvents: calendars);
+}

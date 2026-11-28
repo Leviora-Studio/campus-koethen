@@ -462,7 +462,7 @@ void main() {
       await pumpScreen(tester, const RequestsScreen(), overrides: _overrides());
       await tester.pumpAndSettle();
 
-      expect(find.text('Finanzantrag stellen'), findsOneWidget);
+      expect(find.text('Finanzantragsportal öffnen'), findsOneWidget);
       expect(find.text('Feedback geben'), findsOneWidget);
       expect(find.text('Meine Einreichungen'), findsOneWidget);
       expect(find.text('Entwürfe'), findsOneWidget);

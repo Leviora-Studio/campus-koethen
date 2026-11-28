@@ -94,6 +94,31 @@ void main() {
     );
   });
 
+  test(
+    'updates the sender name offline and validates a new password',
+    () async {
+      final gateway = FakeMailGateway();
+      final store = InMemoryMailCredentialStore()..write(_creds);
+      final container = _container(gateway: gateway, store: store);
+      await container.read(mailAccountControllerProvider.future);
+      final controller = container.read(mailAccountControllerProvider.notifier);
+
+      await controller.updateSettings(displayName: '  Demo  ');
+      expect(gateway.verifyCalls, 0);
+      expect((await store.read())?.displayName, 'Demo');
+      expect((await store.read())?.password, _creds.password);
+
+      await controller.updateSettings(
+        displayName: '',
+        password: 'demo-password',
+      );
+      expect(gateway.verifyCalls, 1);
+      expect((await store.read())?.displayName, isNull);
+      expect((await store.read())?.password, 'demo-password');
+      expect((await store.read())?.emailAddress, _creds.emailAddress);
+    },
+  );
+
   group('sign in', () {
     test('verifies IMAP+SMTP then stores credentials on success', () async {
       final gateway = FakeMailGateway();

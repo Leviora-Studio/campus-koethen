@@ -97,23 +97,9 @@ Zugangsdaten verlassen das Gerät nur in Richtung des offiziellen Anbieters.
   24-Stunden-Regel mit manueller Übersteuerung
 - **Moodle**: Kurse, Materialien, Aufgaben mit Abgabestatus, Ankündigungen und Deadlines —
   **ausschließlich lesend**, verschlüsselter lokaler Cache, 24-Stunden-Regel
-- **Anträge & Feedback**: Finanzanträge **und** Feedback gehen **direkt** an die öffentliche API
-  des Gremiensystems des Studierendenrats. Der Dienst ist als einziger der vier nicht
-  nutzerauthentifiziert; ausschlaggebend ist der Inhalt — eine Einreichung trägt den Namen der
-  antragstellenden Person und eine Kopie des Studierendenausweises.
-  - Der Antrag fragt genau das, was die Schnittstelle nimmt: Standort, Antragsgegenstand,
-    Antragsteller und vier Dateifelder. Kein Betrag, keine Kategorie, kein Verwendungszweck — die
-    Zahlen stehen im angehängten PDF.
-  - Feedback fragt Bereich, einen optionalen Namen und den Text. Bleibt das Namensfeld leer, wird
-    es weggelassen; das Gremium vermerkt solche Einreichungen selbst als „Anonym".
-  - Eingereichte Vorgänge bleiben lokal nachverfolgbar. Ihr Stand wird nativ angezeigt — mit dem
-    öffentlichen Statusnamen des Gremiums, Hinweisen, Zeitpunkten und Dokumenten im
-    App-eigenen Betrachter. Ein Statusname wird nie in ein App-Vokabular übersetzt.
-  - Entwürfe, Anhänge und Vorgänge liegen **verschlüsselt** auf dem Gerät; der Statuslink ist ein
-    Bearer-Credential, wird niemals geloggt, geteilt oder in eine Route aufgenommen.
-  - **Grenze der Schnittstelle:** Nachreichungen und Quittungen meldet die API zwar als möglich,
-    bietet dafür aber keinen öffentlichen Endpunkt. Die App sagt das, statt es zu simulieren.
-    Dasselbe gilt für den Bereich „Wichtige Dokumente" des Webformulars.
+- **Anträge & Feedback**: Finanzanträge laufen im Browser über das Antragsportal der
+  Studierendenschaft. Feedback geht direkt vom Gerät an die konfigurierte Gremio-API und kann in
+  der App weiterverfolgt werden. [Technische Details](../requests.md)
 
 **Lageplan (fiktive Demonstration)**
 

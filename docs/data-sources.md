@@ -33,12 +33,12 @@ Diese vier Dienste spricht die App **direkt** an — ausdrücklich beschlossene,
 Ausnahmen von G1, damit weder Campus API noch Strapi noch Worker Zugangsdaten oder persönliche
 Inhalte erhalten (siehe [`../AGENTS.md`](../AGENTS.md) §2).
 
-| Quelle                     | Art                                 | Verbraucher | Status |
-| -------------------------- | ----------------------------------- | ----------- | ------ |
-| `mail.hs-anhalt.de`        | IMAP/SMTP                           | Flutter     | aktiv  |
-| `service.ssc.hs-anhalt.de` | HIS-QIS, HTML (keine JSON-API)      | Flutter     | aktiv  |
-| `moodle.hs-anhalt.de`      | Moodle-Webservice, nur lesend       | Flutter     | aktiv  |
-| `REQUESTS_BASE_URL`        | Gremiensystem, Finanzanträge (POST) | Flutter     | aktiv  |
+| Quelle                     | Art                                       | Verbraucher | Status |
+| -------------------------- | ----------------------------------------- | ----------- | ------ |
+| `mail.hs-anhalt.de`        | IMAP/SMTP                                 | Flutter     | aktiv  |
+| `service.ssc.hs-anhalt.de` | HIS-QIS, HTML (keine JSON-API)            | Flutter     | aktiv  |
+| `moodle.hs-anhalt.de`      | Moodle-Webservice, nur lesend             | Flutter     | aktiv  |
+| `REQUESTS_BASE_URL`        | Gremio (Feedback und bestehende Vorgänge) | Flutter     | aktiv  |
 
 Die ersten drei sind nutzerauthentifiziert. Der vierte ist es **nicht** — ausschlaggebend ist der
 Inhalt: Eine Einreichung trägt den Namen der antragstellenden Person und eine Kopie des
@@ -387,12 +387,12 @@ Vollständige Beschreibung inklusive Redaktionshandbuch: [public-calendars.md](p
 Diese Quellen erreicht **ausschließlich die App**. Ein Backend darf sie nie abrufen; es gibt für
 sie keine API-Route, keine Strapi-Collection, keinen Worker-Job und keine Datenbanktabelle.
 
-| Quelle                     | Zweck                                                                | Besonderheit                                                                                                                                                                                           | Doku                               |
-| -------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
-| `mail.hs-anhalt.de`        | Studentisches Postfach                                               | IMAPS 993, SMTP 587 mit **Pflicht**-STARTTLS, kein Klartext                                                                                                                                            | [student-mail.md](student-mail.md) |
-| `service.ssc.hs-anhalt.de` | HIS-QIS-Notenspiegel                                                 | **keine** offizielle API — HTML-Parsing über Spaltenüberschriften                                                                                                                                      | [grades.md](grades.md)             |
-| `moodle.hs-anhalt.de`      | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines               | feste, rein **lesende** Whitelist von `wsfunction`s                                                                                                                                                    | [moodle.md](moodle.md)             |
-| `REQUESTS_BASE_URL`        | Finanzanträge und Feedback an das Gremiensystem des Studierendenrats | Adresse **nie** als Quellcode-Konstante, **HTTPS** erzwungen; Antrag als `multipart/form-data`, Feedback als `application/json`, beide mit Idempotenzschlüssel; Status per `POST` mit dem Link im Body | —                                  |
+| Quelle                     | Zweck                                                              | Besonderheit                                                                                                                                                  | Doku                               |
+| -------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `mail.hs-anhalt.de`        | Studentisches Postfach                                             | IMAPS 993, SMTP 587 mit **Pflicht**-STARTTLS, kein Klartext                                                                                                   | [student-mail.md](student-mail.md) |
+| `service.ssc.hs-anhalt.de` | HIS-QIS-Notenspiegel                                               | **keine** offizielle API — HTML-Parsing über Spaltenüberschriften                                                                                             | [grades.md](grades.md)             |
+| `moodle.hs-anhalt.de`      | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines             | feste, rein **lesende** Whitelist von `wsfunction`s                                                                                                           | [moodle.md](moodle.md)             |
+| `REQUESTS_BASE_URL`        | Feedback und Bestandvorgänge im Gremiensystem des Studierendenrats | Adresse **nie** als Quellcode-Konstante, **HTTPS** erzwungen; Feedback als `application/json` mit Idempotenzschlüssel; Status per `POST` mit dem Link im Body | —                                  |
 
 Gemeinsame Regeln: feste Host-Allowlist vor jedem Request · Redirects auf fremde Hosts oder auf
 Klartext werden abgebrochen · Zertifikatsprüfung nie deaktiviert · Zugangsdaten und Token nur im

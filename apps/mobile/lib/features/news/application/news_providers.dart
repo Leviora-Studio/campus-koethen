@@ -35,3 +35,13 @@ final FutureProvider<Loaded<List<NewsTag>>> newsTagsProvider =
       await ref.read(newsTagFilterProvider.notifier).reconcile(loaded.value);
       return loaded;
     });
+
+class NewsLocationFilter extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? slug) => state = slug;
+}
+
+final newsLocationFilterProvider =
+    NotifierProvider<NewsLocationFilter, String?>(NewsLocationFilter.new);

@@ -4,10 +4,12 @@
 import { Module } from '@nestjs/common';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
+import { PostEngagementController } from './post-engagement.controller';
+import { PostEngagementService } from './post-engagement.service';
 
 @Module({
-  controllers: [PostsController],
-  providers: [PostsService],
+  controllers: [PostsController, PostEngagementController],
+  providers: [PostsService, PostEngagementService],
   exports: [PostsService],
 })
 export class PostsModule {}

@@ -7,6 +7,7 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../core/network/loaded.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../../../core/theme/hex_color.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/l10n.dart';
 import '../application/channel_subscriptions.dart';
@@ -22,9 +23,10 @@ import '../data/news_models.dart';
 /// settings. The filter sheet carries its own heading, so [showTitle] is what
 /// keeps the settings page from losing one.
 class ChannelPickerList extends ConsumerWidget {
-  const ChannelPickerList({this.showTitle = false, super.key});
+  const ChannelPickerList({this.showTitle = false, this.location, super.key});
 
   final bool showTitle;
+  final String? location;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,7 +55,12 @@ class ChannelPickerList extends ConsumerWidget {
         context,
         ref,
         l10n,
-        channels.requireValue.value,
+        channels.requireValue.value
+            .where(
+              (channel) =>
+                  location == null || channel.location?.slug == location,
+            )
+            .toList(),
         subscriptions,
       ),
     };
@@ -115,11 +122,21 @@ class ChannelPickerList extends ConsumerWidget {
               return SwitchListTile.adaptive(
                 value: subscribed,
                 title: Text(channel.name),
+                secondary: switch (parseHexColor(channel.colorHex)) {
+                  final Color color => Icon(
+                    AppIcons.circle_outlined,
+                    color: color,
+                    size: AppSizes.iconSmall,
+                  ),
+                  null => null,
+                },
                 // The subscription state is spelled out in words, so it is
                 // never communicated by the switch colour alone.
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    if (channel.location case final location?)
+                      Text(location.name),
                     if (channel.description != null) Text(channel.description!),
                     Text(
                       subscribed

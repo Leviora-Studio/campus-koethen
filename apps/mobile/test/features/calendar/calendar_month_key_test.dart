@@ -65,7 +65,7 @@ void main() {
           ]),
         );
       }
-      if (options.path == '/calendars') {
+      if (options.path == '/calendars/all') {
         return FakeHttpResponse(
           envelope(<Object>[_calendar], meta: catalogueMeta),
         );

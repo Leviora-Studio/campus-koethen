@@ -447,3 +447,24 @@ model PublicCalendarSyncRun {
   @@index([kind, status, finishedAt])
   @@map("public_calendar_sync_runs")
 }
+
+/// One reaction per installation and post; the installation secret is hashed.
+model PostReaction {
+  postSlug     String @db.VarChar(100)
+  installation String @db.Char(64)
+  emoji        String @db.VarChar(64)
+
+  @@id([postSlug, installation])
+  @@map("post_reactions")
+}
+
+/// One mutable vote per installation and poll revision.
+model PostPollVote {
+  postSlug     String @db.VarChar(100)
+  pollKey      String @db.VarChar(60)
+  installation String @db.Char(64)
+  optionKey    String @db.VarChar(60)
+
+  @@id([postSlug, pollKey, installation])
+  @@map("post_poll_votes")
+}

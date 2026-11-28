@@ -48,6 +48,15 @@
         }
       }
     },
+    "colorHex": {
+      "type": "string",
+      "regex": "^#[0-9a-fA-F]{6}$",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    },
     "sortOrder": {
       "type": "integer",
       "default": 0,

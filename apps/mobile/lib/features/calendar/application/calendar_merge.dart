@@ -193,16 +193,16 @@ String? _liveEventRef(CalendarEntry entry) {
   return 'calendar:${entry.id.substring(prefix.length)}';
 }
 
-/// A live entry as the [UnifiedEvent] the dedup rule compares, or `null` for
-/// a source the rule does not cover.
-UnifiedEvent? _liveAsUnified(
-  CalendarEntry entry,
-  Map<String, String?> channelSlugByCalendarSlug,
-) {
+/// Converts an event from the calendar grid back to its source-neutral form.
+UnifiedEvent? liveCalendarEntryAsEvent(
+  CalendarEntry entry, [
+  Map<String, String?> channelSlugByCalendarSlug = const {},
+]) {
   final String? ref = _liveEventRef(entry);
   if (ref == null) return null;
   final bool isPost = entry.source == CalendarSource.postEvent;
   final CalendarEntryDetails? details = entry.details;
+  if (details is PostEventDetails) return postToUnifiedEvent(details.article);
   return UnifiedEvent(
     eventRef: ref,
     kind: isPost ? UnifiedEventKind.postEvent : UnifiedEventKind.calendarEvent,
@@ -210,12 +210,15 @@ UnifiedEvent? _liveAsUnified(
     start: entry.start,
     end: entry.end,
     allDay: entry.allDay,
-    channelSlug: isPost
-        ? (details is PostEventDetails ? details.channelSlug : null)
-        : entry.calendarSlug == null
-        ? null
-        : channelSlugByCalendarSlug[entry.calendarSlug],
+    channelSlug: channelSlugByCalendarSlug[entry.calendarSlug],
     calendarSlug: entry.calendarSlug,
+    sourceLabel: entry.sourceLabel,
+    colorArgb: entry.colorArgb,
+    calendarEventId: isPost ? null : ref.substring('calendar:'.length),
+    postSlug: isPost ? ref.substring('post:'.length) : null,
+    isCancelled: entry.isCancelled,
+    location: entry.location,
+    description: entry.subtitle,
   );
 }
 
@@ -243,7 +246,10 @@ List<CalendarEntry> savedEventEntriesForCalendar({
   required Map<String, String?> channelSlugByCalendarSlug,
 }) {
   final List<UnifiedEvent> live = liveEntries
-      .map((CalendarEntry e) => _liveAsUnified(e, channelSlugByCalendarSlug))
+      .map(
+        (CalendarEntry e) =>
+            liveCalendarEntryAsEvent(e, channelSlugByCalendarSlug),
+      )
       .whereType<UnifiedEvent>()
       .toList();
   final Set<String> liveRefs = live.map((UnifiedEvent e) => e.eventRef).toSet();

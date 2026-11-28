@@ -68,6 +68,17 @@ describe('validateCatalog', () => {
     expect(result.definitions[0]?.colorHex).toBe('#C2185B');
   });
 
+  it('uses the configured standalone colour and keeps a default for older calendars', () => {
+    const result = validateCatalog(
+      [deEntry({ channel: null, colorHex: '#34ab78' }), deEntry({ channel: null })],
+      [],
+    );
+    expect(result.definitions.map((definition) => definition.colorHex)).toEqual([
+      '#34AB78',
+      '#5B3FD0',
+    ]);
+  });
+
   it('rejects an entry with an invalid share URL but keeps the others', () => {
     const result = validateCatalog(
       [

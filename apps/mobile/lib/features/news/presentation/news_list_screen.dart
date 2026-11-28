@@ -19,6 +19,7 @@ import '../../../l10n/l10n.dart';
 import '../application/channel_subscriptions.dart';
 import '../application/news_feed_controller.dart';
 import '../application/news_providers.dart';
+import '../application/tag_filter.dart';
 import '../data/news_models.dart';
 import 'article_block.dart';
 import 'news_filter_sheet.dart';
@@ -118,8 +119,10 @@ class _FeedMasthead extends ConsumerWidget {
     // "Some channels are switched off" is a filter the reader should be able to
     // see from the outside — otherwise a missing article looks like a bug.
     final bool filtered =
-        channels.isNotEmpty &&
-        subscriptions.selectedSlugs.length < channels.length;
+        ref.watch(newsLocationFilterProvider) != null ||
+        ref.watch(newsTagFilterProvider) != null ||
+        (channels.isNotEmpty &&
+            subscriptions.selectedSlugs.length < channels.length);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

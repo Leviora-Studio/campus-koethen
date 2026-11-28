@@ -17,6 +17,10 @@ import '../domain/gremio_origin.dart';
 abstract final class RequestsApiConfig {
   static const String baseUrl = String.fromEnvironment('REQUESTS_BASE_URL');
 
+  // The public landing page opened in the external browser. The separate
+  // API connection still requires a HTTPS build configuration.
+  static const String financePortalUrl = 'https://antrag.sturahsa.de';
+
   /// Versioned prefix of the public API.
   static const String basePath = '/api/public/v1';
 

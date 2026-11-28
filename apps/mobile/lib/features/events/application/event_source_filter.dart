@@ -4,6 +4,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/prefs/key_value_store.dart';
+import '../../../core/network/campus_location.dart';
 import '../../../core/prefs/preference_keys.dart';
 import '../../../core/prefs/settings_controller.dart';
 
@@ -11,17 +12,30 @@ import '../../../core/prefs/settings_controller.dart';
 /// (with its mapped calendar folded in, if any) or an unmapped calendar,
 /// keyed by `UnifiedEvent.filterSourceKey`.
 class EventSourceOption {
-  const EventSourceOption({required this.key, required this.label});
+  const EventSourceOption({
+    required this.key,
+    required this.label,
+    this.location,
+    this.colorHex,
+  });
 
   final String key;
   final String label;
+  final CampusLocation? location;
+  final String? colorHex;
 
   @override
   bool operator ==(Object other) =>
-      other is EventSourceOption && other.key == key && other.label == label;
+      other is EventSourceOption &&
+      other.colorHex == colorHex &&
+      other.key == key &&
+      other.label == label &&
+      other.location?.slug == location?.slug &&
+      other.location?.name == location?.name;
 
   @override
-  int get hashCode => Object.hash(key, label);
+  int get hashCode =>
+      Object.hash(key, label, colorHex, location?.slug, location?.name);
 }
 
 /// Persisted multi-select state of the event overview's source filter.
@@ -197,3 +211,24 @@ eventSourceFilterProvider =
     NotifierProvider<EventSourceFilterController, EventSourceFilterState>(
       EventSourceFilterController.new,
     );
+
+class EventLocationFilter extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? slug) => state = slug;
+}
+
+final eventLocationFilterProvider =
+    NotifierProvider<EventLocationFilter, String?>(EventLocationFilter.new);
+
+List<EventSourceOption> eventOptionsAtLocation(
+  List<EventSourceOption> options,
+  String? location,
+) {
+  if (location == null ||
+      !options.any((option) => option.location?.slug == location)) {
+    return options;
+  }
+  return options.where((option) => option.location?.slug == location).toList();
+}

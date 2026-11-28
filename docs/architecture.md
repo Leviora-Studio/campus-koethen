@@ -51,7 +51,7 @@ Sensibilität der Daten.
 │ apps/mobile    │──HTTPS─────────────► service.ssc.hs-anhalt.de    HIS-QIS-Notenspiegel
 │                │──HTTPS─────────────► sscportal.ssc.hs-anhalt.de  HISinOne-Notenspiegel
 │                │──HTTPS─────────────► moodle.hs-anhalt.de         Moodle-Webservice (lesend)
-│                │──HTTPS─────────────► REQUESTS_BASE_URL           Gremiensystem (Anträge/Feedback)
+│                │──HTTPS─────────────► REQUESTS_BASE_URL           Gremiensystem (Feedback/Status)
 └────────────────┘
         │
         └── Zugangsdaten/Token: Keychain / Keystore · Inhalte: verschlüsselter lokaler Cache
@@ -264,12 +264,12 @@ zwischen Backend und Flutter und wird in CI gegen den Code geprüft.
 Vier geräteseitige Integrationen ohne jede Backend-Beteiligung. Jede hat ein eigenes Dokument mit
 Bedrohungsmodell, Sicherheitszusagen und manueller Testcheckliste.
 
-| Dienst           | Ziel                                                                                               | Transport                                     | Umfang                                                                                                                                   | Doku                               |
-| ---------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Studenten-Mail   | `mail.hs-anhalt.de`                                                                                | IMAPS 993, SMTP 587 mit Pflicht-STARTTLS      | lesen, suchen, antworten, senden; Ordner wechseln; Anhänge anzeigen                                                                      | [student-mail.md](student-mail.md) |
-| Notenspiegel     | `service.ssc.hs-anhalt.de` **oder** `sscportal.ssc.hs-anhalt.de` — nie beide, getrennte Allowlists | HTTPS, HTML-Parsing (keine offizielle API)    | Notenspiegel lesen; 24-Stunden-Regel; Portalwahl bei der Einrichtung                                                                     | [grades.md](grades.md)             |
-| Moodle           | `moodle.hs-anhalt.de`                                                                              | HTTPS, Moodle-Webservice (REST)               | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines — **nur lesend**                                                                  | [moodle.md](moodle.md)             |
-| Anträge/Feedback | `REQUESTS_BASE_URL` (Build-Environment, **nie** Quellcode-Konstante, **muss** HTTPS sein)          | HTTPS, öffentliche JSON-API, Multipart-Upload | Finanzanträge und Rückmeldungen einreichen; Vorgangsstatus per `POST` abfragen; Entwürfe, Nachweise und Statuslink bleiben auf dem Gerät | [requests.md](requests.md)         |
+| Dienst           | Ziel                                                                                               | Transport                                  | Umfang                                                                                                  | Doku                               |
+| ---------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Studenten-Mail   | `mail.hs-anhalt.de`                                                                                | IMAPS 993, SMTP 587 mit Pflicht-STARTTLS   | lesen, suchen, antworten, senden; Ordner wechseln; Anhänge anzeigen                                     | [student-mail.md](student-mail.md) |
+| Notenspiegel     | `service.ssc.hs-anhalt.de` **oder** `sscportal.ssc.hs-anhalt.de` — nie beide, getrennte Allowlists | HTTPS, HTML-Parsing (keine offizielle API) | Notenspiegel lesen; 24-Stunden-Regel; Portalwahl bei der Einrichtung                                    | [grades.md](grades.md)             |
+| Moodle           | `moodle.hs-anhalt.de`                                                                              | HTTPS, Moodle-Webservice (REST)            | Kurse, Materialien, Aufgaben, Ankündigungen, Deadlines — **nur lesend**                                 | [moodle.md](moodle.md)             |
+| Anträge/Feedback | `REQUESTS_BASE_URL` (Build-Environment, **nie** Quellcode-Konstante, **muss** HTTPS sein)          | HTTPS, öffentliche JSON-API                | Feedback einreichen und Status bestehender Vorgänge per `POST` abrufen. Finanzanträge öffnen im Browser | [requests.md](requests.md)         |
 
 Der Antragsdienst ist **nicht nutzerauthentifiziert**. Er steht hier trotzdem, weil die Begründung
 dieselbe ist wie bei den übrigen drei: die Einreichung trägt den Namen der antragstellenden Person
@@ -532,7 +532,7 @@ auf alle nicht begründet ausgenommenen, behebbaren HIGH/CRITICAL-CVEs geprüft.
 Build wird mit SBOM und maximaler Build-Provenance nach GHCR veröffentlicht.
 
 `main` erhält die Tags `main` und `sha-<voller Commit SHA>`. Ein Git-Tag erhält zusätzlich seinen
-eigenen Namen, für diesen Release also `1.2.11`. Deployments verwenden ausschließlich den
+eigenen Namen, für diesen Release also `1.3.0`. Deployments verwenden ausschließlich den
 unveränderlichen `sha-`-Tag; CI verbindet sich nie mit einem Server und deployt nichts.
 
 ### 7.2 Health-Semantik
@@ -598,3 +598,16 @@ bewusst auf dem VPS installiert, geprüft und neu geladen.
 | Schreibzugriffe auf Moodle                      | ausgeschlossen — nur eine feste, rein lesende Whitelist von `wsfunction`s                                                                                                                                                                                            |
 | Persönlicher WebUntis-Login                     | außerhalb des MVP; genutzt wird ausschließlich die öffentliche Gruppenansicht                                                                                                                                                                                        |
 | Raumpläne, Raumverfügbarkeit, Indoor-Navigation | außerhalb des MVP; Architektur bleibt erweiterbar                                                                                                                                                                                                                    |
+
+### Reaktionen und Umfragen im Feed
+
+Die Redaktion pflegt die optionale Umfrage am Beitrag in Strapi. Stabile Umfrage- und
+Optionsschlüssel verbinden die Übersetzungen mit den Stimmen. Eine neue Umfrage am selben
+Beitrag erhält einen neuen Schlüssel.
+
+Reaktionen und Stimmen liegen in der operativen Datenbank. Eindeutige Schlüssel begrenzen die
+Reaktion pro Beitrag und die Stimme pro Umfrage auf je eine Auswahl pro Installation. Das Backend
+speichert den Hash der zufälligen Installationskennung. Die App aktualisiert die Anzahlen
+sichtbarer Beiträge nach einer Auswahl und während der Anzeige alle fünf Sekunden. Der
+Schreibzugang liegt außerhalb der öffentlichen API-Dokumentation. Die Installationskennung
+identifiziert die Auswahl und kann von einem eigenen HTTP-Client nachgebildet werden.

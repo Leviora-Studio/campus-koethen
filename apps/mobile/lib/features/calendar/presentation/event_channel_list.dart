@@ -9,11 +9,10 @@ import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/hex_color.dart';
+import '../../../core/widgets/campus_location_filter.dart';
 import '../../../l10n/l10n.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/application/event_source_filter.dart';
-import '../../news/application/news_providers.dart';
-import '../../news/data/news_models.dart';
 import '../application/public_calendar_providers.dart';
 import '../domain/public_calendar.dart';
 
@@ -50,12 +49,7 @@ class EventChannelList extends ConsumerWidget {
       eventSourceOptionsProvider,
     );
     final EventSourceFilterState filter = ref.watch(eventSourceFilterProvider);
-    final Map<String, NewsChannel> channels = <String, NewsChannel>{
-      for (final NewsChannel channel
-          in ref.watch(newsChannelsProvider).value?.value ??
-              const <NewsChannel>[])
-        channel.slug: channel,
-    };
+    final location = ref.watch(eventLocationFilterProvider);
     // Optional: without the catalogue the channels can still be chosen, they
     // only lack their Google link until it arrives.
     final Map<String, PublicCalendar> calendarByChannel =
@@ -63,8 +57,7 @@ class EventChannelList extends ConsumerWidget {
           for (final PublicCalendar calendar
               in ref.watch(publicCalendarsCatalogProvider).value?.value ??
                   const <PublicCalendar>[])
-            if (calendar.channelSlug case final String channel)
-              channel: calendar,
+            calendar.filterSourceKey: calendar,
         };
 
     return options.when(
@@ -89,11 +82,12 @@ class EventChannelList extends ConsumerWidget {
             ),
           );
         }
+        final visible = eventOptionsAtLocation(options, location);
         return ListView.builder(
           shrinkWrap: shrinkWrap,
           physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-          itemCount: options.length + 1,
+          itemCount: visible.length + 2,
           itemBuilder: (BuildContext context, int index) {
             if (index == 0) {
               return Padding(
@@ -107,11 +101,20 @@ class EventChannelList extends ConsumerWidget {
                 ),
               );
             }
-            final EventSourceOption option = options[index - 1];
+            if (index == 1) {
+              return CampusLocationFilter(
+                locations: options.map((option) => option.location),
+                selected: location,
+                onChanged: ref
+                    .read(eventLocationFilterProvider.notifier)
+                    .select,
+              );
+            }
+            final EventSourceOption option = visible[index - 2];
             final PublicCalendar? calendar = calendarByChannel[option.key];
             return EventChannelTile(
               label: option.label,
-              colorHex: channels[option.key]?.colorHex,
+              colorHex: calendar?.colorHex ?? option.colorHex,
               selected: filter.isSelected(option.key),
               dataStale: calendar?.dataStale ?? false,
               onChanged: (bool value) => ref

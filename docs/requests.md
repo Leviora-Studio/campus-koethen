@@ -1,22 +1,15 @@
 # Anträge & Feedback
 
-Finanzanträge und Feedback an das Gremiensystem des Studierendenrats. Der Bereich ist eine der
-**vier** in [`AGENTS.md`](../AGENTS.md) §2 festgehaltenen direkten Geräteanbindungen: Die App spricht
-ohne Umweg mit dem Gremiensystem.
+Neue Finanzanträge werden im [Antragsportal der Studierendenschaft](https://antrag.sturahsa.de)
+gestellt. Die App öffnet das Portal im Browser. Für Feedback spricht die App direkt mit der
+öffentlichen Gremio-API. Bestehende lokale Vorgänge samt geschützten Statuslinks sind weiterhin
+in der Übersicht verfügbar.
 
----
+## 1. Feedback direkt vom Gerät
 
-## 1. Warum direkt vom Gerät
-
-Eine Einreichung trägt den Namen der antragstellenden Person und eine **Kopie des
-Studierendenausweises**. Genau solche Daten sollen kein Campus-Köthen-Backend erreichen. Deshalb:
-
-- **kein** Backend-Proxy, **keine** serverseitige Speicherung, **kein** Analytics- oder Logging-Umweg;
-- ein **eigener** `dio`-Client ohne `LogInterceptor` und ohne Campus-API-Interceptor;
-- die Adresse ist **nie** eine Quellcode-Konstante, sondern kommt aus `REQUESTS_BASE_URL`.
-
-Anders als Mail, HIS-QIS und Moodle ist dieser Dienst **nicht nutzerauthentifiziert**. Ausschlaggebend
-ist der Inhalt, nicht die Anmeldung.
+Die App sendet den ausgewählten Bereich, den Text und den optionalen Namen direkt über einen
+eigenen `dio`-Client ohne Analytics oder Logging an das aus `REQUESTS_BASE_URL` konfigurierte Portal.
+Erforderlich ist eine HTTPS-Origin.
 
 ## 2. Konfiguration
 
@@ -27,7 +20,7 @@ flutter run --dart-define=REQUESTS_BASE_URL=https://gremio.example
 - Ohne den Wert ist der Bereich **nicht angebunden**: Entwürfe lassen sich schreiben, eingereicht wird
   nichts, und die Oberfläche sagt das. Eine Adresse wird nie geraten.
 - **HTTPS ist Pflicht.** Ein `http://`-Wert gilt als nicht konfiguriert und wird nicht stillschweigend
-  hochgestuft — über diese Verbindung laufen ein Ausweis und ein bearer-äquivalenter Link.
+  hochgestuft — über diese Verbindung laufen persönliche Angaben und ein geheimer Statuslink.
 - DEV und PROD unterscheiden sich **ausschließlich** über diesen Wert (AGENTS.md §2.5).
 
 Aus der Basisadresse entsteht eine exakte **Origin-Allowlist** (`GremioOrigin`): Schema, Host und Port
@@ -36,25 +29,11 @@ konfigurierten Host und wird trotzdem abgelehnt.
 
 ## 3. Endpunkte
 
-| Zweck               | Methode und Pfad                    | Format                |
-| ------------------- | ----------------------------------- | --------------------- |
-| Standorte           | `GET /api/public/v1/locations`      | JSON                  |
-| Antrag einreichen   | `POST /api/public/v1/applications`  | `multipart/form-data` |
-| Feedback-Bereiche   | `GET /api/public/v1/feedback-areas` | JSON                  |
-| Feedback einreichen | `POST /api/public/v1/feedback`      | `application/json`    |
-| Status abrufen      | `POST /api/public/v1/status`        | JSON                  |
-
-### Finanzantrag
-
-Gesendet werden **genau** diese Felder:
-
-`locationId`, `title` (max. 200), `applicant` (max. 200), `finance_request` (PDF), `student_card`
-(PDF/PNG/JPEG) sowie optional `annex_a` und `annex_b` (PDF). Höchstens 25 MB je Datei.
-
-Es gibt **keinen** Betrag, keine Kategorie, keinen Verwendungszweck, keine Beschreibung und keine
-Kontaktadresse: Die Schnittstelle nimmt sie nicht entgegen, und die Zahlen stehen im angehängten PDF.
-Der Studierendenausweis wird ausschließlich intern verarbeitet und erscheint **nie** in der
-öffentlichen Statusansicht — die App zeigt ihn deshalb auch nirgends an und erwartet ihn nicht zurück.
+| Zweck               | Methode und Pfad                    | Format             |
+| ------------------- | ----------------------------------- | ------------------ |
+| Feedback-Bereiche   | `GET /api/public/v1/feedback-areas` | JSON               |
+| Feedback einreichen | `POST /api/public/v1/feedback`      | `application/json` |
+| Status abrufen      | `POST /api/public/v1/status`        | JSON               |
 
 ### Feedback
 

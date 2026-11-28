@@ -14,6 +14,8 @@ import '../domain/mail_folder.dart';
 import '../domain/mail_gateway.dart';
 import '../domain/mail_message.dart' as model;
 import 'html_to_text.dart';
+import 'package:html/parser.dart' as html_parser;
+import '../domain/mail_image_source.dart';
 import 'mail_mime_builder.dart';
 
 /// The single boundary to enough_mail.
@@ -502,11 +504,17 @@ class EnoughMailGateway implements MailGateway {
         email: from?.email ?? '',
         name: from?.personalName,
       ),
+      to: _addresses([...?m.to, ...?m.cc, ...?m.bcc]),
       date: m.decodeDate(),
       isSeen: m.isSeen,
       hasAttachments: m.hasAttachments(),
     );
   }
+
+  List<model.MailAddress> _addresses(List<MailAddress>? addresses) => [
+    for (final address in addresses ?? const <MailAddress>[])
+      model.MailAddress(email: address.email, name: address.personalName),
+  ];
 
   model.MailMessageDetail _toDetail(
     MimeMessage m,
@@ -514,11 +522,16 @@ class EnoughMailGateway implements MailGateway {
   ) {
     final MailAddress? from = m.from?.firstOrNull ?? m.sender;
     final String? plain = m.decodeTextPlainPart();
+    final String? decodedHtml = m.decodeTextHtmlPart();
+    final String? html =
+        decodedHtml != null &&
+            decodedHtml.trim().isNotEmpty &&
+            decodedHtml.length <= 1024 * 1024
+        ? decodedHtml
+        : null;
     final String body = (plain != null && plain.trim().isNotEmpty)
         ? normalizeMailBody(plain)
-        // Only if there is no plain part: reduce HTML to safe text. No remote
-        // images are ever fetched because we render text, not HTML.
-        : htmlToPlainText(m.decodeTextHtmlPart());
+        : htmlToPlainText(html);
     return model.MailMessageDetail(
       id: (m.uid ?? m.sequenceId ?? 0).toString(),
       subject: m.decodeSubject() ?? '',
@@ -526,22 +539,33 @@ class EnoughMailGateway implements MailGateway {
         email: from?.email ?? '',
         name: from?.personalName,
       ),
-      to: (m.to ?? const <MailAddress>[])
-          .map(
-            (MailAddress a) =>
-                model.MailAddress(email: a.email, name: a.personalName),
-          )
-          .toList(),
-      cc: (m.cc ?? const <MailAddress>[])
-          .map(
-            (MailAddress a) =>
-                model.MailAddress(email: a.email, name: a.personalName),
-          )
-          .toList(),
+      to: _addresses(m.to),
+      cc: _addresses(m.cc),
       date: m.decodeDate(),
       body: body,
+      html: html,
+      inlineImages: _inlineImages(m, html),
       attachments: _attachmentsOf(m, includeAttachmentBytes),
     );
+  }
+
+  Map<String, Uint8List> _inlineImages(MimeMessage message, String? html) {
+    if (html == null) return const {};
+    final images = <String, Uint8List>{};
+    int remainingBytes = 8 * 1024 * 1024;
+    for (final image in html_parser.parse(html).querySelectorAll('img')) {
+      final String? id = mailImageContentId(image.attributes['src']);
+      if (id == null || images.containsKey(id)) continue;
+      final MimePart? part = message.getPartWithContentId(id);
+      if (!isSupportedMailImage(part?.mediaType.text)) continue;
+      final Uint8List? bytes = part?.decodeContentBinary();
+      if (bytes == null || bytes.isEmpty || bytes.length > remainingBytes) {
+        continue;
+      }
+      images[id] = bytes;
+      remainingBytes -= bytes.length;
+    }
+    return images;
   }
 
   /// Extracts attachment metadata. Bytes are decoded from the already downloaded

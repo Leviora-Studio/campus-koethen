@@ -56,8 +56,11 @@ void main() {
       expect(l10n.privacyMoodleBody, contains('moodle.hs-anhalt.de'));
       expect(l10n.privacyRequestsBody, contains('antrag.sturahsa.de'));
       expect(l10n.privacyRightsBody, contains('stura@hs-anhalt.de'));
+      expect(l10n.privacyCanteenCardBody, contains('NFC'));
     }
 
+    expect(de.privacyEngagementBody, contains('Installationskennung'));
+    expect(en.privacyEngagementBody, contains('installation identifier'));
     expect(de.privacyHostingBody, contains('Deutschland'));
     expect(en.privacyHostingBody, contains('Germany'));
     expect(de.privacyHostingBody, contains('2021/914'));

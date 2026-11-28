@@ -30,6 +30,7 @@ class UnifiedEvent {
     this.end,
     this.allDay = false,
     this.channelSlug,
+    this.additionalChannelSlugs = const <String>[],
     this.calendarSlug,
     this.sourceLabel,
     this.colorArgb,
@@ -57,6 +58,7 @@ class UnifiedEvent {
   /// a post event's `primaryChannel.slug`, or a calendar event's mapped
   /// `channelSlug` (`null` when the calendar has none).
   final String? channelSlug;
+  final List<String> additionalChannelSlugs;
 
   /// The calendar slug, set only for [UnifiedEventKind.calendarEvent].
   final String? calendarSlug;
@@ -80,7 +82,15 @@ class UnifiedEvent {
   /// The key filter options are grouped by: the mapped channel when one
   /// exists, otherwise the calendar's own slug for an unmapped calendar.
   /// Never both — see `docs` on `event_source_filter.dart`.
-  String get filterSourceKey => channelSlug ?? calendarSlug ?? eventRef;
+  String get filterSourceKey =>
+      channelSlug ??
+      (calendarSlug == null
+          ? eventRef
+          : PublicCalendar.standaloneCalendarSourceKey(calendarSlug!));
+
+  bool matchesSelectedSources(Set<String> selection) =>
+      selection.contains(filterSourceKey) ||
+      additionalChannelSlugs.any(selection.contains);
 
   @override
   bool operator ==(Object other) =>
@@ -124,6 +134,9 @@ UnifiedEvent postToUnifiedEvent(NewsArticle post) {
     end: post.eventEnd,
     allDay: post.eventAllDay,
     channelSlug: post.primaryChannel.slug,
+    additionalChannelSlugs: post.channels
+        .map((channel) => channel.slug)
+        .toList(growable: false),
     sourceLabel: post.primaryChannel.name,
     colorArgb: _parseColorArgb(post.primaryChannel.colorHex),
     postSlug: post.slug,

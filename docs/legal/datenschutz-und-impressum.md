@@ -44,7 +44,15 @@ Wenn du Moodle verbindest, kommuniziert die App direkt und verschlüsselt mit `m
 
 ### Finanzanträge und Feedback
 
-Wenn du einen Finanzantrag oder Feedback absendest, übermittelt die App die Angaben direkt und verschlüsselt an das Antragsportal der Studierendenschaft unter [https://antrag.sturahsa.de](https://antrag.sturahsa.de). Bei Finanzanträgen sind dies insbesondere Standort, Titel, Name der antragstellenden Person, Antragsdokument, Kopie des Studierendenausweises und optionale Anlagen; bei Feedback der gewählte Bereich, der Text und – nur wenn angegeben – der Name. Die Campus-API ist an dieser Übermittlung nicht beteiligt und erhält diese Daten nicht. Entwürfe, Anlagen, Idempotenzdaten und die geheimen Status- und Dokumentlinks werden verschlüsselt auf dem Gerät gespeichert. Nach erfolgreicher Übermittlung werden lokale Entwurfsanlagen entfernt; eingereichte Vorgänge bleiben lokal erhalten, bis du sie löschst. Für Bearbeitung, serverseitige Speicherung und Löschung der eingereichten Daten gelten die Datenschutzhinweise des Antragsportals. Die Studierendenschaft ist hierfür verantwortlich.
+Finanzanträge stellst du im Antragsportal der Studierendenschaft. Die App öffnet dafür den Browser. Wenn du Feedback absendest, übermittelt die App den gewählten Bereich, den Text und, falls angegeben, deinen Namen direkt und verschlüsselt an das Portal. Feedback-Entwürfe, Vorgänge und ihre geheimen Links werden verschlüsselt auf deinem Gerät gespeichert, bis du sie löschst. Bereits mit einer früheren App-Version eingereichte Anträge können weiterhin lokal angezeigt werden. Für das Portal gelten dessen Datenschutzhinweise.
+
+### Reaktionen und Umfragen
+
+Wenn du reagierst oder abstimmst, verarbeitet das Campus-Backend deine Auswahl und den Hash einer zufälligen Installationskennung. Pro Installation zählt eine Reaktion pro Beitrag und eine Stimme pro Umfrage. Andere Nutzer sehen die zusammengefassten Anzahlen.
+
+### Mensakarten-Guthaben
+
+Die App liest das Guthaben per NFC. Der zuletzt ausgelesene Betrag und der Zeitpunkt bleiben verschlüsselt auf deinem Gerät. Die App liest keine Kartennummer aus und überträgt die Daten nicht.
 
 ### Benachrichtigungen
 
@@ -56,7 +64,7 @@ Bei studentischer E-Mail, Noten und Moodle stellt die App lediglich die direkte 
 
 ### Erforderlichkeit der Angaben
 
-Für öffentliche Inhalte ist keine Registrierung erforderlich. Die technisch anfallenden Verbindungsdaten sind für einen Online-Abruf unvermeidbar. Zugangsdaten und sonstige Angaben für E-Mail, Noten, Moodle, Finanzanträge oder Feedback stellst du freiwillig bereit; ohne sie kann die jeweils gewählte Funktion nicht oder nur eingeschränkt genutzt werden. Es findet keine automatisierte Entscheidungsfindung und kein Profiling statt.
+Für öffentliche Inhalte ist keine Registrierung erforderlich. Die technisch anfallenden Verbindungsdaten sind für einen Online-Abruf unvermeidbar. Zugangsdaten und sonstige Angaben für E-Mail, Noten, Moodle oder Feedback stellst du freiwillig bereit; ohne sie kann die jeweils gewählte Funktion nicht oder nur eingeschränkt genutzt werden. Es findet keine automatisierte Entscheidungsfindung und kein Profiling statt.
 
 ### Deine Rechte
 

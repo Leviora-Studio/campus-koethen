@@ -748,7 +748,7 @@
     },
     "/v1/calendars/all": {
       "get": {
-        "description": "Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex the default colour. Use the slugs with GET /v1/calendars/{slug}/entries.",
+        "description": "Same fields and meta as GET /v1/calendars. Calendars without a channel are included; their channelSlug is an empty string and colorHex is their effective calendar colour. Use the slugs with GET /v1/calendars/{slug}/entries.",
         "operationId": "PublicCalendarController_all_v1",
         "parameters": [
           {
@@ -783,7 +783,7 @@
             }
           }
         },
-        "summary": "List every published, active calendar for websites, with or without a channel.",
+        "summary": "List every published, active calendar, with or without a channel.",
         "tags": [
           "public-calendars"
         ]
@@ -1237,7 +1237,7 @@
   "info": {
     "title": "Campus Köthen API",
     "description": "Public read-only API of the Campus Köthen app.\n\nCampus Köthen is an independent, unofficial campus app. It is neither developed\nnor operated by Hochschule Anhalt, nor is it officially endorsed by the university.\n\nAll content endpoints accept `locale=de|en` (default `de`) and report\n`requestedLocale`, `resolvedLocale` and `translationFallback` in their metadata.\nCanteen dish text comes from a German-only source and is never machine-translated.",
-    "version": "1.2.11",
+    "version": "1.3.0",
     "contact": {
       "name": "Campus Köthen App",
       "url": "https://github.com/Leviora-Studio/campus-koethen",
@@ -1581,6 +1581,43 @@
           "colorHex"
         ]
       },
+      "PostPollOptionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ]
+      },
+      "PostPollDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostPollOptionDto"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "question",
+          "options"
+        ]
+      },
       "PostListItemDto": {
         "type": "object",
         "properties": {
@@ -1658,6 +1695,9 @@
           "eventAllDay": {
             "type": "boolean",
             "example": false
+          },
+          "poll": {
+            "$ref": "#/components/schemas/PostPollDto"
           }
         },
         "required": [
@@ -1765,6 +1805,9 @@
           "eventAllDay": {
             "type": "boolean",
             "example": false
+          },
+          "poll": {
+            "$ref": "#/components/schemas/PostPollDto"
           }
         },
         "required": [
@@ -2851,7 +2894,7 @@
           "colorHex": {
             "type": "string",
             "example": "#5B3FD0",
-            "description": "The colour of the calendar's channel."
+            "description": "The linked channel’s colour, or the calendar’s own colour."
           },
           "sortOrder": {
             "type": "number"

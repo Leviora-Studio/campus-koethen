@@ -14,10 +14,16 @@ import '../domain/mail_message.dart';
 /// One row in a message list (inbox or search results): sender, subject, date
 /// and an attachment marker. Tapping opens the message in the selected mailbox.
 class MailHeaderTile extends StatelessWidget {
-  const MailHeaderTile({required this.header, required this.locale, super.key});
+  const MailHeaderTile({
+    required this.header,
+    required this.locale,
+    this.showRecipients = false,
+    super.key,
+  });
 
   final MailMessageHeader header;
   final String locale;
+  final bool showRecipients;
 
   @override
   Widget build(BuildContext context) {
@@ -26,9 +32,15 @@ class MailHeaderTile extends StatelessWidget {
     final FontWeight weight = header.isSeen
         ? FontWeight.normal
         : FontWeight.w700;
-    final String sender = header.from.display.trim().isEmpty
-        ? l10n.mailUnknownSender
+    final String correspondent = showRecipients
+        ? header.to
+              .map((address) => address.display)
+              .where((name) => name.trim().isNotEmpty)
+              .join(', ')
         : header.from.display;
+    final String sender = correspondent.trim().isEmpty
+        ? (showRecipients ? l10n.mailUnknownRecipients : l10n.mailUnknownSender)
+        : correspondent;
     final String subject = header.subject.trim().isEmpty
         ? l10n.mailNoSubject
         : header.subject;

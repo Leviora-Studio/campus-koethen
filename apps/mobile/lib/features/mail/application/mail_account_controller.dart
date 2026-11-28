@@ -84,14 +84,7 @@ class MailAccountController extends AsyncNotifier<MailAccountState> {
       displayName: (name != null && name.isNotEmpty) ? name : null,
     );
 
-    // Verify before persisting: a wrong password must never be written.
-    try {
-      await _gateway
-          .verifyConnection(credentials)
-          .timeout(ref.read(mailSignInTimeoutProvider));
-    } on TimeoutException {
-      throw const MailFailure(MailFailureKind.timeout);
-    }
+    await _verify(credentials);
     await ref
         .read(mailLocalDataCoordinatorProvider)
         .writeCredentials(credentials);
@@ -106,6 +99,50 @@ class MailAccountController extends AsyncNotifier<MailAccountState> {
         displayName: credentials.displayName,
       ),
     );
+  }
+
+  Future<void> updateSettings({
+    required String displayName,
+    String? password,
+  }) async {
+    final int generation = sessionGeneration;
+    final MailCredentials current = await requireCredentials();
+    final String name = displayName.trim();
+    final bool passwordChanged =
+        password != null && password != current.password;
+    final MailCredentials credentials = MailCredentials(
+      emailAddress: current.emailAddress,
+      password: password ?? current.password,
+      displayName: name.isEmpty ? null : name,
+    );
+    if (passwordChanged) await _verify(credentials);
+    if (!isSessionCurrent(generation)) {
+      throw const MailFailure(MailFailureKind.invalidCredentials);
+    }
+    await ref
+        .read(mailLocalDataCoordinatorProvider)
+        .writeCredentials(credentials);
+    if (!isSessionCurrent(generation)) return;
+    if (passwordChanged) {
+      _sessionGeneration++;
+      ref.read(mailSessionGenerationProvider.notifier).advance();
+    }
+    state = AsyncData(
+      MailAccountState(
+        emailAddress: credentials.emailAddress,
+        displayName: credentials.displayName,
+      ),
+    );
+  }
+
+  Future<void> _verify(MailCredentials credentials) async {
+    try {
+      await _gateway
+          .verifyConnection(credentials)
+          .timeout(ref.read(mailSignInTimeoutProvider));
+    } on TimeoutException {
+      throw const MailFailure(MailFailureKind.timeout);
+    }
   }
 
   /// Closes any connection state and removes both fields from secure storage.

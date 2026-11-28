@@ -1,6 +1,7 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import { localizedPoll, pollPopulate } from './post-poll';
 import { Injectable, Logger } from '@nestjs/common';
 import { TtlCache } from '../../common/cache/ttl-cache';
 import { ApiError } from '../../common/errors/api-error';
@@ -347,6 +348,7 @@ export class PostsService {
         primaryChannel: { fields: ['slug', 'name', 'colorHex'] },
         channels: { fields: ['slug', 'name', 'colorHex'] },
         heroImage: { fields: ['url', 'alternativeText', 'width', 'height'] },
+        poll: pollPopulate,
       },
       pagination: { page: query.page, pageSize: query.pageSize },
     };
@@ -497,6 +499,7 @@ export class PostsService {
         primaryChannel: { fields: ['slug', 'name', 'colorHex'] },
         channels: { fields: ['slug', 'name', 'colorHex'] },
         heroImage: { fields: ['url', 'alternativeText', 'width', 'height'] },
+        poll: pollPopulate,
       },
       pagination: { page: query.page, pageSize: query.pageSize },
     };
@@ -601,6 +604,7 @@ export class PostsService {
       primaryChannel: { fields: ['slug', 'name', 'colorHex'] },
       channels: { fields: ['slug', 'name', 'colorHex'] },
       heroImage: { fields: ['url', 'alternativeText', 'width', 'height'] },
+      poll: pollPopulate,
     };
 
     const needsTranslation = locale.resolvedLocale !== CANONICAL_LOCALE;
@@ -688,6 +692,7 @@ export class PostsService {
       eventStart: canonical['eventStart'],
       eventEnd: canonical['eventEnd'],
       eventAllDay: canonical['eventAllDay'],
+      poll: localizedPoll(canonical['poll'], localised['poll']),
     };
   }
 }

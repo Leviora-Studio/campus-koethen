@@ -40,9 +40,9 @@ Hochschule Anhalt verbindet. Es gibt bewusst **keinen** serverseitigen Mail-Prox
   idempotent entfernt. Seine Inhalte werden weder gelesen noch in die neue Box migriert. Kann
   seine Abwesenheit nicht bestätigt werden oder ist der sichere Speicher nicht verfügbar, bleibt
   Mail für diese Sitzung ohne persistente Mailablage; es gibt keinen Klartext-Fallback.
-- HTML-Mails werden zu **reinem Text** reduziert. Kein WebView, kein JavaScript, **keine**
-  automatische Nachladung entfernter Bilder. Links laufen nur über den bestehenden
-  sicheren URL-Launcher (`https`/`mailto`/`tel`).
+- HTML-Mails werden lokal mit Flutter-Text und Bildern aus der Nachricht dargestellt. Links und
+  extern gehostete HTTPS-Bilder lassen sich bewusst im Browser öffnen. Die App führt keinen
+  Nachrichtencode aus und lädt keine externen Bildquellen.
 - Verbindungen werden je Aufruf geöffnet und geschlossen. „Account entfernen“ sperrt zuerst die
   laufende Mailsitzung und entfernt dann logisch Adresse, Passwort, alten und neuen Cache,
   Cache-Schlüssel sowie den zugehörigen In-Memory-/Riverpod-State. Erfolg wird erst nach
@@ -203,7 +203,7 @@ Posteingang / Detail
       Nachladen erscheint der Button erneut, solange eine volle Seite geliefert wurde.
 - [ ] Ungelesene sind nicht nur über Farbe erkennbar (Icon/Fettung).
 - [ ] Öffnen einer Nachricht zeigt reinen Text; sie wird als gelesen markiert.
-- [ ] HTML-Mail wird als Text dargestellt; entfernte Bilder werden **nicht** geladen.
+- [ ] HTML-Mail zeigt eingebettete Bilder und Links. Externe Bildadressen öffnen auf Wunsch im Browser.
 - [ ] Mail mit Anhang zeigt die Anhänge; empfangene Bild-Anhänge (mit lokalen Bytes)
       erscheinen unabhängig vom Absender automatisch inline; fehlerhafte Bilddaten
       zeigen einen Platzhalter.

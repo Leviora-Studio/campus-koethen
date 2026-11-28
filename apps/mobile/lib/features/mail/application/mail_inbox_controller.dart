@@ -255,14 +255,11 @@ final mailMessageProvider =
       final bool isInbox = message.mailboxPath == kInboxPath;
       final cache = ref.read(mailCacheStoreProvider);
 
-      if (isInbox) {
-        final MailMessageDetail? cached = await cache.readMessage(message.id);
-        if (cached != null) {
-          await _markSeenLocally(ref, message);
-          // Best effort: mark seen on the server without blocking the read.
-          unawaited(_markSeen(ref, message));
-          return cached;
-        }
+      final cached = isInbox ? await cache.readMessage(message.id) : null;
+      if (cached?.richBodyChecked == true) {
+        await _markSeenLocally(ref, message);
+        unawaited(_markSeen(ref, message));
+        return cached!;
       }
 
       final credentials = await ref
@@ -276,12 +273,21 @@ final mailMessageProvider =
       final bool downloadAttachments = ref
           .read(settingsProvider)
           .mailDownloadAttachments;
-      final detail = await gateway.fetchMessage(
-        credentials,
-        mailboxPath: message.mailboxPath,
-        id: message.id,
-        includeAttachmentBytes: downloadAttachments,
-      );
+      final MailMessageDetail detail;
+      try {
+        detail = await gateway.fetchMessage(
+          credentials,
+          mailboxPath: message.mailboxPath,
+          id: message.id,
+          includeAttachmentBytes: downloadAttachments,
+        );
+      } on MailFailure {
+        if (cached == null || !accountController.isSessionCurrent(generation)) {
+          rethrow;
+        }
+        await _markSeenLocally(ref, message);
+        return cached;
+      }
       if (!accountController.isSessionCurrent(generation)) {
         throw const MailFailure(MailFailureKind.sessionClosed);
       }

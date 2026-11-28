@@ -85,10 +85,7 @@ DateTime? _parseWindowEndExclusive(String? isoDate) {
   return start?.add(const Duration(days: 1));
 }
 
-/// All public-calendar events across every calendar in the catalogue that
-/// belongs to a channel — the event-source filter is what narrows it down from
-/// there — for the server's own default window. A calendar without a channel
-/// is never offered: the filter has no option it could belong to.
+/// All public-calendar events in the server's default window.
 final FutureProvider<Loaded<List<PublicCalendarEvent>>>
 eventCalendarsOverviewProvider =
     FutureProvider<Loaded<List<PublicCalendarEvent>>>((Ref ref) async {
@@ -96,7 +93,6 @@ eventCalendarsOverviewProvider =
       final catalogue = await ref.watch(publicCalendarsCatalogProvider.future);
       final List<PublicCalendar> catalog = catalogue.value;
       final List<String> slugs = catalog
-          .where((PublicCalendar c) => c.channelSlug != null)
           .map((PublicCalendar c) => c.slug)
           .toList(growable: false);
       if (slugs.isEmpty) {
@@ -141,17 +137,18 @@ Future<void> _reconcileSavedCalendarEvents(
       );
 }
 
-/// Every event-source filter option: one per channel, its public calendar (if
-/// any) folded in. A calendar without a channel has no option and is not shown
-/// anywhere. Also the single place a freshly seen option is folded into the
-/// persisted filter selection — the one selection the event overview AND the
-/// calendar read.
+/// One filter option per channel or standalone calendar, shared by both views.
 final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
     FutureProvider<List<EventSourceOption>>((Ref ref) async {
       final filter = ref.read(eventSourceFilterProvider.notifier);
-      final List<NewsChannel> channels = (await ref.watch(
-        newsChannelsProvider.future,
-      )).value;
+      final channelsFuture = ref.watch(newsChannelsProvider.future);
+      final calendarsFuture = ref.watch(publicCalendarsCatalogProvider.future);
+      final (channelsLoad, calendarsLoad) = await (
+        channelsFuture,
+        calendarsFuture,
+      ).wait;
+      final channels = channelsLoad.value;
+      final calendars = calendarsLoad.value;
 
       final List<EventSourceOption> options = <EventSourceOption>[];
       final Set<String> seenKeys = <String>{};
@@ -160,10 +157,24 @@ final FutureProvider<List<EventSourceOption>> eventSourceOptionsProvider =
           options.add(
             EventSourceOption(
               key: channel.slug,
+              location: channel.location,
+              colorHex: channel.colorHex,
               label: eventSourceDisplayLabel(
                 channel.name,
                 isChannelSource: true,
               ),
+            ),
+          );
+        }
+      }
+      for (final calendar in calendars) {
+        if (seenKeys.add(calendar.filterSourceKey)) {
+          options.add(
+            EventSourceOption(
+              key: calendar.filterSourceKey,
+              label: calendar.name,
+              location: calendar.location,
+              colorHex: calendar.colorHex,
             ),
           );
         }
@@ -192,12 +203,7 @@ final Provider<Map<String, NewsArticle>> eventArticlesBySlugProvider =
       };
     });
 
-/// Maps loaded event posts/calendar events to [UnifiedEvent]s, merges +
-/// dedupes them with the one reusable function, and returns the RAW merged
-/// set — before the event-source filter and the visibility rules are
-/// applied. Kept separate from [eventOverviewProvider] so the calendar merge
-/// (Stage 4) can reuse this exact aggregation without the overview's
-/// filter/visibility narrowing.
+/// Source-neutral appointments before applying the selected sources and deduplication.
 final Provider<List<UnifiedEvent>> rawUnifiedEventsProvider =
     Provider<List<UnifiedEvent>>((Ref ref) {
       final List<NewsArticle> posts =
@@ -219,8 +225,7 @@ final Provider<List<UnifiedEvent>> rawUnifiedEventsProvider =
           .toList();
       final List<UnifiedEvent> mappedCalendarEvents = <UnifiedEvent>[
         for (final PublicCalendarEvent e in calendarEvents)
-          if (bySlug[e.calendarSlug] case final PublicCalendar calendar
-              when calendar.channelSlug != null)
+          if (bySlug[e.calendarSlug] case final PublicCalendar calendar)
             calendarToUnifiedEvent(
               e,
               channelSlug: calendar.channelSlug,
@@ -229,10 +234,7 @@ final Provider<List<UnifiedEvent>> rawUnifiedEventsProvider =
             ),
       ];
 
-      return mergeEventSources(
-        postEvents: postEvents,
-        calendarEvents: mappedCalendarEvents,
-      );
+      return [...postEvents, ...mappedCalendarEvents];
     });
 
 /// Ticks whenever the event overview's visible set must be re-evaluated —
@@ -316,58 +318,57 @@ class EventOverviewData {
       events.isEmpty && hasPostsError && hasCalendarError;
 }
 
-final Provider<EventOverviewData>
-eventOverviewProvider = Provider<EventOverviewData>((Ref ref) {
-  final AsyncValue<EventPostsResult> postsAsync = ref.watch(
-    eventPostsOverviewProvider,
-  );
-  final AsyncValue<Loaded<List<PublicCalendarEvent>>> calendarsAsync = ref
-      .watch(eventCalendarsOverviewProvider);
-  final AsyncValue<List<EventSourceOption>> optionsAsync = ref.watch(
-    eventSourceOptionsProvider,
-  );
-  final List<EventSourceOption> options =
-      optionsAsync.value ?? const <EventSourceOption>[];
+final Provider<EventOverviewData> eventOverviewProvider =
+    Provider<EventOverviewData>((Ref ref) {
+      final AsyncValue<EventPostsResult> postsAsync = ref.watch(
+        eventPostsOverviewProvider,
+      );
+      final AsyncValue<Loaded<List<PublicCalendarEvent>>> calendarsAsync = ref
+          .watch(eventCalendarsOverviewProvider);
+      final AsyncValue<List<EventSourceOption>> optionsAsync = ref.watch(
+        eventSourceOptionsProvider,
+      );
+      final List<EventSourceOption> options =
+          optionsAsync.value ?? const <EventSourceOption>[];
 
-  final EventSourceFilterState filterState = ref.watch(
-    eventSourceFilterProvider,
-  );
-  final Set<String> selectedKeys = EventSourceFilterRules.effectiveSelection(
-    available: options,
-    selected: filterState.selectedKeys,
-  );
+      final EventSourceFilterState filterState = ref.watch(
+        eventSourceFilterProvider,
+      );
+      final Set<String> selectedKeys =
+          EventSourceFilterRules.effectiveSelection(
+            available: eventOptionsAtLocation(
+              options,
+              ref.watch(eventLocationFilterProvider),
+            ),
+            selected: filterState.selectedKeys,
+          );
 
-  final List<UnifiedEvent> merged = ref.watch(rawUnifiedEventsProvider);
-  final List<UnifiedEvent> filtered = options.isEmpty
-      // The catalogue has not resolved yet: show everything rather than
-      // an empty list that would look like "no events" while the real
-      // filter is still loading.
-      ? merged
-      : merged
-            .where((UnifiedEvent e) => selectedKeys.contains(e.filterSourceKey))
-            .toList();
+      final List<UnifiedEvent> filtered = selectAndMergeEvents(
+        ref.watch(rawUnifiedEventsProvider),
+        options.isEmpty ? null : selectedKeys,
+      );
 
-  final DateTime now = ref.watch(eventOverviewClockProvider);
-  final List<UnifiedEvent> visible = visibleEventsInOverview(
-    filtered,
-    now: now,
-  );
-  final List<UnifiedEvent> sorted = sortedUnifiedEvents(visible);
+      final DateTime now = ref.watch(eventOverviewClockProvider);
+      final List<UnifiedEvent> visible = visibleEventsInOverview(
+        filtered,
+        now: now,
+      );
+      final List<UnifiedEvent> sorted = sortedUnifiedEvents(visible);
 
-  return EventOverviewData(
-    events: sorted,
-    sourceOptions: options,
-    postsLoading: postsAsync.isLoading,
-    hasPostsError: postsAsync.hasError,
-    postsFromCache: postsAsync.value?.fromCache ?? false,
-    // Either source can be cut short: the posts side by its own 10x50 page
-    // ceiling, the calendar side by the server's event ceiling
-    // (`meta.truncated`). One banner covers both.
-    isTruncated:
-        (postsAsync.value?.isTruncated ?? false) ||
-        (calendarsAsync.value?.meta.truncated ?? false),
-    calendarsLoading: calendarsAsync.isLoading,
-    hasCalendarError: calendarsAsync.hasError,
-    calendarsFromCache: calendarsAsync.value?.fromCache ?? false,
-  );
-});
+      return EventOverviewData(
+        events: sorted,
+        sourceOptions: options,
+        postsLoading: postsAsync.isLoading,
+        hasPostsError: postsAsync.hasError,
+        postsFromCache: postsAsync.value?.fromCache ?? false,
+        // Either source can be cut short: the posts side by its own 10x50 page
+        // ceiling, the calendar side by the server's event ceiling
+        // (`meta.truncated`). One banner covers both.
+        isTruncated:
+            (postsAsync.value?.isTruncated ?? false) ||
+            (calendarsAsync.value?.meta.truncated ?? false),
+        calendarsLoading: calendarsAsync.isLoading,
+        hasCalendarError: calendarsAsync.hasError,
+        calendarsFromCache: calendarsAsync.value?.fromCache ?? false,
+      );
+    });

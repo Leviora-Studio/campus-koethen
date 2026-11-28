@@ -1,9 +1,11 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import 'post_engagement.dart';
 import '../../../core/content/content_block.dart';
 import '../../../core/links/safe_link_launcher.dart';
 import '../../../core/network/json.dart';
+import '../../../core/network/campus_location.dart';
 
 /// A channel as delivered by `GET /v1/posts/channels`.
 ///
@@ -16,6 +18,7 @@ class NewsChannel {
     required this.defaultSubscribed,
     this.description,
     this.colorHex,
+    this.location,
     this.publicCalendarSlug,
   });
 
@@ -26,6 +29,7 @@ class NewsChannel {
   /// Editorial colour hint. Never used as the sole carrier of a state and
   /// never used as a text colour, because its contrast is not guaranteed.
   final String? colorHex;
+  final CampusLocation? location;
 
   final int sortOrder;
 
@@ -47,6 +51,7 @@ class NewsChannel {
       name: asString(map['name']) ?? slug,
       description: asString(map['description']),
       colorHex: asString(map['colorHex']),
+      location: CampusLocation.fromJson(map['location']),
       sortOrder: asInt(map['sortOrder']) ?? 0,
       defaultSubscribed: asBool(map['defaultSubscribed']) ?? false,
       publicCalendarSlug: asString(map['publicCalendarSlug']),
@@ -58,6 +63,7 @@ class NewsChannel {
     'name': name,
     'description': description,
     'colorHex': colorHex,
+    'location': location?.toJson(),
     'sortOrder': sortOrder,
     'defaultSubscribed': defaultSubscribed,
     'publicCalendarSlug': publicCalendarSlug,
@@ -214,6 +220,7 @@ class NewsArticle {
     this.eventStart,
     this.eventEnd,
     this.eventAllDay = false,
+    this.poll,
   });
 
   final String slug;
@@ -244,6 +251,7 @@ class NewsArticle {
   final DateTime? eventStart;
   final DateTime? eventEnd;
   final bool eventAllDay;
+  final PostPoll? poll;
 
   /// Whether this post carries the structural information to be shown as an
   /// event (i.e. has a start instant).
@@ -283,6 +291,7 @@ class NewsArticle {
       eventStart: asDateTime(map['eventStart']),
       eventEnd: asDateTime(map['eventEnd']),
       eventAllDay: asBool(map['eventAllDay']) ?? false,
+      poll: PostPoll.fromJson(map['poll']),
     );
   }
 

@@ -7,6 +7,11 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_modules.dart';
 import '../../../core/content/content_block.dart';
+import '../../../core/locale/formatters.dart';
+import '../../calendar/application/calendar_event_providers.dart';
+import '../../calendar/application/calendar_merge.dart';
+import '../../calendar/domain/calendar_entry.dart';
+import '../../calendar/domain/calendar_entry_details.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_metrics.dart';
 import '../../../core/widgets/offline_notice.dart';
@@ -19,6 +24,8 @@ import '../application/event_providers.dart';
 import '../application/event_source_filter.dart';
 import '../application/saved_events_controller.dart';
 import '../domain/saved_event_snapshot.dart';
+import '../domain/event_sort.dart';
+import '../domain/event_visibility.dart';
 import '../domain/saved_events_rules.dart';
 import '../domain/unified_event.dart';
 import 'event_card.dart';
@@ -39,6 +46,7 @@ class EventOverviewScreen extends ConsumerStatefulWidget {
 class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
     with WidgetsBindingObserver {
   bool _showSaved = false;
+  DateTime? _month;
 
   @override
   void initState() {
@@ -67,6 +75,25 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
     ]);
   }
 
+  Future<void> _chooseMonth() async {
+    final today = DateUtils.dateOnly(
+      ref.read(eventsClockProvider).now().toLocal(),
+    );
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _month ?? today,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(today.year + 3, 12, 31),
+      helpText: context.l10n.eventBrowseMonth,
+    );
+    if (date != null && mounted) {
+      setState(() {
+        _showSaved = false;
+        _month = DateTime(date.year, date.month);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
@@ -80,12 +107,16 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
       eventSourceFilterProvider,
     );
     final Set<String> selectedKeys = EventSourceFilterRules.effectiveSelection(
-      available: data.sourceOptions,
+      available: eventOptionsAtLocation(
+        data.sourceOptions,
+        ref.watch(eventLocationFilterProvider),
+      ),
       selected: filterState.selectedKeys,
     );
     final bool filterActive =
-        data.sourceOptions.isNotEmpty &&
-        selectedKeys.length < data.sourceOptions.length;
+        ref.watch(eventLocationFilterProvider) != null ||
+        (data.sourceOptions.isNotEmpty &&
+            selectedKeys.length < data.sourceOptions.length);
 
     return ScreenScaffold(
       eyebrow: ModuleCategory.campus.label(l10n),
@@ -97,7 +128,9 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
         // had this button all along.
         IconButton(
           tooltip: l10n.actionRefresh,
-          onPressed: _refresh,
+          onPressed: _month == null || _showSaved
+              ? _refresh
+              : () => invalidateCalendarEventMonth(ref, _month!),
           icon: const Icon(AppIcons.refresh),
         ),
         IconButton(
@@ -107,6 +140,12 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
           isSelected: _showSaved,
           onPressed: () => setState(() => _showSaved = !_showSaved),
           icon: const Icon(AppIcons.bookmark),
+        ),
+        IconButton(
+          tooltip: l10n.eventBrowseMonth,
+          isSelected: !_showSaved && _month != null,
+          onPressed: _chooseMonth,
+          icon: const Icon(AppIcons.calendar_month),
         ),
         IconButton(
           tooltip: l10n.eventOverviewFilterTooltip,
@@ -121,11 +160,32 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen>
               count: savedCount,
               onShowAll: () => setState(() => _showSaved = false),
             )
-          : null,
+          : _month == null
+          ? null
+          : Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.metrics.screenPadding,
+                ),
+                child: InputChip(
+                  label: Text(
+                    AppDateFormats.monthAndYear(
+                      _month!,
+                      Localizations.localeOf(context).languageCode,
+                    ),
+                  ),
+                  deleteButtonTooltipMessage: l10n.eventShowUpcoming,
+                  onDeleted: () => setState(() => _month = null),
+                ),
+              ),
+            ),
       body: _showSaved
           ? _SavedEventsBody(
               onShowAll: () => setState(() => _showSaved = false),
             )
+          : _month != null
+          ? _MonthEventsBody(month: _month!)
           : _OverviewBody(
               data: data,
               selectedKeys: selectedKeys,
@@ -167,6 +227,74 @@ class _SavedModeBar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// The month view reads the same entries as the calendar grid.
+class _MonthEventsBody extends ConsumerWidget {
+  const _MonthEventsBody({required this.month});
+
+  final DateTime month;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = calendarEventMonthEntriesProvider(month);
+    final l10n = context.l10n;
+    return ref
+        .watch(provider)
+        .when(
+          loading: () => const LoadingView(),
+          error: (error, _) => ErrorView(
+            failure: error,
+            onRetry: () => invalidateCalendarEventMonth(ref, month),
+          ),
+          data: (loaded) {
+            final entries = <String, CalendarEntry>{};
+            final mapped = <UnifiedEvent>[];
+            final lastDay = DateTime(month.year, month.month + 1, 0);
+            for (final entry in loaded.value) {
+              if (entry.day.isAfter(lastDay) || entry.lastDay.isBefore(month)) {
+                continue;
+              }
+              final event = liveCalendarEntryAsEvent(entry);
+              if (event == null) continue;
+              entries[event.eventRef] = entry;
+              mapped.add(event);
+            }
+            final events = sortedUnifiedEvents(mapped);
+            final now = ref.watch(eventOverviewClockProvider);
+            return ListView(
+              padding: EdgeInsets.all(context.metrics.screenPadding),
+              children: [
+                if (loaded.fromCache) const OfflineNotice(),
+                if (loaded.meta.truncated || loaded.meta.dataStale)
+                  StatusBanner(
+                    tone: StatusTone.info,
+                    title: l10n.eventTruncatedWarningTitle,
+                    message: l10n.eventTruncatedWarningMessage,
+                  ),
+                if (events.isEmpty)
+                  EmptyView(
+                    icon: AppIcons.event_outlined,
+                    message: l10n.eventNoEventsInMonth,
+                  ),
+                for (final event in events)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: context.metrics.cardGap),
+                    child: EventCard(
+                      key: ValueKey(event.eventRef),
+                      event: event,
+                      content: switch (entries[event.eventRef]?.details) {
+                        PostEventDetails(:final article) => article.content,
+                        _ => null,
+                      },
+                      isPast: !isEventVisibleInOverview(event, now: now),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
   }
 }
 

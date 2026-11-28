@@ -21,11 +21,10 @@ import '../domain/mail_message.dart';
 import 'compose_draft.dart';
 import 'mail_attachment_view.dart';
 import 'mail_error_messages.dart';
+import 'mail_html_body.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 
-/// Reads one message. The body is already reduced to safe plain text by the
-/// gateway (text/plain preferred, HTML sanitised): there is no WebView, no
-/// JavaScript and no remote image loading here.
+/// Reads one message with a native renderer for mail HTML.
 class MailMessageScreen extends ConsumerWidget {
   const MailMessageScreen({required this.id, super.key});
 
@@ -145,6 +144,13 @@ class _MessageBody extends StatelessWidget {
             detail.from.name!.trim().isNotEmpty &&
             detail.from.email.trim().isNotEmpty)
           Text(detail.from.email, style: text.bodySmall),
+        if (detail.to.isNotEmpty)
+          Text(
+            l10n.mailRecipientLine(
+              detail.to.map((address) => address.display).join(', '),
+            ),
+            style: text.bodySmall,
+          ),
         if (detail.date != null) ...<Widget>[
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -153,7 +159,10 @@ class _MessageBody extends StatelessWidget {
           ),
         ],
         const Divider(height: AppSpacing.xl),
-        LinkifiedText(detail.body, style: text.bodyLarge),
+        if (detail.html != null)
+          MailHtmlBody(key: ValueKey(messageRef), detail: detail)
+        else
+          LinkifiedText(detail.body, style: text.bodyLarge),
         if (detail.hasAttachments) ...<Widget>[
           const SizedBox(height: AppSpacing.xl),
           Semantics(

@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_dimensions.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/widgets/campus_location_filter.dart';
+import '../../../core/theme/hex_color.dart';
 import '../../../l10n/l10n.dart';
 import '../application/event_providers.dart';
 import '../application/event_source_filter.dart';
@@ -31,6 +34,8 @@ class _EventSourceFilterSheet extends ConsumerWidget {
     final List<EventSourceOption> options =
         ref.watch(eventSourceOptionsProvider).value ??
         const <EventSourceOption>[];
+    final location = ref.watch(eventLocationFilterProvider);
+    final visible = eventOptionsAtLocation(options, location);
     final EventSourceFilterState filter = ref.watch(eventSourceFilterProvider);
     final Set<String> selected = EventSourceFilterRules.effectiveSelection(
       available: options,
@@ -41,7 +46,7 @@ class _EventSourceFilterSheet extends ConsumerWidget {
       final EventSourceFilterController notifier = ref.read(
         eventSourceFilterProvider.notifier,
       );
-      for (final EventSourceOption option in options) {
+      for (final EventSourceOption option in visible) {
         await notifier.setSelected(option.key, selected: value);
       }
     }
@@ -68,6 +73,11 @@ class _EventSourceFilterSheet extends ConsumerWidget {
                 ),
               ),
             ),
+            CampusLocationFilter(
+              locations: options.map((option) => option.location),
+              selected: location,
+              onChanged: ref.read(eventLocationFilterProvider.notifier).select,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Row(
@@ -88,10 +98,21 @@ class _EventSourceFilterSheet extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    for (final EventSourceOption option in options)
+                    for (final EventSourceOption option in visible)
                       CheckboxListTile(
                         value: selected.contains(option.key),
                         title: Text(option.label),
+                        subtitle: option.location == null
+                            ? null
+                            : Text(option.location!.name),
+                        secondary: switch (parseHexColor(option.colorHex)) {
+                          final Color color => Icon(
+                            AppIcons.circle_outlined,
+                            color: color,
+                            size: AppSizes.iconSmall,
+                          ),
+                          null => null,
+                        },
                         controlAffinity: ListTileControlAffinity.leading,
                         onChanged: (bool? value) => ref
                             .read(eventSourceFilterProvider.notifier)

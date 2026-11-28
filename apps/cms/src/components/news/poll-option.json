@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_news_poll_options",
+  "info": {
+    "displayName": "Poll Option",
+    "description": "Keep the key unchanged when editing or translating an answer."
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "maxLength": 60,
+      "regex": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "label": { "type": "string", "required": true, "maxLength": 180 }
+  }
+}

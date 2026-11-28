@@ -10,6 +10,8 @@ import 'package:campus_koethen/core/prefs/preference_keys.dart';
 import 'package:campus_koethen/core/time/clock.dart';
 import 'package:campus_koethen/core/widgets/offline_notice.dart';
 import 'package:campus_koethen/core/widgets/state_views.dart';
+import 'package:campus_koethen/features/calendar/application/calendar_event_providers.dart';
+import 'package:campus_koethen/features/calendar/domain/calendar_entry.dart';
 import 'package:campus_koethen/features/calendar/domain/public_calendar.dart';
 import 'package:campus_koethen/features/events/application/event_providers.dart';
 import 'package:campus_koethen/features/events/application/event_source_filter.dart';
@@ -100,6 +102,7 @@ Future<T> _pending<T>() => Completer<T>().future;
 Future<ProviderContainer> _pumpOverview(
   WidgetTester tester, {
   List<UnifiedEvent> events = const <UnifiedEvent>[],
+  List<CalendarEntry> monthEntries = const <CalendarEntry>[],
   List<SavedEventSnapshot> saved = const <SavedEventSnapshot>[],
   AsyncValue<EventPostsResult>? posts,
   AsyncValue<Loaded<List<PublicCalendarEvent>>>? calendars,
@@ -155,11 +158,39 @@ Future<ProviderContainer> _pumpOverview(
         (Ref ref) => resolve(calendarsValue),
       ),
       rawUnifiedEventsProvider.overrideWithValue(events),
+      calendarEventMonthEntriesProvider.overrideWith(
+        (ref, month) async => Loaded(value: monthEntries, meta: ApiMeta.empty),
+      ),
     ],
   );
 }
 
 void main() {
+  testWidgets('browses earlier events using the calendar month entries', (
+    tester,
+  ) async {
+    await _pumpOverview(
+      tester,
+      monthEntries: [
+        CalendarEntry(
+          id: 'publicCalendar:demo:past-demo',
+          source: CalendarSource.publicCalendar,
+          calendarSlug: 'demo',
+          title: 'Vergangener Demo-Termin',
+          start: DateTime(_now.year, _now.month, 1, 8),
+          end: DateTime(_now.year, _now.month, 1, 9),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Vergangener Demo-Termin'), findsNothing);
+    await tester.tap(find.byTooltip('Monat für die Eventliste wählen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vergangener Demo-Termin'), findsOneWidget);
+  });
+
   group('overview states', () {
     testWidgets('renders a linked calendar event without an @ source marker', (
       WidgetTester tester,

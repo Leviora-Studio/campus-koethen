@@ -25,6 +25,7 @@ import 'mail_error_messages.dart';
 import 'mail_folder_labels.dart';
 import 'mail_folder_picker.dart';
 import 'mail_header_tile.dart';
+import 'mail_account_settings_dialog.dart';
 import '../../../core/widgets/screen_scaffold.dart';
 import '../../../app/app_modules.dart';
 
@@ -116,6 +117,7 @@ class MailInboxScreen extends ConsumerWidget {
             if (value == 'sync') {
               ref.read(mailInboxControllerProvider.notifier).refresh();
             }
+            if (value == 'settings') showMailAccountSettings(context);
             if (value == 'remove') _confirmRemoveAccount(context, ref);
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -123,6 +125,10 @@ class MailInboxScreen extends ConsumerWidget {
               value: 'sync',
               enabled: !sync.isSyncing,
               child: Text(l10n.mailSync),
+            ),
+            PopupMenuItem<String>(
+              value: 'settings',
+              child: Text(l10n.mailAccountSettings),
             ),
             PopupMenuItem<String>(
               value: 'remove',
@@ -242,7 +248,11 @@ class MailInboxScreen extends ConsumerWidget {
                   );
                 }
                 final MailMessageHeader header = headers[index - 1];
-                return MailHeaderTile(header: header, locale: locale);
+                return MailHeaderTile(
+                  header: header,
+                  locale: locale,
+                  showRecipients: folder.role == MailFolderRole.sent,
+                );
               },
             ),
           );

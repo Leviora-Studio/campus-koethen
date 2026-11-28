@@ -87,6 +87,17 @@ export class TagRefDto {
   @ApiProperty() name!: string;
 }
 
+export class PostPollOptionDto {
+  @ApiProperty() key!: string;
+  @ApiProperty() label!: string;
+}
+
+export class PostPollDto {
+  @ApiProperty() key!: string;
+  @ApiProperty() question!: string;
+  @ApiProperty({ type: [PostPollOptionDto] }) options!: PostPollOptionDto[];
+}
+
 export class PostListItemDto {
   @ApiProperty({ example: 'semesterstart-2026' }) slug!: string;
   @ApiProperty() title!: string;
@@ -132,6 +143,9 @@ export class PostListItemDto {
 
   @ApiProperty({ example: false })
   eventAllDay!: boolean;
+
+  @ApiPropertyOptional({ type: PostPollDto })
+  poll?: PostPollDto;
 }
 
 /**

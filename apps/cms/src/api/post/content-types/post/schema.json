@@ -38,6 +38,12 @@
         }
       }
     },
+    "poll": {
+      "type": "component",
+      "component": "news.poll",
+      "repeatable": false,
+      "pluginOptions": { "i18n": { "localized": true } }
+    },
     "content": {
       "type": "blocks",
       "required": true,

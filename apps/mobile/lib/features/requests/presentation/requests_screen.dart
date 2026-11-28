@@ -8,6 +8,8 @@ import "package:campus_koethen/core/theme/app_icons.dart";
 
 import '../../../app/app_routes.dart';
 import '../../../core/locale/formatters.dart';
+import '../../../core/links/safe_link_launcher.dart';
+import '../data/requests_api_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_metrics.dart';
@@ -106,7 +108,17 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
               icon: AppIcons.file_euro,
               title: l10n.requestsActionApplication,
               subtitle: l10n.requestsActionApplicationHint,
-              onTap: () => context.pushNamed(AppRoutes.requestApplicationName),
+              onTap: () async {
+                final result = await ref
+                    .read(linkLauncherProvider)
+                    .open(RequestsApiConfig.financePortalUrl);
+                if (context.mounted && result != LinkLaunchResult.opened) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.errorLinkNotOpened)),
+                  );
+                }
+              },
+              external: true,
             ),
             const SizedBox(height: AppSpacing.sm),
             _StartAction(
@@ -151,12 +163,14 @@ class _StartAction extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.external = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool external;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +180,9 @@ class _StartAction extends StatelessWidget {
         leading: Icon(icon, color: context.colors.primary),
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: const Icon(AppIcons.chevron_right),
+        trailing: Icon(
+          external ? AppIcons.open_in_new : AppIcons.chevron_right,
+        ),
         onTap: onTap,
       ),
     );
@@ -379,16 +395,12 @@ class _DraftTile extends ConsumerWidget {
           icon: const Icon(AppIcons.delete_outline),
           onPressed: () => _confirmDelete(context, ref, l10n),
         ),
-        onTap: () => switch (draft) {
-          FinanceApplicationDraft() => context.pushNamed(
-            AppRoutes.requestApplicationName,
-            queryParameters: <String, String>{'draft': draft.id},
-          ),
-          FeedbackDraft() => context.pushNamed(
-            AppRoutes.requestFeedbackName,
-            queryParameters: <String, String>{'draft': draft.id},
-          ),
-        },
+        onTap: draft is FeedbackDraft
+            ? () => context.pushNamed(
+                AppRoutes.requestFeedbackName,
+                queryParameters: <String, String>{'draft': draft.id},
+              )
+            : null,
       ),
     );
   }

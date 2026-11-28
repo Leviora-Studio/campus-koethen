@@ -27,7 +27,6 @@ import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/news/presentation/news_channel_screen.dart';
 import '../features/events/presentation/event_overview_screen.dart';
 import '../features/news/presentation/news_list_screen.dart';
-import '../features/requests/presentation/application_form_screen.dart';
 import '../features/requests/presentation/feedback_form_screen.dart';
 import '../features/requests/presentation/requests_screen.dart';
 import '../features/requests/presentation/submission_detail_screen.dart';
@@ -267,14 +266,6 @@ GoRouter createAppRouter({
                 builder: (BuildContext _, GoRouterState _) =>
                     const RequestsScreen(),
                 routes: <RouteBase>[
-                  GoRoute(
-                    path: AppRoutes.requestApplicationPath,
-                    name: AppRoutes.requestApplicationName,
-                    builder: (BuildContext _, GoRouterState state) =>
-                        ApplicationFormScreen(
-                          draftId: state.uri.queryParameters['draft'],
-                        ),
-                  ),
                   GoRoute(
                     path: AppRoutes.requestFeedbackPath,
                     name: AppRoutes.requestFeedbackName,

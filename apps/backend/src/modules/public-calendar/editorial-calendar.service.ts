@@ -10,6 +10,7 @@ import { StrapiClient } from '../strapi/strapi.client';
 import { calendarPeriod, mergeCalendarEntries, parseEditorialEntry } from './calendar-entries';
 import { PublicCalendarService, computeEventKey } from './public-calendar.service';
 import { PublicCalendarDto, PublicCalendarEventDto } from './public-calendar.types';
+import { CALENDAR_COLOR_PATTERN, effectiveCalendarColor } from './public-calendar.strapi';
 import { LOCATION_POPULATE, mapLocationRef } from '../locations/location';
 import {
   tryExtractCalendarId,
@@ -20,6 +21,7 @@ import {
 const calendarSchema = z.object({
   slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   name: z.string().min(1),
+  colorHex: z.string().nullish().catch(null),
   googleShareUrl: z.string().nullish(),
   isActive: z.boolean(),
   sortOrder: z.number().int().default(0),
@@ -27,7 +29,7 @@ const calendarSchema = z.object({
   includeEventDescription: z.boolean().default(false),
   includeEventLocation: z.boolean().default(false),
   channel: z
-    .object({ slug: z.string(), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/) })
+    .object({ slug: z.string(), colorHex: z.string().regex(CALENDAR_COLOR_PATTERN) })
     .nullish(),
   // Validated by mapLocationRef: an unusable location must not drop the calendar.
   location: z.unknown().optional(),
@@ -91,6 +93,7 @@ export class EditorialCalendarService {
         'slug',
         'name',
         'googleShareUrl',
+        'colorHex',
         'isActive',
         'sortOrder',
         'defaultSubscribed',
@@ -125,7 +128,7 @@ export class EditorialCalendarService {
       const parsed = calendarSchema.safeParse(entry);
       if (!parsed.success || !parsed.data.isActive) continue;
       const c = parsed.data;
-      if (!c.channel && !includeUnmapped) continue; // App catalogue remains channel-based.
+      if (!c.channel && !includeUnmapped) continue; // Preserve the channel-only catalogue for existing clients.
       const google = c.googleShareUrl ? tryExtractCalendarId(c.googleShareUrl) : null;
 
       const cached = imported.data.find((v) => v.slug === c.slug);
@@ -146,7 +149,7 @@ export class EditorialCalendarService {
         slug: c.slug,
         channelSlug: c.channel?.slug ?? '',
         name: name ?? c.name,
-        colorHex: c.channel?.colorHex ?? '#5B3FD0',
+        colorHex: effectiveCalendarColor(c.channel?.colorHex, c.colorHex),
         sortOrder: c.sortOrder,
         defaultSubscribed: c.defaultSubscribed,
         dataState: c.googleShareUrl ? (matches ? cached!.dataState : 'stale') : 'ready',
@@ -181,7 +184,7 @@ export class EditorialCalendarService {
     includePosts = false,
   ) {
     if (!slugs.length) return { events: [], truncated: false, translationFallback: false };
-    const catalogue = await this.listCalendars(locale, includePosts);
+    const catalogue = await this.listCalendars(locale, true);
     const selected = catalogue.data.filter((c) => slugs.includes(c.slug));
     const google = await this.google.getAggregatedEvents(
       selected.filter((c) => catalogue.googleSources.get(c.slug)?.servable).map((c) => c.slug),

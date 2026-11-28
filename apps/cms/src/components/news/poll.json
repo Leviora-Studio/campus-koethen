@@ -1,0 +1,24 @@
+{
+  "collectionName": "components_news_polls",
+  "info": {
+    "displayName": "Poll",
+    "description": "Use the same keys in translations. Give a replacement poll a new key to start a new vote."
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "maxLength": 60,
+      "regex": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "question": { "type": "string", "required": true, "maxLength": 240 },
+    "options": {
+      "type": "component",
+      "component": "news.poll-option",
+      "repeatable": true,
+      "required": true,
+      "min": 2,
+      "max": 8
+    }
+  }
+}

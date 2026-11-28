@@ -1,6 +1,7 @@
 // Campus Köthen App · AGPL-3.0-only
 // Copyright © 2026 Leviora Studio and Jona Loreen Sommer
 
+import { parsePostPoll } from './post-poll';
 import { sanitizeBlocks } from '../../common/content/content-blocks';
 import {
   ChannelDto,
@@ -140,6 +141,7 @@ export function mapPostListItem(raw: Raw): {
   droppedBlockTypes: string[];
 } {
   const { blocks, droppedBlockTypes } = sanitizeBlocks(raw['content']);
+  const poll = parsePostPoll(raw['poll']);
 
   const tagRef = mapTagRef(raw['tag']);
   const primaryChannelRef = mapChannelRef(raw['primaryChannel']);
@@ -170,6 +172,7 @@ export function mapPostListItem(raw: Raw): {
       eventStart: str(raw['eventStart']),
       eventEnd: str(raw['eventEnd']),
       eventAllDay: raw['eventAllDay'] === true,
+      ...(poll ? { poll } : {}),
     },
     droppedBlockTypes,
   };

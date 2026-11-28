@@ -25,6 +25,7 @@ class MailMessageHeader {
     required this.id,
     required this.subject,
     required this.from,
+    this.to = const <MailAddress>[],
     required this.date,
     required this.isSeen,
     required this.hasAttachments,
@@ -34,6 +35,7 @@ class MailMessageHeader {
   final String id;
   final String subject;
   final MailAddress from;
+  final List<MailAddress> to;
   final DateTime? date;
   final bool isSeen;
   final bool hasAttachments;
@@ -42,6 +44,7 @@ class MailMessageHeader {
     id: id,
     subject: subject,
     from: from,
+    to: to,
     date: date,
     isSeen: isSeen ?? this.isSeen,
     hasAttachments: hasAttachments,
@@ -58,6 +61,9 @@ class MailMessageDetail {
     required this.to,
     required this.date,
     required this.body,
+    this.html,
+    this.richBodyChecked = true,
+    this.inlineImages = const <String, Uint8List>{},
     this.cc = const <MailAddress>[],
     this.attachments = const <MailAttachment>[],
   });
@@ -71,9 +77,13 @@ class MailMessageDetail {
   final List<MailAddress> cc;
   final DateTime? date;
 
-  /// Already reduced to safe plain text by the gateway: text/plain preferred,
-  /// HTML sanitised to text. Never HTML, never a WebView payload.
+  /// Plain text for search, reply quotes, and messages without a rich body.
   final String body;
+
+  /// The original HTML is only interpreted by the app's native mail renderer.
+  final String? html;
+  final bool richBodyChecked;
+  final Map<String, Uint8List> inlineImages;
 
   /// The message's attachments (metadata always; bytes only for images, for an
   /// inline preview). Empty when the message has none.

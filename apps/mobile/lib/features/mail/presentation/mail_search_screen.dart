@@ -15,6 +15,8 @@ import '../application/mail_search_controller.dart';
 import '../domain/mail_message.dart';
 import 'mail_error_messages.dart';
 import 'mail_header_tile.dart';
+import '../application/mail_folders.dart';
+import '../domain/mail_folder.dart';
 
 /// Mail search, local first.
 ///
@@ -156,6 +158,8 @@ class _MailSearchScreenState extends ConsumerState<MailSearchScreen> {
           return MailHeaderTile(
             key: ValueKey<String>(header.id),
             header: header,
+            showRecipients:
+                ref.read(selectedMailboxProvider).role == MailFolderRole.sent,
             locale: locale,
           );
         },

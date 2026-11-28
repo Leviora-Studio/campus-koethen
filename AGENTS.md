@@ -46,23 +46,16 @@ Diese Datei ist für automatisierte und menschliche Beiträge gleichermaßen ver
      Aufgaben-, Abgabe-, Ankündigungs- oder Deadline-Daten dürfen ein Campus-Köthen-Backend
      erreichen. Der quellenübergreifende Kalender führt Stundenplan (Campus API) und
      Moodle-Deadlines **ausschließlich lokal auf dem Gerät** zusammen.
-   - die **Antragstellung und das Feedback** (Finanzanträge und Rückmeldungen an das Gremiensystem
-     des Studierendenrats) → direkt an dessen öffentliche API. Anders als die drei anderen ist
-     dieser Dienst **nicht** nutzerauthentifiziert; ausschlaggebend ist der Inhalt: Eine
-     Einreichung trägt den Namen der antragstellenden Person und eine **Kopie des
-     Studierendenausweises**. Genau solche Daten sollen kein Campus-Köthen-Backend erreichen,
-     weshalb hier dieselbe Begründung greift wie bei den übrigen drei. Die Adresse ist **nie**
-     eine Quellcode-Konstante, sondern kommt als `REQUESTS_BASE_URL` aus dem Build-Environment
-     und muss **HTTPS** sein; daraus entsteht eine exakte Origin-Allowlist. Der zurückgegebene
-     **Statuslink ist ein Geheimnis** — er ist der einzige Zugang zum Vorgang, wird verschlüsselt
-     lokal gespeichert und **niemals** geloggt, gemeldet, kopiert, allgemein geteilt oder in eine
-     App-Route aufgenommen. Ausschließlich nach der bewussten Aktion „Zum Antrag“ darf der zuvor
-     gegen die exakte `REQUESTS_BASE_URL`-Origin validierte Statuslink an den externen Browser
-     übergeben werden; fremde Origins werden abgewiesen. Dasselbe Geheimhaltungsniveau gilt für
-     die Quittungs- und Dokument-Links, die denselben Token tragen. Der native Statusabruf erfolgt
-     **ausschließlich** per `POST` mit dem Link im JSON-Body, nie über einen Query-Parameter.
-     Entwürfe, Anhänge und Ergebnis bleiben auf dem Gerät.
-     Details: [`docs/requests.md`](docs/requests.md).
+   - **Feedback** → direkt an die öffentliche API des Gremiensystems des Studierendenrats.
+     Feedback kann einen Namen und persönliche Angaben im Text enthalten. Die API-Basisadresse
+     kommt aus `REQUESTS_BASE_URL`, muss **HTTPS** sein und bildet eine exakte Origin-Allowlist.
+     **Neue Finanzanträge** werden im Browser über das öffentliche Antragsportal gestellt.
+     Die App kann bereits lokal gespeicherte Vorgänge weiterhin anzeigen. Ein zurückgegebener
+     **Statuslink ist ein Geheimnis** und wird verschlüsselt lokal gespeichert. Er darf nicht
+     geloggt, gemeldet, kopiert, geteilt oder in eine App-Route aufgenommen werden. Nur eine
+     bewusste Aktion öffnet einen zuvor gegen die konfigurierte Origin geprüften Statuslink
+     im Browser. Quittungs- und Dokumentlinks werden gleich behandelt. Der native Statusabruf
+     sendet den Link als JSON-Body eines `POST`. Details: [`docs/requests.md`](docs/requests.md).
 
    Für diese Ausnahmen gilt: **kein** Backend-Proxy, **keine** serverseitige Speicherung, **kein**
    Analytics-/Logging-Umweg. Zugangsdaten nur im Keychain/Keystore, sensible Inhalte nur

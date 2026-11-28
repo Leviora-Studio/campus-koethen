@@ -5,6 +5,8 @@
          Flutter-Vorlage deklariert INTERNET nur im Debug- und Profile-Manifest.
          Cleartext bleibt bewusst verboten: alle Ziele sind HTTPS. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.NFC"/>
+    <uses-feature android:name="android.hardware.nfc" android:required="false"/>
     <!-- Lokale Benachrichtigungen (ADR-0001): Nach einem Neustart des Geräts
          sind alle beim System vorgemerkten Termine verloren. Mit dieser
          Berechtigung stellt das Plugin sie nach dem Boot wieder her, ohne dass
